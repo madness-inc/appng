@@ -50,7 +50,7 @@ public class ConnectionHelper {
 			String password) {
 		ConnectionInfo connectionInfo = new ConnectionInfo(
 				"jdbc:mysql://localhost:" + MYSQL_DEFAULT_PORT + "/" + database, MYSQL_DEFAULT_PORT, user, password,
-				"com.mysql.jdbc.Driver", persistenceUnit, MySqlConnection.class);
+				"com.mysql.cj.jdbc.Driver", persistenceUnit, MySqlConnection.class);
 		return connectionInfo;
 	}
 
