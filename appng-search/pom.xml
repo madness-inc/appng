@@ -35,7 +35,7 @@
 		</dependency>
 		<dependency>
 			<groupId>org.apache.lucene</groupId>
-			<artifactId>lucene-analyzers-common</artifactId>
+			<artifactId>lucene-analysis-common</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.lucene</groupId>
@@ -51,25 +51,7 @@
 		</dependency>
 		<dependency>
 			<groupId>org.apache.tika</groupId>
-			<artifactId>tika-parsers</artifactId>
-			<exclusions>
-				<exclusion>
-					<groupId>edu.ucar</groupId>
-					<artifactId>cdm</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>javax.annotation</groupId>
-					<artifactId>javax.annotation-api</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>javax.ws.rs</groupId>
-					<artifactId>javax.ws.rs-api</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>org.apache.cxf</groupId>
-					<artifactId>cxf-rt-rs-client</artifactId>
-				</exclusion>
-			</exclusions>
+			<artifactId>tika-parsers-standard-package</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>jakarta.annotation</groupId>

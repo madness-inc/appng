@@ -33,6 +33,7 @@ import javax.xml.transform.TransformerFactory;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.output.ByteArrayOutputStream;
+import org.junit.BeforeClass;
 import org.apache.lucene.analysis.de.GermanAnalyzer;
 import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.index.DirectoryReader;
@@ -80,6 +81,11 @@ public class StandardSearcherTest {
 	private StandardSearcher standardSearcher = new StandardSearcher();
 
 	private static final String[] PARSE_FIELDS = new String[] { "title", "contents" };
+
+	@BeforeClass
+	public static void cleanIndex() {
+		FileUtils.deleteQuietly(new File("target/index"));
+	}
 
 	@Before
 	public void setup() throws IOException {
