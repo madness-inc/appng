@@ -151,7 +151,7 @@ public class CallableActionTest {
 		mockMessages(envMessages, actionMessages, false);
 
 		Mockito.doAnswer(i -> {
-			FieldProcessor fp = i.getArgumentAt(5, FieldProcessor.class);
+			FieldProcessor fp = i.getArgument(5, FieldProcessor.class);
 			DataContainer dataContainer = new DataContainer(fp);
 			dataContainer.setItem(new Object());
 			fp.addErrorMessage("Error!");
@@ -180,7 +180,7 @@ public class CallableActionTest {
 		mockMessages(envMessages, actionMessages, true);
 
 		Mockito.doAnswer(i -> {
-			FieldProcessor fp = i.getArgumentAt(5, FieldProcessor.class);
+			FieldProcessor fp = i.getArgument(5, FieldProcessor.class);
 			DataContainer dataContainer = new DataContainer(fp);
 			dataContainer.setItem(new Object());
 			return dataContainer;
@@ -188,7 +188,7 @@ public class CallableActionTest {
 				Mockito.eq(applicationRequest), Mockito.any());
 
 		Mockito.doAnswer(i -> {
-			FieldProcessor fp = i.getArgumentAt(6, FieldProcessor.class);
+			FieldProcessor fp = i.getArgument(6, FieldProcessor.class);
 			fp.addErrorMessage("BOOOOM!");
 			return null;
 		}).when(actionProvider).perform(Mockito.eq(site), Mockito.eq(application), Mockito.eq(environment),
@@ -213,7 +213,7 @@ public class CallableActionTest {
 		mockMessages(envMessages, actionMessages, true);
 
 		Mockito.doAnswer(i -> {
-			FieldProcessor fp = i.getArgumentAt(5, FieldProcessor.class);
+			FieldProcessor fp = i.getArgument(5, FieldProcessor.class);
 			DataContainer dataContainer = new DataContainer(fp);
 			dataContainer.setItem(new Object());
 			fp.addOkMessage("Done!");
@@ -222,7 +222,7 @@ public class CallableActionTest {
 				Mockito.eq(applicationRequest), Mockito.any());
 
 		Mockito.doAnswer(i -> {
-			FieldProcessor fp = i.getArgumentAt(6, FieldProcessor.class);
+			FieldProcessor fp = i.getArgument(6, FieldProcessor.class);
 			fp.addOkMessage("ACTION!");
 			return null;
 		}).when(actionProvider).perform(Mockito.eq(site), Mockito.eq(application), Mockito.eq(environment),
@@ -252,7 +252,7 @@ public class CallableActionTest {
 		Mockito.when(environment.getAttribute(Scope.SESSION, Session.Environment.MESSAGES))
 				.thenReturn(envMessages.get());
 		Mockito.doAnswer(i -> {
-			envMessages.set(i.getArgumentAt(2, Messages.class));
+			envMessages.set(i.getArgument(2, Messages.class));
 			return null;
 		}).when(environment).setAttribute(Mockito.eq(Scope.SESSION), Mockito.eq(Session.Environment.MESSAGES),
 				Mockito.any());
@@ -267,7 +267,7 @@ public class CallableActionTest {
 				.thenReturn(envMessages.get());
 
 		Mockito.doAnswer(i -> {
-			actionMessages.set(i.getArgumentAt(0, Messages.class));
+			actionMessages.set(i.getArgument(0, Messages.class));
 			return null;
 		}).when(action).setMessages(Mockito.any());
 

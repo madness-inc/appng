@@ -17,7 +17,6 @@
 
 	<build>
 		<plugins>
-			<!-- http://mojo.codehaus.org/jaxb2-maven-plugin/ -->
 			<plugin>
 				<groupId>org.codehaus.mojo</groupId>
 				<artifactId>jaxb2-maven-plugin</artifactId>
@@ -29,10 +28,13 @@
 						</goals>
 						<phase>generate-sources</phase>
 						<configuration>
-							<target>2.1</target>
 							<packageName>org.appng.xml.platform</packageName>
-							<bindingFiles>bindings.xml</bindingFiles>
-							<schemaFiles>appng-platform.xsd</schemaFiles>
+							<xjbSources>
+								<xjbSource>${project.basedir}/src/main/jaxb-platform/platform.xjb</xjbSource>
+							</xjbSources>
+							<sources>
+								<source>src/main/xsd/appng-platform.xsd</source>
+							</sources>
 							<extension>true</extension>
 							<clearOutputDir>false</clearOutputDir>
 						</configuration>
@@ -43,9 +45,13 @@
 							<goal>xjc</goal>
 						</goals>
 						<configuration>
-							<target>2.1</target>
 							<packageName>org.appng.xml.application</packageName>
-							<schemaFiles>appng-application.xsd</schemaFiles>
+							<xjbSources>
+								<xjbSource>src/main/jaxb-application/application.xjb</xjbSource>
+							</xjbSources>
+							<sources>
+								<source>src/main/xsd/appng-application.xsd</source>
+							</sources>
 							<extension>true</extension>
 							<clearOutputDir>false</clearOutputDir>
 						</configuration>
@@ -87,8 +93,13 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-log4j12</artifactId>
+			<groupId>jakarta.xml.bind</groupId>
+			<artifactId>jakarta.xml.bind-api</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.glassfish.jaxb</groupId>
+			<artifactId>jaxb-runtime</artifactId>
+			<scope>runtime</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.commons</groupId>

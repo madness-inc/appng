@@ -15,7 +15,7 @@
  */
 package org.appng.appngizer.model;
 
-import javax.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlRootElement;
 
 @XmlRootElement(name = "platform")
 public class Platform extends org.appng.appngizer.model.xml.Platform implements UriAware {

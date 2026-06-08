@@ -136,7 +136,7 @@ public class FormElementTest {
 		formGroup.processContent();
 
 		String expected = "<selection name=\"selection\">" + content0 + content1 + content2 + content3
-				+ "</selection><div id=\"error\"></div>";
+				+ "</selection><div id=\"error\" />";
 
 		Assert.assertEquals(expected, formGroup.getContent());
 	}

@@ -1,0 +1,65 @@
+<configuration>
+
+    <appender name="stdout" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{ISO8601} %-5p [%t] %-32c{1}: %m%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="appng" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${webapp.root}/WEB-INF/log/appNG.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${webapp.root}/WEB-INF/log/appNG.%d{yyyy-MM-dd}.log</fileNamePattern>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{ISO8601} %-5p [%t] %-32c{1}: %m%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="scheduler" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${webapp.root}/WEB-INF/log/scheduler.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${webapp.root}/WEB-INF/log/scheduler.%d{yyyy-MM-dd}.log</fileNamePattern>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{ISO8601} %-5p [%t] %-32c{1}: %m%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="redirect" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${webapp.root}/WEB-INF/log/redirect.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${webapp.root}/WEB-INF/log/redirect.%d{yyyy-MM-dd}.log</fileNamePattern>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{ISO8601} %-5p [%t] %-32c{1}: %m%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="org.appng.api" level="INFO"/>
+    <logger name="org.appng.core" level="INFO"/>
+    <logger name="org.appng.core.controller" level="DEBUG"/>
+    <logger name="org.appng.core.controller.handler" level="DEBUG"/>
+    <logger name="org.appng.core.controller.handler.JspHandler" level="INFO"/>
+    <logger name="org.appng.el" level="INFO"/>
+    <logger name="org.appng.forms" level="INFO"/>
+    <logger name="org.appng.formtags" level="INFO"/>
+    <logger name="org.appng.persistence" level="INFO"/>
+    <logger name="org.appng.search" level="INFO"/>
+    <logger name="org.appng.taglib" level="INFO"/>
+    <logger name="org.appng.xml" level="INFO"/>
+    <logger name="org.springframework" level="WARN"/>
+    <logger name="net.sf.ehcache" level="INFO"/>
+
+    <logger name="org.quartz" level="INFO" additivity="false">
+        <appender-ref ref="scheduler"/>
+    </logger>
+    <logger name="org.tuckey" level="INFO" additivity="false">
+        <appender-ref ref="redirect"/>
+    </logger>
+
+    <root level="INFO">
+        <appender-ref ref="appng"/>
+    </root>
+
+</configuration>

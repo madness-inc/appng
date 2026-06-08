@@ -1,6 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="http://www.appng.org/schema/platform" xmlns:jxb="http://java.sun.com/xml/ns/jaxb"
-	elementFormDefault="qualified" jxb:version="2.1" targetNamespace="http://www.appng.org/schema/platform" version="${project.version}">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="http://www.appng.org/schema/platform" xmlns:jxb="https://jakarta.ee/xml/ns/jaxb"
+	xmlns:xjc="http://java.sun.com/xml/ns/jaxb/xjc"
+	elementFormDefault="qualified" jxb:version="3.0" jxb:extensionBindingPrefixes="xjc" targetNamespace="http://www.appng.org/schema/platform" version="${project.version}">
+
+	<xs:annotation>
+		<xs:appinfo>
+			<jxb:globalBindings>
+				<jxb:serializable uid="100"/>
+				<xjc:superClass xmlns:xjc="http://java.sun.com/xml/ns/jaxb/xjc" name="org.appng.xml.BaseObject"/>
+			</jxb:globalBindings>
+		</xs:appinfo>
+	</xs:annotation>
 
 	<xs:element name="page" type="pageDefinition" />
 	<xs:element name="pages" type="pages" />
@@ -44,7 +54,9 @@
 		</xs:annotation>
 		<xs:complexType>
 			<xs:sequence>
-				<xs:element maxOccurs="unbounded" name="datasource" type="datasource" />
+				<xs:element maxOccurs="unbounded" name="datasource" type="datasource" >
+						<xs:annotation><xs:appinfo><jxb:property name="datasourceList"/></xs:appinfo></xs:annotation>
+				</xs:element>
 			</xs:sequence>
 		</xs:complexType>
 	</xs:element>
@@ -62,7 +74,9 @@
 		</xs:annotation>
 		<xs:complexType>
 			<xs:sequence>
-				<xs:element maxOccurs="unbounded" name="event" type="event" />
+				<xs:element maxOccurs="unbounded" name="event" type="event" >
+						<xs:annotation><xs:appinfo><jxb:property name="eventList"/></xs:appinfo></xs:annotation>
+				</xs:element>
 			</xs:sequence>
 		</xs:complexType>
 	</xs:element>
@@ -498,7 +512,9 @@ Therefore, several {@link Template}s are used, which contain the nessecarry XSL 
 		</xs:annotation>
 		<xs:sequence>
 			<xs:element name="permissions" type="permissions" minOccurs="0" />
-			<xs:element name="template" type="template" maxOccurs="unbounded" />
+			<xs:element name="template" type="template" maxOccurs="unbounded" >
+					<xs:annotation><xs:appinfo><jxb:property name="templates"/></xs:appinfo></xs:annotation>
+			</xs:element>
 		</xs:sequence>
 		<xs:attribute name="id" type="xs:string">
 			<xs:annotation>
@@ -856,7 +872,9 @@ Therefore, several {@link Template}s are used, which contain the nessecarry XSL 
 			</xs:appinfo>
 		</xs:annotation>
 		<xs:sequence>
-			<xs:element name="option" type="beanOption" minOccurs="0" maxOccurs="unbounded" />
+			<xs:element name="option" type="beanOption" minOccurs="0" maxOccurs="unbounded" >
+					<xs:annotation><xs:appinfo><jxb:property name="options"/></xs:appinfo></xs:annotation>
+			</xs:element>
 		</xs:sequence>
 		<xs:attribute name="id" type="xs:string">
 			<xs:annotation>
@@ -920,7 +938,9 @@ Therefore, several {@link Template}s are used, which contain the nessecarry XSL 
 		<xs:sequence>
 			<xs:element minOccurs="0" name="title" type="label" />
 			<xs:element minOccurs="0" name="description" type="label" />
-			<xs:element minOccurs="0" name="template" maxOccurs="unbounded" type="template" />
+			<xs:element minOccurs="0" name="template" maxOccurs="unbounded" type="template" >
+					<xs:annotation><xs:appinfo><jxb:property name="templates"/></xs:appinfo></xs:annotation>
+			</xs:element>
 			<xs:element minOccurs="0" name="permissions" type="permissions" />
 			<xs:element minOccurs="0" name="labels" type="labels" />
 			<xs:element minOccurs="0" name="textelements" type="textelements" />
@@ -939,7 +959,9 @@ Therefore, several {@link Template}s are used, which contain the nessecarry XSL 
 			</xs:appinfo>
 		</xs:annotation>
 		<xs:sequence>
-			<xs:element name="label" type="label" maxOccurs="unbounded" />
+			<xs:element name="label" type="label" maxOccurs="unbounded" >
+					<xs:annotation><xs:appinfo><jxb:property name="labels"/></xs:appinfo></xs:annotation>
+			</xs:element>
 		</xs:sequence>
 	</xs:complexType>
 
@@ -958,7 +980,9 @@ Therefore, several {@link Template}s are used, which contain the nessecarry XSL 
 		</xs:annotation>
 		<xs:sequence>
 			<xs:element name="config" type="config" />
-			<xs:element name="action" type="action" maxOccurs="unbounded" minOccurs="0" />
+			<xs:element name="action" type="action" maxOccurs="unbounded" minOccurs="0" >
+					<xs:annotation><xs:appinfo><jxb:property name="actions"/></xs:appinfo></xs:annotation>
+			</xs:element>
 		</xs:sequence>
 		<xs:attribute name="id" type="xs:string">
 			<xs:annotation>
@@ -1104,6 +1128,7 @@ Therefore, several {@link Template}s are used, which contain the nessecarry XSL 
 	<xs:complexType name="validationGroups">
 		<xs:sequence>
 			<xs:element name="group" minOccurs="0" maxOccurs="unbounded">
+					<xs:annotation><xs:appinfo><jxb:property name="groups"/></xs:appinfo></xs:annotation>
 				<xs:complexType>
 					<xs:annotation>
 						<xs:documentation>The full qualified class name for this group.</xs:documentation>
@@ -1144,6 +1169,7 @@ Therefore, several {@link Template}s are used, which contain the nessecarry XSL 
 			</xs:element>
 			<xs:element name="field" type="fieldDef" minOccurs="0" maxOccurs="unbounded">
 				<xs:annotation>
+					<xs:appinfo><jxb:property name="fields"/></xs:appinfo>
 					<xs:documentation>A list of fields which should be mapped to the object of the given {@link #getBindClass()}.
 					</xs:documentation>
 				</xs:annotation>
@@ -1200,6 +1226,7 @@ Therefore, several {@link Template}s are used, which contain the nessecarry XSL 
 			<xs:element name="condition" type="condition" minOccurs="0" maxOccurs="1" />
 			<xs:element type="permissions" minOccurs="0" name="permissions" />
 			<xs:choice minOccurs="0" maxOccurs="unbounded">
+				<xs:annotation><xs:appinfo><jxb:property name="links"/></xs:appinfo></xs:annotation>
         		<xs:element name="link" type="link" minOccurs="0" maxOccurs="unbounded" />
 				<xs:element name="action" type="openapi-action" minOccurs="0" maxOccurs="unbounded" />
       		</xs:choice>			
@@ -1548,7 +1575,9 @@ Target must be in format {@code /action/<event-id>/<action-id>?param=value}]]></
 			</xs:appinfo>
 		</xs:annotation>
 		<xs:sequence>
-			<xs:element name="page" type="pageDefinition" minOccurs="0" maxOccurs="unbounded" />
+			<xs:element name="page" type="pageDefinition" minOccurs="0" maxOccurs="unbounded" >
+					<xs:annotation><xs:appinfo><jxb:property name="pageList"/></xs:appinfo></xs:annotation>
+			</xs:element>
 		</xs:sequence>
 	</xs:complexType>
 
@@ -1619,7 +1648,9 @@ Please note that, unlike {@link GetParams} and {@link PostParams}, the order of 
 			</xs:appinfo>
 		</xs:annotation>
 		<xs:sequence>
-			<xs:element name="url-param" type="param" minOccurs="0" maxOccurs="unbounded" />
+			<xs:element name="url-param" type="param" minOccurs="0" maxOccurs="unbounded" >
+					<xs:annotation><xs:appinfo><jxb:property name="paramList"/></xs:appinfo></xs:annotation>
+			</xs:element>
 		</xs:sequence>
 	</xs:complexType>
 
@@ -1635,7 +1666,9 @@ Please note that, unlike {@link GetParams} and {@link PostParams}, the order of 
 			</xs:appinfo>
 		</xs:annotation>
 		<xs:sequence>
-			<xs:element name="get-param" type="param" minOccurs="0" maxOccurs="unbounded" />
+			<xs:element name="get-param" type="param" minOccurs="0" maxOccurs="unbounded" >
+					<xs:annotation><xs:appinfo><jxb:property name="paramList"/></xs:appinfo></xs:annotation>
+			</xs:element>
 		</xs:sequence>
 	</xs:complexType>
 
@@ -1655,7 +1688,9 @@ Note that only those POST-parameters which are being used in a {@link Condition}
 			</xs:appinfo>
 		</xs:annotation>
 		<xs:sequence>
-			<xs:element name="post-param" type="param" minOccurs="0" maxOccurs="unbounded" />
+			<xs:element name="post-param" type="param" minOccurs="0" maxOccurs="unbounded" >
+					<xs:annotation><xs:appinfo><jxb:property name="paramList"/></xs:appinfo></xs:annotation>
+			</xs:element>
 		</xs:sequence>
 	</xs:complexType>
 
@@ -2132,6 +2167,7 @@ Only if all {@link Permission}s are satisfied, the owning Object (could be a {@l
 		</xs:annotation>
 		<xs:sequence>
 			<xs:element minOccurs="0" maxOccurs="unbounded" name="permission" type="permission">
+					<xs:annotation><xs:appinfo><jxb:property name="permissionList"/></xs:appinfo></xs:annotation>
 			</xs:element>
 		</xs:sequence>
 	</xs:complexType>
@@ -2458,7 +2494,9 @@ If empty, the template is being applied to any output-type.]]>
 			</xs:appinfo>
 		</xs:annotation>
 		<xs:sequence>
-			<xs:element name="message" type="message" minOccurs="0" maxOccurs="unbounded" />
+			<xs:element name="message" type="message" minOccurs="0" maxOccurs="unbounded" >
+					<xs:annotation><xs:appinfo><jxb:property name="messageList"/></xs:appinfo></xs:annotation>
+			</xs:element>
 		</xs:sequence>
 		<xs:attribute name="ref" type="xs:string" use="required">
 			<xs:annotation>
@@ -2569,8 +2607,12 @@ If empty, the template is being applied to any output-type.]]>
 			</xs:appinfo>
 		</xs:annotation>
 		<xs:sequence>
-			<xs:element name="selection" type="selection" minOccurs="0" maxOccurs="unbounded" />
-			<xs:element name="selectionGroup" type="selectionGroup" minOccurs="0" maxOccurs="unbounded" />
+			<xs:element name="selection" type="selection" minOccurs="0" maxOccurs="unbounded" >
+					<xs:annotation><xs:appinfo><jxb:property name="selections"/></xs:appinfo></xs:annotation>
+			</xs:element>
+			<xs:element name="selectionGroup" type="selectionGroup" minOccurs="0" maxOccurs="unbounded" >
+					<xs:annotation><xs:appinfo><jxb:property name="selectionGroups"/></xs:appinfo></xs:annotation>
+			</xs:element>
 			<xs:choice>
 				<xs:element name="resultset" type="resultset" minOccurs="1" maxOccurs="1" />
 				<xs:element name="result" type="result" minOccurs="1" maxOccurs="1" />
@@ -2602,7 +2644,9 @@ If empty, the template is being applied to any output-type.]]>
 			</xs:appinfo>
 		</xs:annotation>
 		<xs:sequence>
-			<xs:element name="selection" type="selection" minOccurs="0" maxOccurs="unbounded" />
+			<xs:element name="selection" type="selection" minOccurs="0" maxOccurs="unbounded" >
+					<xs:annotation><xs:appinfo><jxb:property name="selections"/></xs:appinfo></xs:annotation>
+			</xs:element>
 		</xs:sequence>
 	</xs:complexType>
 
@@ -2620,8 +2664,12 @@ If empty, the template is being applied to any output-type.]]>
 		<xs:sequence>
 			<xs:element name="title" type="label" maxOccurs="1" />
 			<xs:element name="tooltip" type="label" minOccurs="0"/>
-			<xs:element name="option" type="option" minOccurs="0" maxOccurs="unbounded" />
-			<xs:element name="optionGroup" type="optionGroup" minOccurs="0" maxOccurs="unbounded" />
+			<xs:element name="option" type="option" minOccurs="0" maxOccurs="unbounded" >
+					<xs:annotation><xs:appinfo><jxb:property name="options"/></xs:appinfo></xs:annotation>
+			</xs:element>
+			<xs:element name="optionGroup" type="optionGroup" minOccurs="0" maxOccurs="unbounded" >
+					<xs:annotation><xs:appinfo><jxb:property name="optionGroups"/></xs:appinfo></xs:annotation>
+			</xs:element>
 		</xs:sequence>
 		<xs:attribute name="id" type="xs:string">
 			<xs:annotation>
@@ -2779,7 +2827,9 @@ If empty, the template is being applied to any output-type.]]>
 		</xs:annotation>
 		<xs:sequence>
 			<xs:element name="label" type="label" maxOccurs="1" />
-			<xs:element name="option" type="option" minOccurs="0" maxOccurs="unbounded" />
+			<xs:element name="option" type="option" minOccurs="0" maxOccurs="unbounded" >
+					<xs:annotation><xs:appinfo><jxb:property name="options"/></xs:appinfo></xs:annotation>
+			</xs:element>
 		</xs:sequence>
 		<xs:attribute name="id" type="xs:string">
 			<xs:annotation>
@@ -2848,12 +2898,16 @@ If empty, the template is being applied to any output-type.]]>
 			<xs:element name="sort" type="sort" minOccurs="0" />
 			<xs:element name="label" type="label" minOccurs="0" />
 			<xs:element name="tooltip" type="label" minOccurs="0"/>
-			<xs:element name="icon" type="icon" minOccurs="0" maxOccurs="unbounded" />
+			<xs:element name="icon" type="icon" minOccurs="0" maxOccurs="unbounded" >
+					<xs:annotation><xs:appinfo><jxb:property name="icons"/></xs:appinfo></xs:annotation>
+			</xs:element>
 			<xs:element name="condition" type="condition" minOccurs="0" />
 			<xs:element name="permissions" type="fieldPermissions" minOccurs="0" maxOccurs="2" />
 			<xs:element name="validation" type="validation" minOccurs="0" />
 			<xs:element name="messages" type="messages" minOccurs="0" />
-			<xs:element name="field" type="fieldDef" minOccurs="0" maxOccurs="unbounded" />
+			<xs:element name="field" type="fieldDef" minOccurs="0" maxOccurs="unbounded" >
+					<xs:annotation><xs:appinfo><jxb:property name="fields"/></xs:appinfo></xs:annotation>
+			</xs:element>
 		</xs:sequence>
 		<xs:attribute use="required" name="name" type="xs:string">
 			<xs:annotation>
@@ -3212,7 +3266,9 @@ If empty, the template is being applied to any output-type.]]>
 			<xs:element name="digits" type="digits" minOccurs="0" />
 			<xs:element name="pattern" type="pattern" minOccurs="0" />
 			<xs:element name="fileUpload" type="fileUpload" minOccurs="0" />
-			<xs:element name="rule" type="rule" minOccurs="0" maxOccurs="unbounded"/>
+			<xs:element name="rule" type="rule" minOccurs="0" maxOccurs="unbounded">
+					<xs:annotation><xs:appinfo><jxb:property name="rules"/></xs:appinfo></xs:annotation>
+			</xs:element>
 		</xs:sequence>
 	</xs:complexType>
 	
@@ -3568,9 +3624,13 @@ If empty, the template is being applied to any output-type.]]>
 			</xs:appinfo>
 		</xs:annotation>
 		<xs:sequence>
-			<xs:element name="field" type="datafield" minOccurs="0" maxOccurs="unbounded" />
+			<xs:element name="field" type="datafield" minOccurs="0" maxOccurs="unbounded" >
+					<xs:annotation><xs:appinfo><jxb:property name="fields"/></xs:appinfo></xs:annotation>
+			</xs:element>
 			<xs:element name="value" type="xs:string" minOccurs="0" />
-			<xs:element name="icon" type="icon" minOccurs="0" maxOccurs="unbounded" />
+			<xs:element name="icon" type="icon" minOccurs="0" maxOccurs="unbounded" >
+					<xs:annotation><xs:appinfo><jxb:property name="icons"/></xs:appinfo></xs:annotation>
+			</xs:element>
 		</xs:sequence>
 		<xs:attribute use="required" name="name" type="xs:string">
 			<xs:annotation>
@@ -3651,7 +3711,9 @@ If empty, the template is being applied to any output-type.]]>
 			</xs:appinfo>
 		</xs:annotation>
 		<xs:sequence>
-			<xs:element name="result" type="result" minOccurs="0" maxOccurs="unbounded" />
+			<xs:element name="result" type="result" minOccurs="0" maxOccurs="unbounded" >
+					<xs:annotation><xs:appinfo><jxb:property name="results"/></xs:appinfo></xs:annotation>
+			</xs:element>
 		</xs:sequence>
 		<xs:attribute name="chunk" type="xs:int" use="required">
 			<xs:annotation>
@@ -3748,7 +3810,9 @@ If empty, the template is being applied to any output-type.]]>
 			</xs:appinfo>
 		</xs:annotation>
 		<xs:sequence>
-			<xs:element name="field" type="datafield" minOccurs="1" maxOccurs="unbounded" />
+			<xs:element name="field" type="datafield" minOccurs="1" maxOccurs="unbounded" >
+					<xs:annotation><xs:appinfo><jxb:property name="fields"/></xs:appinfo></xs:annotation>
+			</xs:element>
 			<xs:element name="linkpanel" type="linkpanel" minOccurs="0" maxOccurs="unbounded" />
 		</xs:sequence>
 		<xs:attribute name="selected" type="xs:boolean">

@@ -18,7 +18,7 @@ package org.appng.search.searcher;
 import java.text.DateFormat;
 import java.util.Date;
 
-import javax.xml.bind.annotation.adapters.XmlAdapter;
+import jakarta.xml.bind.annotation.adapters.XmlAdapter;
 
 /**
  * A {@link XmlAdapter} responsible for adapting a {@link String} to a {@link Date} and vice versa.

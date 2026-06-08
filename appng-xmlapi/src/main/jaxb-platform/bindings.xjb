@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<bindings version="3.0"
+    xmlns="https://jakarta.ee/xml/ns/jaxb"
+    xmlns:xjc="http://java.sun.com/xml/ns/jaxb/xjc"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+    <bindings scd="x-schema::tns" xmlns:tns="http://www.appng.org/schema/platform">
+
+        <globalBindings>
+            <serializable uid="100"/>
+            <xjc:superClass name="org.appng.xml.BaseObject"/>
+        </globalBindings>
+
+        <!-- datasources/datasource -> datasourceList -->
+        <bindings scd="tns:datasources/tns:datasource">
+            <property name="datasourceList"/>
+        </bindings>
+
+        <!-- events/event -> eventList -->
+        <bindings scd="tns:events/tns:event">
+            <property name="eventList"/>
+        </bindings>
+
+        <!-- bean/option -> options -->
+        <bindings scd="~tns:bean/tns:option">
+            <property name="options"/>
+        </bindings>
+
+        <!-- pages/page -> pageList -->
+        <bindings scd="~tns:pages/tns:page">
+            <property name="pageList"/>
+        </bindings>
+
+        <!-- permissions/permission -> permissionList -->
+        <bindings scd="~tns:permissions/tns:permission">
+            <property name="permissionList"/>
+        </bindings>
+
+        <!-- config/template -> templates -->
+        <bindings scd="~tns:config/tns:template">
+            <property name="templates"/>
+        </bindings>
+
+        <!-- output-type/template -> templates -->
+        <bindings scd="~tns:output-type/tns:template">
+            <property name="templates"/>
+        </bindings>
+
+        <!-- event/action -> actions -->
+        <bindings scd="~tns:event/tns:action">
+            <property name="actions"/>
+        </bindings>
+
+        <!-- datafield/field -> fields -->
+        <bindings scd="~tns:datafield/tns:field">
+            <property name="fields"/>
+        </bindings>
+
+        <!-- metaData/field -> fields -->
+        <bindings scd="~tns:metaData/tns:field">
+            <property name="fields"/>
+        </bindings>
+
+        <!-- messages/message -> messageList -->
+        <bindings scd="~tns:messages/tns:message">
+            <property name="messageList"/>
+        </bindings>
+
+        <!-- result/field -> fields -->
+        <bindings scd="~tns:result/tns:field">
+            <property name="fields"/>
+        </bindings>
+
+        <!-- resultset/result -> results -->
+        <bindings scd="~tns:resultset/tns:result">
+            <property name="results"/>
+        </bindings>
+
+        <!-- data/selection -> selections -->
+        <bindings scd="~tns:data/tns:selection">
+            <property name="selections"/>
+        </bindings>
+
+        <!-- data/selectionGroup -> selectionGroups -->
+        <bindings scd="~tns:data/tns:selectionGroup">
+            <property name="selectionGroups"/>
+        </bindings>
+
+        <!-- selectionGroup/selection -> selections -->
+        <bindings scd="~tns:selectionGroup/tns:selection">
+            <property name="selections"/>
+        </bindings>
+
+        <!-- selection/option -> options -->
+        <bindings scd="~tns:selection/tns:option">
+            <property name="options"/>
+        </bindings>
+
+        <!-- selection/optionGroup -> optionGroups -->
+        <bindings scd="~tns:selection/tns:optionGroup">
+            <property name="optionGroups"/>
+        </bindings>
+
+        <!-- datafield/icon -> icons -->
+        <bindings scd="~tns:datafield/tns:icon">
+            <property name="icons"/>
+        </bindings>
+
+        <!-- fieldDef/icon -> icons -->
+        <bindings scd="~tns:fieldDef/tns:icon">
+            <property name="icons"/>
+        </bindings>
+
+        <!-- fieldDef/field -> fields -->
+        <bindings scd="~tns:fieldDef/tns:field">
+            <property name="fields"/>
+        </bindings>
+
+        <!-- optionGroup/option -> options -->
+        <bindings scd="~tns:optionGroup/tns:option">
+            <property name="options"/>
+        </bindings>
+
+        <!-- linkpanel choice -> links -->
+        <bindings scd="~tns:linkpanel/tns:link">
+            <property name="links"/>
+        </bindings>
+
+        <!-- getParams/get-param -> paramList -->
+        <bindings scd="~tns:getParams/tns:get-param">
+            <property name="paramList"/>
+        </bindings>
+
+        <!-- postParams/post-param -> paramList -->
+        <bindings scd="~tns:postParams/tns:post-param">
+            <property name="paramList"/>
+        </bindings>
+
+        <!-- urlParams/url-param -> paramList -->
+        <bindings scd="~tns:urlParams/tns:url-param">
+            <property name="paramList"/>
+        </bindings>
+
+        <!-- labels/label -> labels -->
+        <bindings scd="~tns:labels/tns:label">
+            <property name="labels"/>
+        </bindings>
+
+        <!-- validation/rule -> rules -->
+        <bindings scd="~tns:validation/tns:rule">
+            <property name="rules"/>
+        </bindings>
+
+        <!-- validationGroups/group -> groups -->
+        <bindings scd="~tns:validationGroups/tns:group">
+            <property name="groups"/>
+        </bindings>
+
+    </bindings>
+</bindings>

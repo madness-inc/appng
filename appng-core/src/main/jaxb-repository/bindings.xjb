@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<bindings version="3.0"
+    xmlns="https://jakarta.ee/xml/ns/jaxb">
+    
+    <!-- Map repository namespace to correct package -->
+    <bindings scd="x-schema::tns" xmlns:tns="http://www.appng.org/schema/repository">
+        <schemaBindings>
+            <package name="org.appng.core.xml.repository"/>
+        </schemaBindings>
+    </bindings>
+    
+    <!-- For the application namespace (imported): only use existing PackageInfo class, 
+         suppress all other application type generation -->
+    <bindings scd="x-schema::app" xmlns:app="http://www.appng.org/schema/application">
+        <bindings scd="~app:packageInfo">
+            <class ref="org.appng.xml.application.PackageInfo"/>
+        </bindings>
+        <bindings scd="~app:applicationInfo">
+            <class ref="org.appng.xml.application.ApplicationInfo"/>
+        </bindings>
+        <bindings scd="~app:template">
+            <class ref="org.appng.xml.application.Template"/>
+        </bindings>
+        <bindings scd="~app:permission">
+            <class ref="org.appng.xml.application.Permission"/>
+        </bindings>
+        <bindings scd="~app:property">
+            <class ref="org.appng.xml.application.Property"/>
+        </bindings>
+        <bindings scd="~app:properties">
+            <class ref="org.appng.xml.application.Properties"/>
+        </bindings>
+        <bindings scd="~app:datasources">
+            <class ref="org.appng.xml.application.Datasources"/>
+        </bindings>
+        <bindings scd="~app:roles">
+            <class ref="org.appng.xml.application.Roles"/>
+        </bindings>
+        <bindings scd="~app:permissions">
+            <class ref="org.appng.xml.application.Permissions"/>
+        </bindings>
+        <bindings scd="~app:role">
+            <class ref="org.appng.xml.application.Role"/>
+        </bindings>
+        <bindings scd="~app:permissionRef">
+            <class ref="org.appng.xml.application.PermissionRef"/>
+        </bindings>
+        <bindings scd="~app:datasource">
+            <class ref="org.appng.xml.application.Datasource"/>
+        </bindings>
+        <bindings scd="~app:datasourceType">
+            <typesafeEnumClass ref="org.appng.xml.application.DatasourceType"/>
+        </bindings>
+        <bindings scd="~app:packageInfo">
+            <class ref="org.appng.xml.application.PackageInfo"/>
+        </bindings>
+    </bindings>
+    
+</bindings>

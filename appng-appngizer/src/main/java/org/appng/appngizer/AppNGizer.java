@@ -25,7 +25,7 @@ import java.util.Properties;
 import javax.persistence.EntityManagerFactory;
 import javax.sql.DataSource;
 import javax.validation.ValidatorFactory;
-import javax.xml.bind.JAXBException;
+import jakarta.xml.bind.JAXBException;
 
 import org.appng.api.support.validation.LocalizedMessageInterpolator;
 import org.appng.appngizer.controller.AppNGizerConfigurer;

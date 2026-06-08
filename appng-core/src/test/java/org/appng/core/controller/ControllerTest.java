@@ -15,7 +15,7 @@
  */
 package org.appng.core.controller;
 
-import static org.mockito.Matchers.isA;
+import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -121,8 +121,8 @@ public class ControllerTest extends Controller {
 		Messaging.init();
 		env.setAttribute(Scope.PLATFORM, Platform.Environment.APPNG_VERSION, "latest-and-hottest");
 		final Map<String, String> headers = new HashMap<>();
-		Mockito.when(base.response.getHeader(Mockito.any())).then(i -> headers.get(i.getArgumentAt(0, String.class)));
-		Mockito.doAnswer(i -> headers.put(i.getArgumentAt(0, String.class), i.getArgumentAt(1, String.class)))
+		Mockito.when(base.response.getHeader(Mockito.any())).then(i -> headers.get(i.getArgument(0, String.class)));
+		Mockito.doAnswer(i -> headers.put(i.getArgument(0, String.class), i.getArgument(1, String.class)))
 				.when(base.response).setHeader(Mockito.any(), Mockito.any());
 
 		new MetricsFilter().init(new MockFilterConfig());

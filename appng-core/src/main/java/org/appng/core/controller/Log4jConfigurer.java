@@ -58,6 +58,10 @@ public class Log4jConfigurer extends WebAppRootListener {
 			LOGGER.info("Initialized log4j from {}", log4jLocation);
 		} catch (FileNotFoundException e) {
 			throw new RuntimeException(e);
+		} catch (NoClassDefFoundError | UnsupportedOperationException e) {
+			// log4j is no longer on classpath - logging is configured via logback.xml
+			LOGGER = LoggerFactory.getLogger(Log4jConfigurer.class);
+			LOGGER.info("Log4j not available, using Logback configuration ({})", e.getMessage());
 		}
 	}
 

@@ -18,7 +18,7 @@ package org.appng.api.support;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
-import javax.xml.bind.JAXBException;
+import jakarta.xml.bind.JAXBException;
 
 import org.appng.xml.MarshallService;
 import org.custommonkey.xmlunit.Diff;

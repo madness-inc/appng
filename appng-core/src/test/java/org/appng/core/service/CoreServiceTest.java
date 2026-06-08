@@ -170,7 +170,7 @@ public class CoreServiceTest {
 		Mockito.when(environment.getAttribute(Scope.PLATFORM, Platform.Environment.PLATFORM_CONFIG))
 				.thenReturn(platformConfig);
 		Mockito.doAnswer(i -> {
-			envSubject = i.getArgumentAt(0, Subject.class);
+			envSubject = i.getArgument(0, Subject.class);
 			return null;
 		}).when(environment).setSubject(Mockito.any());
 		Mockito.when(environment.getSubject()).thenReturn(envSubject);

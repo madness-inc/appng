@@ -18,7 +18,7 @@ package org.appng.core.controller.rest.openapi;
 import java.io.IOException;
 
 import javax.servlet.http.HttpServletResponse;
-import javax.xml.bind.JAXBException;
+import jakarta.xml.bind.JAXBException;
 
 import org.appng.api.model.Application;
 import org.springframework.beans.factory.annotation.Autowired;

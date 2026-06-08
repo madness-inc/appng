@@ -15,7 +15,7 @@
  */
 package org.appng.core.controller.rest;
 
-import javax.xml.bind.JAXBException;
+import jakarta.xml.bind.JAXBException;
 
 import org.appng.api.Request;
 import org.appng.api.model.Application;

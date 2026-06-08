@@ -15,7 +15,7 @@
  */
 package org.appng.api;
 
-import javax.xml.bind.JAXBContext;
+import jakarta.xml.bind.JAXBContext;
 
 import org.appng.api.model.Application;
 import org.appng.api.model.Site;

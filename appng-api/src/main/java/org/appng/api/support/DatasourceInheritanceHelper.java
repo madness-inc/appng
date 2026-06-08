@@ -17,7 +17,7 @@ package org.appng.api.support;
 
 import java.util.List;
 
-import javax.xml.bind.JAXBException;
+import jakarta.xml.bind.JAXBException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.appng.xml.MarshallService;

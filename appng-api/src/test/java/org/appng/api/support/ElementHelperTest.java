@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import javax.xml.bind.JAXBException;
+import jakarta.xml.bind.JAXBException;
 import javax.xml.namespace.QName;
 
 import org.apache.commons.lang3.StringUtils;
@@ -150,7 +150,7 @@ public class ElementHelperTest {
 		Mockito.when(applicationRequest.getLocale()).thenReturn(Locale.getDefault());
 
 		Mockito.doAnswer(i -> {
-			Label label = i.getArgumentAt(0, Label.class);
+			Label label = i.getArgument(0, Label.class);
 			if (null != label) {
 				label.setValue(label.getId() + ".translated");
 			}

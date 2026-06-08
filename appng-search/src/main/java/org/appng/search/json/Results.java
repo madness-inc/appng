@@ -18,7 +18,7 @@ package org.appng.search.json;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.xml.bind.annotation.XmlType;
+import jakarta.xml.bind.annotation.XmlType;
 
 @XmlType(propOrder = { "time", "layout", "pagination", "data" })
 public class Results {

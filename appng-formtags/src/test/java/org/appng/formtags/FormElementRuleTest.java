@@ -143,7 +143,7 @@ public class FormElementRuleTest {
 		FormElement formElement = getFormElement(rule, value);
 		formElement.processContent();
 		Assert.assertTrue(formElement.isValid());
-		String expected = "<input value=\"" + value + "\" type=\"text\" name=\"field\" /><div id=\"error\"></div>";
+		String expected = "<input value=\"" + value + "\" type=\"text\" name=\"field\" /><div id=\"error\" />";
 		Assert.assertEquals(expected, formElement.getContent());
 	}
 

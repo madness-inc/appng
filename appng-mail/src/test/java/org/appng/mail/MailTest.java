@@ -46,7 +46,7 @@ public class MailTest {
 
 			ClassLoader classLoader = MailTest.class.getClassLoader();
 			File a1 = new File(classLoader.getResource("deathstar.jpg").toURI());
-			File a2 = new File(classLoader.getResource("log4j.properties").toURI());
+			File a2 = new File(classLoader.getResource("logback-test.xml").toURI());
 			File a3 = new File(classLoader.getResource("test.xlsx").toURI());
 
 			mail.addAttachment(a1, null);

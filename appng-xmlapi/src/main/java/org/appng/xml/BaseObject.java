@@ -22,7 +22,7 @@ import java.io.Serializable;
  * 
  * @author Matthias Müller
  */
-@javax.xml.bind.annotation.XmlTransient
+@jakarta.xml.bind.annotation.XmlTransient
 public class BaseObject implements Serializable {
 
 }

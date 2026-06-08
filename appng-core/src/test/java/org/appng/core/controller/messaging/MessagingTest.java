@@ -154,7 +154,7 @@ public class MessagingTest {
 		Mockito.when(serializer.getNodeId()).thenReturn(APPNG_NODE1);
 		Mockito.when(serializer.getPlatformConfig()).thenReturn(Mockito.mock(Properties.class));
 		Mockito.doAnswer(invocation -> {
-			Event event = deserialize(invocation.getArgumentAt(0, byte[].class));
+			Event event = deserialize(invocation.getArgument(0, byte[].class));
 			processedEvents.add(event);
 			return event;
 		}).when(serializer).deserialize(Mockito.any(byte[].class));
