@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import java.util.Map;
 import org.appng.api.Environment;
 import org.appng.api.FieldConverter;
 import org.appng.api.FieldWrapper;
+import org.appng.api.support.ElementHelper;
 import org.appng.el.ExpressionEvaluator;
 import org.appng.forms.RequestContainer;
 import org.appng.xml.platform.Condition;
@@ -29,24 +30,23 @@ import org.appng.xml.platform.Datafield;
 import org.appng.xml.platform.FieldDef;
 import org.appng.xml.platform.FieldType;
 import org.appng.xml.platform.Linkpanel;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanWrapper;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.context.MessageSource;
 import org.springframework.core.convert.ConversionService;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
- * A {@link FieldConverter} encapsulating all the other {@link FieldConverter}s, thus providing the ability to convert
- * any {@link FieldType}.
+ * A {@link FieldConverter} encapsulating all the other {@link FieldConverter}s,
+ * thus providing the ability to convert any {@link FieldType}.
  * 
  * @author Matthias Müller
- * 
  */
+@Slf4j
 public class FieldConversionFactory implements FieldConverter, InitializingBean {
 
-	private static final Logger LOG = LoggerFactory.getLogger(FieldConversionFactory.class);
-	private Map<FieldType, FieldConverter> converters = new HashMap<FieldType, FieldConverter>();
+	private Map<FieldType, FieldConverter> converters = new HashMap<>();
 
 	private Environment environment;
 	private MessageSource messageSource;
@@ -74,8 +74,7 @@ public class FieldConversionFactory implements FieldConverter, InitializingBean 
 		Condition condition = fieldWrapper.getCondition();
 		boolean addField = true;
 		if (condition != null) {
-			addField = expressionEvaluator.evaluate(condition.getExpression());
-			condition.setExpression(String.valueOf(addField));
+			addField = ElementHelper.conditionMatches(expressionEvaluator, condition);
 		}
 
 		fieldWrapper.setReadonly(expressionEvaluator.getString(fieldWrapper.getReadonly()));
@@ -95,7 +94,7 @@ public class FieldConversionFactory implements FieldConverter, InitializingBean 
 			if (null != datafield) {
 				addChildFields(fieldWrapper, datafield, fieldWrapper.getBeanWrapper());
 			} else {
-				LOG.debug("datafield '{}' is null", fieldWrapper.getBinding());
+				LOGGER.debug("datafield '{}' is null", fieldWrapper.getBinding());
 			}
 			return datafield;
 		}
@@ -103,8 +102,8 @@ public class FieldConversionFactory implements FieldConverter, InitializingBean 
 	}
 
 	private void log(FieldWrapper fieldWrapper, FieldConverter converter) {
-		if (LOG.isDebugEnabled()) {
-			LOG.debug("converter for field '{}' of type {} is {}", fieldWrapper.getBinding(), fieldWrapper.getType(),
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("converter for field '{}' of type {} is {}", fieldWrapper.getBinding(), fieldWrapper.getType(),
 					converter.getClass().getName());
 		}
 	}
@@ -127,7 +126,7 @@ public class FieldConversionFactory implements FieldConverter, InitializingBean 
 			for (final FieldDef childField : childFields) {
 				FieldWrapper fieldWrapper = new FieldWrapper(childField, beanWrapper);
 				fieldWrapper.backupFields();
-				LOG.debug("adding child field '{}', type: {}", fieldWrapper.getBinding(), fieldWrapper.getType());
+				LOGGER.debug("adding child field '{}', type: {}", fieldWrapper.getBinding(), fieldWrapper.getType());
 				addField(dataFieldOwner, fieldWrapper);
 				fieldWrapper.restoreFields();
 			}
@@ -168,8 +167,8 @@ public class FieldConversionFactory implements FieldConverter, InitializingBean 
 		FieldConverter fileConverter = new FileFieldConverter(conversionService);
 		converters.put(FieldType.FILE, fileConverter);
 		converters.put(FieldType.FILE_MULTIPLE, fileConverter);
-		FieldConverter defaultConverter = new DefaultFieldConverter(expressionEvaluator, conversionService,
-				environment, messageSource);
+		FieldConverter defaultConverter = new DefaultFieldConverter(expressionEvaluator, conversionService, environment,
+				messageSource);
 		converters.put(FieldType.TEXT, defaultConverter);
 		converters.put(FieldType.PASSWORD, defaultConverter);
 		converters.put(FieldType.LONGTEXT, defaultConverter);

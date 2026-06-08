@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,21 +15,54 @@
  */
 package org.appng.appngizer.controller;
 
+import javax.sql.DataSource;
+
+import org.appng.appngizer.model.xml.Database;
+import org.appng.core.domain.DatabaseConnection.DatabaseType;
+import org.junit.FixMethodOrder;
 import org.junit.Test;
+import org.junit.runners.MethodSorters;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class DatabaseControllerTest extends ControllerTest {
 
-	@Test
-	public void test() throws Exception {
-		ignorePasswordAndInstalledDate();
-		getAndVerify("/platform/database", "xml/database.xml", HttpStatus.OK);
-	}
+	@Autowired
+	DataSource datasource;
 
 	@Test
 	public void testInitialize() throws Exception {
 		ignorePasswordAndInstalledDate();
 		postAndVerify("/platform/database/initialize", "xml/database-init.xml", null, HttpStatus.OK);
+	}
+
+	@Test
+	public void testInitialized() throws Exception {
+		ignorePasswordAndInstalledDate();
+		getAndVerify("/platform/database", "xml/database-init-managed.xml", HttpStatus.OK);
+	}
+
+	@Test
+	public void testInitializeManaged() throws Exception {
+		ignorePasswordAndInstalledDate();
+		postAndVerify("/platform/database/initialize?managed=true", "xml/database-init-managed.xml", null,
+				HttpStatus.OK);
+
+	}
+
+	@Test
+	public void testUpdateRoot() throws Exception {
+		ignorePasswordAndInstalledDate();
+		Database database = new Database();
+		database.setType(DatabaseType.HSQL.name());
+		database.setManaged(false);
+		database.setUser("");
+		database.setPassword("");
+		database.setDbVersion("");
+		database.setDriver("");
+		database.setUrl("");
+		putAndVerify("/platform/database", "xml/database-root-update.xml", database, HttpStatus.OK);
 	}
 
 	private void ignorePasswordAndInstalledDate() {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,16 +24,12 @@ import java.util.regex.Pattern;
 
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.commons.io.IOUtils;
-import org.appng.api.Environment;
 import org.appng.api.Path;
 import org.appng.api.Platform;
 import org.appng.api.RequestUtil;
@@ -44,8 +40,8 @@ import org.appng.api.support.environment.DefaultEnvironment;
 import org.appng.core.controller.HttpHeaders;
 import org.appng.core.controller.filter.RedirectFilter.RedirectRule;
 import org.appng.core.model.ResponseType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * A {@link Filter} that performs a search-and-replace on the given content of the {@link ServletResponse}.<br/>
@@ -59,8 +55,6 @@ import org.slf4j.LoggerFactory;
  * &lt;a href="http://example.com/index.jsp">Example&lt;/a>
  * </pre>
  * 
- * </pre>
- * 
  * After, assuming the site's domain is 'http://foobar.org':
  * 
  * <pre>
@@ -70,16 +64,15 @@ import org.slf4j.LoggerFactory;
  * </pre>
  * 
  * @author Matthias Herlitzius
- * 
+ * @author Matthias Müller
  */
+@Slf4j
 public class JspExtensionFilter implements Filter {
 
-	private static final Logger log = LoggerFactory.getLogger(JspExtensionFilter.class);
 	private static final String PLATFORM_JSP_FILTER_SERVICE_CONTENT_TYPES = "jspFilterServiceContentTypes";
 	private static final String PLATFORM_JSP_FILTER_SKIPPED_SERVICE_NAMES = "jspFilterSkippedServiceNames";
-	private static final ConcurrentMap<String, Pattern> PATTERNS = new ConcurrentHashMap<String, Pattern>();
+	private static final ConcurrentMap<String, Pattern> PATTERNS = new ConcurrentHashMap<>();
 	private static final String DELIMITER = ",";
-	private FilterConfig filterConfig;
 	private String defaultServiceFilterTypes;
 	// if prefix is '<site-domain>/' -> replace
 	// if prefix is quote (") or singlequote (') -> replace
@@ -100,17 +93,21 @@ public class JspExtensionFilter implements Filter {
 
 	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
 			throws IOException, ServletException {
-		ServletContext servletContext = filterConfig.getServletContext();
-		Environment env = DefaultEnvironment.get(servletContext, request, response);
-		String hostIdentifier = RequestUtil.getHostIdentifier(request, env);
-		Site site = RequestUtil.getSiteByHost(env, hostIdentifier);
+		DefaultEnvironment env = EnvironmentFilter.environment();
+		Site site = env.getSite();
 		String servletPath = ((HttpServletRequest) request).getServletPath();
 		if (null != site) {
 			Path pathInfo = RequestUtil.getPathInfo(env, site, servletPath);
-			String encoding = site.getProperties().getString(Platform.Property.ENCODING);
+			boolean isDocument = pathInfo.isDocument();
+
+			if (!(isDocument || pathInfo.isService())) {
+				chain.doFilter(request, response);
+				return;
+			}
 
 			// Respect the client-specified character encoding
 			// (see HTTP specification section 3.4.1)
+			String encoding = site.getProperties().getString(Platform.Property.ENCODING);
 			if (request.getCharacterEncoding() == null) {
 				request.setCharacterEncoding(encoding);
 			}
@@ -121,23 +118,19 @@ public class JspExtensionFilter implements Filter {
 
 			if (!response.isCommitted() && wrapper.hasResponse()) {
 				Properties platformProperties = env.getAttribute(Scope.PLATFORM, Platform.Environment.PLATFORM_CONFIG);
-				boolean isDocument = pathInfo.isDocument();
 				if (wrapper.getResponseType().equals(ResponseType.CHARACTER)) {
-					Writer writer = response.getWriter();
-					try {
-						String output;
+					try (Writer writer = response.getWriter()) {
+						String output = wrapper.getContent();
 						if (isDocument || isFilterService(response, pathInfo, platformProperties)) {
-							output = replaceUrls(site, platformProperties, servletPath, wrapper.getContent());
+							output = replaceUrls(site, platformProperties, servletPath, output);
 							output = replaceOtherStuff(output);
-						} else {
-							output = wrapper.getContent();
 						}
 						writer.write(output);
-					} finally {
-						IOUtils.closeQuietly(writer);
 					}
 				}
 			}
+		} else {
+			chain.doFilter(request, response);
 		}
 	}
 
@@ -146,8 +139,8 @@ public class JspExtensionFilter implements Filter {
 		String contentType = response.getContentType();
 		if (null != contentType && pathInfo.isService()) {
 			contentType = contentType.split(";")[0];
-			if (log.isTraceEnabled()) {
-				log.trace("content type for '{}' is '{}'", pathInfo.getServletPath(), contentType);
+			if (LOGGER.isTraceEnabled()) {
+				LOGGER.trace("content type for '{}' is '{}'", pathInfo.getServletPath(), contentType);
 			}
 			List<String> filterServiceTypes = platformProperties.getList(PLATFORM_JSP_FILTER_SERVICE_CONTENT_TYPES,
 					defaultServiceFilterTypes, DELIMITER);
@@ -174,8 +167,8 @@ public class JspExtensionFilter implements Filter {
 			numRules = redirectRules.size();
 			for (RedirectRule rule : redirectRules) {
 				content = rule.apply(content);
-				if (log.isTraceEnabled()) {
-					log.trace("{} has been applied", rule);
+				if (LOGGER.isTraceEnabled()) {
+					LOGGER.trace("{} has been applied", rule);
 				}
 			}
 		}
@@ -183,13 +176,13 @@ public class JspExtensionFilter implements Filter {
 		if (content.contains(jspExtension)) {
 			Pattern domainPattern = getDomainPattern(domain, jspExtension);
 			content = domainPattern.matcher(content).replaceAll("$1$2");
-			if (log.isTraceEnabled()) {
-				log.trace("replace with pattern {} has been applied", domainPattern);
+			if (LOGGER.isTraceEnabled()) {
+				LOGGER.trace("replace with pattern {} has been applied", domainPattern);
 			}
 		}
 
-		if (log.isDebugEnabled()) {
-			log.debug("handling JSP extensions for source '{}' took {}ms ({} redirect-rules processed)", sourcePath,
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("handling JSP extensions for source '{}' took {}ms ({} redirect-rules processed)", sourcePath,
 					System.currentTimeMillis() - startTime, numRules);
 		}
 		return content;
@@ -209,10 +202,6 @@ public class JspExtensionFilter implements Filter {
 		content = content.replace("alt=\"__Visual__\"", "alt=\"Visual\"");
 		content = content.replace("alt=\"__Visual__", "alt=\"");
 		return content;
-	}
-
-	public void init(FilterConfig filterConfig) throws ServletException {
-		this.filterConfig = filterConfig;
 	}
 
 	public void destroy() {

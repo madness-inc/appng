@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,10 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.Properties;
 import java.util.Set;
-import java.util.SortedSet;
 import java.util.TreeSet;
 
 import org.apache.commons.lang3.StringUtils;
@@ -30,47 +31,66 @@ public class PropertyConstantCreator {
 
 	/**
 	 * Generates a .java file containing constants for all the keys defined in the given property-file. For the
-	 * constant's name, dots (.) and Dashes (-) are replaced with an underscore (_). Also, for a camelcase an underscore
-	 * is being added.
+	 * constant's name, dots (.) and Dashes (-) are replaced with an underscore (_). Also, for a camel-case an
+	 * underscore is being added.<br/>
+	 * Usage:<br/>
+	 * 
+	 * <pre>
+	 * PropertyConstantCreator
+	 * 		.main(new String[] { "path/to/file.properties", "org.appng.example.Constants", "target/constants" })
+	 * </pre>
 	 * 
 	 * @param args
-	 *            args[0] - the path to the property file to use<br/>
-	 *            args[1] - the fully qualified name of the target class to generate<br/>
-	 *            args[2] - the outputfolder for the generated class<br/>
+	 *             args[0]* - the path to the property file to use<br/>
+	 *             args[1]* - the fully qualified name of the target class to generate<br/>
+	 *             args[2]* - the output-folder for the generated class<br/>
+	 *             args[3] - the charset used to read the properties file, defaults to
+	 *             {@code System.getProperty("file.encoding")}
+	 * 
 	 * @throws IOException
-	 *             if the property file can not be found or the target class can not be written
+	 *                                  if the property file can not be found or the target class can not be written
 	 * @throws IllegalArgumentException
-	 *             if one of the parameters is missing
+	 *                                  if one of the parameters is missing
 	 */
 	public static void main(String[] args) throws IOException {
 
-		if (args.length != 3) {
-			throw new IllegalArgumentException("need 3 params (filePath, targetClass, outFolder)");
+		if (args.length < 3) {
+			throw new IllegalArgumentException(
+					"at least 3 parameters needed: filePath* targetClass* outFolder* [charset]");
 		}
 
 		String filePath = args[0];
 		String targetClass = args[1];
 		String outfolder = args[2];
+		String charSet = StandardCharsets.UTF_8.name();
+		if (args.length == 4) {
+			charSet = args[3];
+		}
 
 		if (!targetClass.matches("([a-zA-Z]+[0-9]*)+(\\.[a-zA-Z]+[0-9]*)*")) {
 			throw new IllegalArgumentException("not a valid classname: " + targetClass);
 		}
 
-		File file = new File(filePath);
 		Properties props = new Properties();
-		props.load(new FileInputStream(file));
+		props.load(new InputStreamReader(new FileInputStream(filePath), charSet));
 
 		int pckg = targetClass.lastIndexOf(".");
+		String lineBreak = System.lineSeparator();
 		StringBuilder sb = new StringBuilder();
-		sb.append("package " + targetClass.substring(0, pckg) + ";\r\n");
-		sb.append("\r\n");
-		sb.append("public class " + targetClass.substring(pckg + 1) + " {\r\n");
-		sb.append("\r\n");
-		Set<Object> keySet = props.keySet();
-		SortedSet<Object> sorted = new TreeSet<Object>(keySet);
-		for (Object object : sorted) {
+		if (pckg > 0) {
+			sb.append("package " + targetClass.substring(0, pckg) + ";");
+			sb.append(lineBreak);
+			sb.append(lineBreak);
+		}
+		sb.append("public class " + targetClass.substring(pckg + 1) + " {");
+		sb.append(lineBreak);
+		sb.append(lineBreak);
+		Set<Object> keySet = new TreeSet<>(props.keySet());
+		for (Object object : keySet) {
+			String key = (String) object;
+			sb.append("\t/** " + props.getProperty(key).replace("*/", "*&#47;") + " */" + lineBreak);
 			sb.append("\tpublic static final String ");
-			String constantName = ((String) object).replaceAll("\\.", "_").replaceAll("-", "_");
+			String constantName = key.replace('-', '_').replace('.', '_');
 			String[] tokens = StringUtils.splitByCharacterTypeCamelCase(constantName);
 			for (int i = 0; i < tokens.length; i++) {
 				String s = tokens[i];
@@ -81,15 +101,16 @@ public class PropertyConstantCreator {
 					sb.append(s.toUpperCase());
 				}
 			}
-			sb.append(" = \"" + (String) object + "\";\r\n");
+			sb.append(" = \"" + key + "\";");
+			sb.append(lineBreak);
 		}
-		sb.append("\r\n");
+		sb.append(lineBreak);
 		sb.append("}");
-		String fileName = targetClass.replaceAll("\\.", "/") + ".java";
+		String fileName = targetClass.replace('.', '/') + ".java";
 		File outFile = new File(new File(outfolder).getAbsoluteFile(), fileName);
 		outFile.getParentFile().mkdirs();
-		FileOutputStream fos = new FileOutputStream(outFile);
-		fos.write(sb.toString().getBytes());
-		fos.close();
+		try (FileOutputStream fos = new FileOutputStream(outFile)) {
+			fos.write(sb.toString().getBytes(StandardCharsets.UTF_8));
+		}
 	}
 }

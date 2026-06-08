@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,16 +25,16 @@ import javax.servlet.http.HttpSession;
 import org.appng.api.Scope;
 import org.appng.api.model.Site;
 import org.appng.api.support.SiteAwareObjectInputStream;
+import org.appng.api.support.SiteClassLoader;
 
 /**
  * A wrapper used for wrapping {@link Scope#SESSION}-scoped attributes. Keeps track of the {@link Site}'s name. This is
- * needed because the right {@link ClassLoader} has to be used when deserializing objects that have been stored inside the
- * {@link HttpSession}.
+ * needed because the right {@link SiteClassLoader} has to be used when deserializing objects that have been stored
+ * inside the {@link HttpSession}.
  * 
  * @author Matthias Müller
- *
  */
-public class AttributeWrapper implements Serializable {
+class AttributeWrapper implements Serializable {
 
 	private Object value;
 	private String siteName;
@@ -47,8 +47,19 @@ public class AttributeWrapper implements Serializable {
 		if (null == value) {
 			throw new IllegalArgumentException("value can not be null");
 		}
-		this.siteName = siteName;
+		ClassLoader classLoader = getClassloader(value);
+		if (null != classLoader && SiteClassLoader.class.isAssignableFrom(classLoader.getClass())) {
+			this.siteName = SiteClassLoader.class.cast(classLoader).getSiteName();
+		} else {
+			this.siteName = siteName;
+		}
+
 		this.value = value;
+	}
+
+	// for testing
+	protected ClassLoader getClassloader(Object value) {
+		return value.getClass().getClassLoader();
 	}
 
 	public Object getValue() {
@@ -65,18 +76,14 @@ public class AttributeWrapper implements Serializable {
 	}
 
 	private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-		ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
 		try {
 			siteName = (String) in.readObject();
 			if (in instanceof SiteAwareObjectInputStream) {
-				ClassLoader siteClassLoader = ((SiteAwareObjectInputStream) in).getSiteClassloader(siteName);
-				Thread.currentThread().setContextClassLoader(siteClassLoader);
+				((SiteAwareObjectInputStream) in).setSite(siteName);
 			}
 			value = in.readObject();
 		} catch (IOException | ClassNotFoundException e) {
 			throw e;
-		} finally {
-			Thread.currentThread().setContextClassLoader(contextClassLoader);
 		}
 	}
 

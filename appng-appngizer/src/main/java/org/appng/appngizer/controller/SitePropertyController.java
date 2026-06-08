@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,21 @@
  */
 package org.appng.appngizer.controller;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.appng.appngizer.model.Properties;
 import org.appng.appngizer.model.Property;
 import org.appng.core.domain.SiteImpl;
 import org.slf4j.Logger;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.extern.slf4j.Slf4j;
@@ -32,7 +38,7 @@ import lombok.extern.slf4j.Slf4j;
 @RestController
 public class SitePropertyController extends PropertyBase {
 
-	@RequestMapping(value = "/site/{site}/property", method = RequestMethod.GET)
+	@GetMapping(value = { "/site/{site}/property", "/site/{site}/properties" })
 	public ResponseEntity<Properties> listProperties(@PathVariable("site") String site) {
 		SiteImpl siteByName = getSiteByName(site);
 		if (null == siteByName) {
@@ -41,7 +47,67 @@ public class SitePropertyController extends PropertyBase {
 		return getProperties(siteByName, null);
 	}
 
-	@RequestMapping(value = "/site/{site}/property/{prop}", method = RequestMethod.GET)
+	@PutMapping(value = "/site/{site}/properties")
+	public ResponseEntity<Properties> updateProperties(@PathVariable("site") String site,
+			@RequestBody org.appng.appngizer.model.xml.Properties properties) {
+		SiteImpl siteByName = getSiteByName(site);
+		if (null == siteByName) {
+			return notFound();
+		}
+
+		List<Property> propsList = new ArrayList<>();
+		for (org.appng.appngizer.model.xml.Property property : properties.getProperty()) {
+			ResponseEntity<Property> updated = updateProperty(property, siteByName, null);
+			collectProperties(propsList, updated, property.getName(), HttpStatus.OK);
+		}
+		return new ResponseEntity<Properties>(new Properties(propsList, site, null), HttpStatus.OK);
+	}
+
+	private void collectProperties(List<Property> propsList, ResponseEntity<Property> updatedProperty, String name,
+			HttpStatus expected) {
+		Property prop;
+		if (expected.equals(updatedProperty.getStatusCode())) {
+			prop = updatedProperty.getBody();
+		} else {
+			prop = new Property();
+			prop.setName(name);
+		}
+		prop.setStatusCode(updatedProperty.getStatusCode().value());
+		prop.setStatusMessage(updatedProperty.getStatusCode().getReasonPhrase());
+		propsList.add(prop);
+	}
+
+	@PostMapping(value = "/site/{site}/properties")
+	public ResponseEntity<Properties> createProperties(@PathVariable("site") String site,
+			@RequestBody org.appng.appngizer.model.xml.Properties properties) {
+		SiteImpl siteByName = getSiteByName(site);
+		if (null == siteByName) {
+			return notFound();
+		}
+		List<Property> propsList = new ArrayList<>();
+		for (org.appng.appngizer.model.xml.Property property : properties.getProperty()) {
+			ResponseEntity<Property> created = createProperty(property, siteByName, null);
+			collectProperties(propsList, created, property.getName(), HttpStatus.CREATED);
+		}
+		return new ResponseEntity<Properties>(new Properties(propsList, site, null), HttpStatus.OK);
+	}
+
+	@DeleteMapping(value = "/site/{site}/properties")
+	public ResponseEntity<Properties> deleteProperties(@PathVariable("site") String site,
+			@RequestBody org.appng.appngizer.model.xml.Properties properties) {
+		SiteImpl siteByName = getSiteByName(site);
+		if (null == siteByName) {
+			return notFound();
+		}
+		List<Property> propsList = new ArrayList<>();
+		for (org.appng.appngizer.model.xml.Property property : properties.getProperty()) {
+			ResponseEntity<Property> deleted = deleteProperty(property.getName(), siteByName, null);
+			collectProperties(propsList, deleted, property.getName(), HttpStatus.OK);
+		}
+		return new ResponseEntity<Properties>(new Properties(propsList, site, null), HttpStatus.OK);
+	}
+
+	@GetMapping(value = "/site/{site}/property/{prop}")
 	public ResponseEntity<Property> getProperty(@PathVariable("site") String site, @PathVariable("prop") String prop) {
 		SiteImpl siteByName = getSiteByName(site);
 		if (null == siteByName) {
@@ -50,7 +116,7 @@ public class SitePropertyController extends PropertyBase {
 		return getPropertyResponse(prop, siteByName, null);
 	}
 
-	@RequestMapping(value = "/site/{site}/property", method = RequestMethod.POST)
+	@PostMapping(value = "/site/{site}/property")
 	public ResponseEntity<Property> createProperty(@PathVariable("site") String site,
 			@RequestBody org.appng.appngizer.model.xml.Property property) {
 		SiteImpl siteByName = getSiteByName(site);
@@ -60,7 +126,7 @@ public class SitePropertyController extends PropertyBase {
 		return createProperty(property, siteByName, null);
 	}
 
-	@RequestMapping(value = "/site/{site}/property/{prop}", method = RequestMethod.PUT)
+	@PutMapping(value = "/site/{site}/property/{prop}")
 	public ResponseEntity<Property> updateProperty(@PathVariable("site") String site,
 			@RequestBody org.appng.appngizer.model.xml.Property property) {
 		SiteImpl siteByName = getSiteByName(site);
@@ -70,7 +136,7 @@ public class SitePropertyController extends PropertyBase {
 		return updateProperty(property, siteByName, null);
 	}
 
-	@RequestMapping(value = "/site/{site}/property/{prop}", method = RequestMethod.DELETE)
+	@DeleteMapping(value = "/site/{site}/property/{prop}")
 	public ResponseEntity<Property> deleteProperty(@PathVariable("site") String site,
 			@PathVariable("prop") String property) {
 		SiteImpl siteByName = getSiteByName(site);
@@ -81,6 +147,6 @@ public class SitePropertyController extends PropertyBase {
 	}
 
 	Logger logger() {
-		return log;
+		return LOGGER;
 	}
 }

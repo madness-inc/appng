@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,174 +15,389 @@
  */
 package org.appng.core.controller.filter;
 
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.text.ParseException;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import javax.cache.Cache;
+import javax.cache.CacheException;
+import javax.cache.expiry.AccessedExpiryPolicy;
+import javax.cache.expiry.CreatedExpiryPolicy;
+import javax.cache.expiry.Duration;
+import javax.cache.expiry.ExpiryPolicy;
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletContext;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.commons.lang3.ArrayUtils;
+import org.apache.catalina.connector.ClientAbortException;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.appng.api.Environment;
-import org.appng.api.RequestUtil;
+import org.appng.api.Path;
+import org.appng.api.Scope;
+import org.appng.api.Session;
 import org.appng.api.SiteProperties;
 import org.appng.api.model.Site;
+import org.appng.api.support.HttpHeaderUtils;
 import org.appng.api.support.environment.DefaultEnvironment;
+import org.appng.core.controller.CachedResponse;
 import org.appng.core.service.CacheService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.util.AntPathMatcher;
+import org.tuckey.web.filters.urlrewrite.gzip.GenericResponseWrapper;
+import org.tuckey.web.filters.urlrewrite.gzip.ResponseUtil;
 
-import net.sf.ehcache.CacheException;
-import net.sf.ehcache.CacheManager;
-import net.sf.ehcache.Element;
-import net.sf.ehcache.constructs.blocking.BlockingCache;
-import net.sf.ehcache.constructs.blocking.LockTimeoutException;
-import net.sf.ehcache.constructs.web.AlreadyCommittedException;
-import net.sf.ehcache.constructs.web.AlreadyGzippedException;
-import net.sf.ehcache.constructs.web.GenericResponseWrapper;
-import net.sf.ehcache.constructs.web.PageInfo;
-import net.sf.ehcache.constructs.web.filter.CachingFilter;
-import net.sf.ehcache.constructs.web.filter.FilterNonReentrantException;
+import com.hazelcast.cache.ICache;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 
 /**
- * A {@link Filter} which caches responses based on the request. Largely based on {@link CachingFilter}
+ * A {@link Filter} which caches responses in form of an {@link CachedResponse}
  * 
  * @author Matthias Herlitzius
- *
+ * @author Matthias Müller
  */
-public class PageCacheFilter extends CachingFilter {
+@Slf4j
+public class PageCacheFilter implements javax.servlet.Filter {
 
-	private static Logger LOG = LoggerFactory.getLogger(PageCacheFilter.class);
-	private Set<String> cacheableHttpMethods = new HashSet<String>(
+	private static final String GZIP = "gzip";
+	protected static final String CACHE_HIT = PageCacheFilter.class.getSimpleName() + ".cacheHit";
+	private static final Set<String> CACHEABLE_HTTP_METHODS = new HashSet<>(
 			Arrays.asList(HttpMethod.GET.name(), HttpMethod.HEAD.name()));
+	public static final Pattern EXPIRY_PATTERN = Pattern.compile("^(\\d+)(,(\\d+)?)?$");
+	private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
 
-	@Override
-	protected void doFilter(final HttpServletRequest request, final HttpServletResponse response,
-			final FilterChain chain) throws AlreadyGzippedException, AlreadyCommittedException,
-			FilterNonReentrantException, LockTimeoutException, Exception {
+	public void destroy() {
+	}
+
+	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+			throws IOException, ServletException {
 
 		HttpServletRequest httpServletRequest = (HttpServletRequest) request;
+		HttpServletResponse httpServletResponse = (HttpServletResponse) response;
 		String servletPath = httpServletRequest.getServletPath();
 		if (response.isCommitted()) {
 			throw new IOException("The response has already been committed for servletPath: " + servletPath);
 		}
-
-		ServletContext servletContext = filterConfig.getServletContext();
-		Environment env = DefaultEnvironment.get(servletContext, request, response);
-		String hostIdentifier = RequestUtil.getHostIdentifier(request, env);
-		Site site = RequestUtil.getSiteByHost(env, hostIdentifier);
-		boolean ehcacheEnabled = false;
-		boolean isException = false;
-		if (null != site) {
-			ehcacheEnabled = site.getProperties().getBoolean(SiteProperties.EHCACHE_ENABLED);
-			isException = isException(servletPath, site);
-		} else {
-			LOG.info("no site found for path {} and host {}", servletPath, hostIdentifier);
-		}
 		boolean isCacheableRequest = isCacheableRequest(httpServletRequest);
-		if (ehcacheEnabled && isCacheableRequest && !isException) {
-			try {
-				logRequestHeaders(request);
-				BlockingCache blockingCache = CacheService.getBlockingCache(site);
-				PageInfo pageInfo = buildPageInfo(request, response, chain, blockingCache);
-				if (null != pageInfo && pageInfo.isOk()) {
-					if (response.isCommitted()) {
-						throw new AlreadyCommittedException("Response already committed after doing buildPage"
-								+ " but before writing response from PageInfo.");
+		boolean cacheEnabled = false;
+		boolean isException = false;
+		DefaultEnvironment env = EnvironmentFilter.environment();
+		Site site = env.getSite();
+		boolean processed = false;
+
+		if (isCacheableRequest) {
+			if (null != site) {
+				org.appng.api.model.Properties siteProps = site.getProperties();
+				cacheEnabled = siteProps.getBoolean(SiteProperties.CACHE_ENABLED);
+				if (cacheEnabled) {
+					String exceptions = siteProps.getClob(SiteProperties.CACHE_EXCEPTIONS);
+					isException = isException(exceptions, servletPath);
+
+					if (!isException) {
+						long start = System.currentTimeMillis();
+						Properties cacheTimeouts = siteProps.getProperties(SiteProperties.CACHE_TIMEOUTS);
+						boolean antStylePathMatching = siteProps.getBoolean(SiteProperties.CACHE_TIMEOUTS_ANT_STYLE);
+						Integer defaultTtl = siteProps.getInteger(SiteProperties.CACHE_TIME_TO_LIVE);
+						boolean expireByCreation = siteProps
+								.getBoolean(SiteProperties.CACHE_EXPIRE_ELEMENTS_BY_CREATION, false);
+						Expiry expiry = getExpiry(cacheTimeouts, antStylePathMatching, expireByCreation, defaultTtl,
+								servletPath);
+
+						CachedResponse cachedResponse = handleCaching(httpServletRequest, httpServletResponse, site,
+								chain, CacheService.getCache(site), expiry);
+						processed = true;
+						if (null != cachedResponse && LOGGER.isDebugEnabled()) {
+							LOGGER.debug("Cache handling took {}ms (hit: {}, status: {}) for {}",
+									System.currentTimeMillis() - start, httpServletRequest.getAttribute(CACHE_HIT),
+									HttpStatus.valueOf(httpServletResponse.getStatus()), cachedResponse.getId());
+						}
 					}
-					writeResponse(request, response, pageInfo);
 				}
-			} catch (CacheException e) {
-				LOG.warn("error while adding/retrieving from/to cache: " + calculateKey(request), e);
+			} else {
+				LOGGER.info("no site found for path {} and host {}", servletPath, request.getServerName());
 			}
-		} else {
+		}
+		if (!processed) {
 			chain.doFilter(request, response);
 		}
 	}
 
-	protected PageInfo buildPageInfo(final HttpServletRequest request, final HttpServletResponse response,
-			final FilterChain chain, BlockingCache blockingCache) throws Exception {
-		// Look up the cached page
-		final String key = calculateKey(request);
-		PageInfo pageInfo = null;
+	protected CachedResponse handleCaching(final HttpServletRequest request, final HttpServletResponse response,
+			Site site, final FilterChain chain, Cache<String, CachedResponse> cache, Expiry expiry)
+			throws ServletException, IOException {
 		try {
-			Element element = blockingCache.get(key);
-			if (element == null || element.getObjectValue() == null) {
-				try {
-					// Page is not cached - build the response, cache it, and
-					// send to client
-					pageInfo = buildPage(request, response, chain, blockingCache);
-					int size = ArrayUtils.getLength(pageInfo.getUngzippedBody());
-					if (pageInfo.isOk() && size > 0) {
-						if (LOG.isDebugEnabled()) {
-							LOG.debug("PageInfo ok. Adding to cache {} with key {}", blockingCache.getName(), key);
-						}
-						blockingCache.put(new Element(key, pageInfo));
-					} else {
-						if (LOG.isDebugEnabled()) {
-							LOG.debug("PageInfo was not ok ({}, size: {}). Putting null into cache {} with key {}",
-									pageInfo.getStatusCode(), size, blockingCache.getName(), key);
-						}
-						blockingCache.put(new Element(key, null));
-					}
-				} catch (final Throwable throwable) {
-					// Must unlock the cache if the above fails. Will be logged
-					// at Filter
-					blockingCache.put(new Element(key, null));
-					throw new Exception(throwable);
+			CachedResponse cachedResponse = getCachedResponse(request, response, chain, site, cache, expiry);
+			if (null != cachedResponse) {
+				if (cachedResponse.isOk() && response.isCommitted()) {
+					throw new ServletException("Response already committed after doing buildPage"
+							+ " but before writing response from PageInfo.");
 				}
-			} else {
-				pageInfo = (PageInfo) element.getObjectValue();
+				if (cachedResponse.getStatus().is4xxClientError()) {
+					response.setStatus(cachedResponse.getStatus().value());
+				} else {
+					long lastModified = cachedResponse.getHeaders().getLastModified();
+					boolean hasModifiedSince = StringUtils.isNotBlank(request.getHeader(HttpHeaders.IF_MODIFIED_SINCE));
+					if (hasModifiedSince && lastModified > 0) {
+						handleLastModified(request, response, cachedResponse, lastModified);
+					} else {
+						writeResponse(request, response, cachedResponse);
+					}
+				}
+				return cachedResponse;
 			}
 		} catch (CacheException e) {
-			// do not release the lock, because you never acquired it
-			throw e;
+			LOGGER.warn(String.format("error while adding/retrieving from/to cache: %s", calculateKey(request)), e);
+		} catch (ClientAbortException e) {
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug(String.format("client aborted request: %s", calculateKey(request)), e);
+			}
 		}
-		return pageInfo;
+		return null;
 	}
 
-	protected PageInfo buildPage(final HttpServletRequest request, final HttpServletResponse response,
-			final FilterChain chain, BlockingCache blockingCache) throws AlreadyGzippedException, Exception {
+	protected void writeResponse(HttpServletRequest request, HttpServletResponse response, CachedResponse pageInfo)
+			throws IOException {
+		byte[] body = new byte[0];
 
-		// Invoke the next entity in the chain
+		HttpStatus status = pageInfo.getStatus();
+		boolean shouldBodyBeZero = ResponseUtil.shouldBodyBeZero(request, status.value());
+		boolean acceptGzip = acceptsGzipEncoding(request);
+		if (shouldBodyBeZero) {
+			body = new byte[0];
+		} else if (acceptGzip) {
+			if (ResponseUtil.shouldGzippedBodyBeZero(body, request)) {
+				body = new byte[0];
+			} else {
+				body = pageInfo.getGzippedBody();
+				response.setHeader(HttpHeaders.CONTENT_ENCODING, GZIP);
+			}
+		} else {
+			body = pageInfo.getData();
+		}
+		response.setStatus(pageInfo.getStatus().value());
+		response.setContentLength(body.length);
+		response.setContentType(pageInfo.getContentType());
+		if (pageInfo.getHitCount() > 0) {
+			writeCachedHeaders(response, pageInfo);
+		}
+		OutputStream out = new BufferedOutputStream(response.getOutputStream());
+		out.write(body);
+		out.flush();
+	}
+
+	private void writeCachedHeaders(HttpServletResponse response, CachedResponse pageInfo) {
+		pageInfo.getHeaders().entrySet().stream().filter(e -> !e.getKey().equals(HttpHeaderUtils.X_APPNG_REQUIRED_ROLE))
+				.forEach(e -> e.getValue().forEach(v -> response.setHeader(e.getKey(), v)));
+	}
+
+	private void handleLastModified(final HttpServletRequest request, final HttpServletResponse response,
+			CachedResponse pageInfo, long lastModified) throws IOException {
+		HttpHeaderUtils.handleModifiedHeaders(request, response, new HttpHeaderUtils.HttpResource() {
+
+			public long update() throws IOException {
+				return lastModified;
+			}
+
+			public boolean needsUpdate() {
+				return false;
+			}
+
+			public byte[] getData() throws IOException {
+				return pageInfo.getData();
+			}
+
+			public String getContentType() {
+				return pageInfo.getContentType();
+			}
+		}, true);
+		writeCachedHeaders(response, pageInfo);
+	}
+
+	static class CacheHeaderUtils extends HttpHeaderUtils {
+		static Date getDate(String lastModified) {
+			try {
+				return StringUtils.isEmpty(lastModified) ? null : HTTP_DATE.parse(lastModified);
+			} catch (ParseException e) {
+			}
+			return null;
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	protected CachedResponse getCachedResponse(final HttpServletRequest request, final HttpServletResponse response,
+			final FilterChain chain, Site site, Cache<String, CachedResponse> cache, Expiry expiry)
+			throws ServletException, IOException {
+		final String key = calculateKey(request);
+		boolean cacheHit = false;
+		CachedResponse cachedResponse = cache.get(key);
+		if (cachedResponse == null) {
+			cachedResponse = performRequest(request, response, chain, site, expiry);
+			int size = cachedResponse.getContentLength();
+			if (cachedResponse.isOk()) {
+				cache.unwrap(ICache.class).put(key, cachedResponse, expiry.policy);
+				if (LOGGER.isDebugEnabled()) {
+					LOGGER.debug("Adding to cache {}: {} (type: {}, size: {}, ttl: {}s)", cache.getName(), key,
+							cachedResponse.getContentType(), size, cachedResponse.getTimeToLive());
+				}
+			} else if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("Response has status: {}, size: {} for key {}", cachedResponse.getStatus(), size, key);
+			}
+		} else {
+			HttpStatus status = cachedResponse.getStatus();
+			List<String> requiredRoles = cachedResponse.getHeaders().get(HttpHeaderUtils.X_APPNG_REQUIRED_ROLE);
+			if (null != requiredRoles) {
+				List<String> roles = EnvironmentFilter.environment().getAttribute(Scope.SESSION,
+						Session.Environment.APPNG_ROLES);
+				if (null != roles) {
+					Collection<String> matchedRoles = CollectionUtils.intersection(requiredRoles, roles);
+					if (matchedRoles.isEmpty()) {
+						LOGGER.debug(
+								"Resource required one of the role(s) [{}], none of the current role(s) [{}] did match!",
+								StringUtils.join(requiredRoles, ", "), StringUtils.join(roles, ", "));
+						status = HttpStatus.FORBIDDEN;
+					} else {
+						LOGGER.debug("Resource required one of the role(s) [{}], current role(s) [{}], matched [{}].",
+								StringUtils.join(requiredRoles, ", "), StringUtils.join(roles, ", "),
+								StringUtils.join(matchedRoles, ", "));
+					}
+				} else {
+					LOGGER.debug("Resource required one of the role(s) [{}], but no roles where found.",
+							StringUtils.join(requiredRoles, ", "));
+					status = HttpStatus.UNAUTHORIZED;
+				}
+				if (status.is4xxClientError()) {
+					return new CachedResponse(cachedResponse.getId(), site, request, status.value(), null, new byte[0],
+							null, 0);
+				}
+			}
+
+			cacheHit = true;
+			long hits = cachedResponse.incrementHit();
+			if (site.getProperties().getBoolean("cacheHitStats", false)) {
+				cache.unwrap(ICache.class).replaceAsync(key, cachedResponse, expiry.policy);
+			}
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("Hit in cache {}: {} (type: {}, size: {}, hits: {})", cache.getName(), key,
+						cachedResponse.getContentType(), cachedResponse.getContentLength(), hits);
+			}
+		}
+		request.setAttribute(CACHE_HIT, cacheHit);
+		return cachedResponse;
+	}
+
+	protected CachedResponse performRequest(final HttpServletRequest request, final HttpServletResponse response,
+			final FilterChain chain, Site site, Expiry expiry) throws IOException, ServletException {
 		final ByteArrayOutputStream outstr = new ByteArrayOutputStream();
 		final GenericResponseWrapper wrapper = new GenericResponseWrapper(response, outstr);
 		chain.doFilter(request, wrapper);
 		wrapper.flush();
 
-		long timeToLiveSeconds = blockingCache.getCacheConfiguration().getTimeToLiveSeconds();
+		HttpHeaders headers = applyHeaders(wrapper, expiry);
+		return new CachedResponse(calculateKey(request), site, request, wrapper.getStatus(), wrapper.getContentType(),
+				outstr.toByteArray(), headers, expiry.ttl);
+	}
 
-		// Return the page info
-		return new PageInfo(wrapper.getStatus(), wrapper.getContentType(), wrapper.getCookies(), outstr.toByteArray(),
-				true, timeToLiveSeconds, wrapper.getAllHeaders());
+	protected HttpHeaders applyHeaders(final HttpServletResponse response, Expiry expiry) {
+		int ttl = expiry.getClientTtl();
+		if (ttl <= 0) {
+			response.setHeader(HttpHeaders.CACHE_CONTROL, "no-cache,no-store,max-age=0");
+			response.setHeader(HttpHeaders.EXPIRES, "Thu, 01 Jan 1970 00:00:00 GMT");
+		} else {
+			response.setHeader(HttpHeaders.CACHE_CONTROL, String.format("max-age=%s", ttl));
+		}
+		HttpHeaders headers = new HttpHeaders();
+		response.getHeaderNames().stream().filter(h -> !h.startsWith(HttpHeaders.SET_COOKIE))
+				.forEach(n -> response.getHeaders(n).forEach(v -> headers.add(n, v)));
+		return headers;
 	}
 
 	private boolean isCacheableRequest(HttpServletRequest httpServletRequest) {
-		return cacheableHttpMethods.contains(httpServletRequest.getMethod().toUpperCase());
+		return CACHEABLE_HTTP_METHODS.contains(httpServletRequest.getMethod().toUpperCase());
 	}
 
-	private boolean isException(String servletPath, Site site) {
-		String clob = site.getProperties().getClob(SiteProperties.EHCACHE_EXCEPTIONS);
-		if (null != clob) {
-			List<String> exceptionList = Arrays.asList(clob.split("\n"));
-			Set<String> exceptions = new HashSet<String>(exceptionList);
-			for (String e : exceptions) {
-				if (servletPath.startsWith(e.trim())) {
-					return true;
+	static boolean isException(String exceptionsProp, String servletPath) {
+		if (null != exceptionsProp) {
+			Optional<String> matchingRule = Arrays.asList(exceptionsProp.split(StringUtils.LF)).stream()
+					.filter(e -> PATH_MATCHER.isPattern(e.trim()) ? PATH_MATCHER.match(e.trim(), servletPath)
+							: servletPath.startsWith(e.trim()))
+					.findFirst();
+			if (matchingRule.isPresent()) {
+				if (LOGGER.isDebugEnabled()) {
+					LOGGER.debug("'{}' matched exception '{}'", servletPath, matchingRule.get());
 				}
+				return true;
 			}
 		}
 		return false;
 	}
+
+	static Expiry getExpiry(Properties cachingTimes, boolean antStylePathMatching, boolean expireByCreation,
+			Integer defaultValue, String servletPath) {
+		Integer ttl = defaultValue;
+		Integer clientTtl = ttl;
+		Matcher matcher = null;
+		outer: if (null != cachingTimes && !cachingTimes.isEmpty()) {
+			if (antStylePathMatching) {
+				for (Object path : cachingTimes.keySet()) {
+					if (PATH_MATCHER.match(path.toString(), servletPath)) {
+						String entry = (String) cachingTimes.get(path);
+						matcher = EXPIRY_PATTERN.matcher(entry);
+						break outer;
+					}
+				}
+			} else {
+				String[] pathSegements = servletPath.split(Path.SEPARATOR);
+				int len = pathSegements.length;
+				while (len > 0) {
+					String segment = StringUtils.join(Arrays.copyOfRange(pathSegements, 0, len--), Path.SEPARATOR);
+					String entry = (String) cachingTimes.get(segment);
+					if (null != entry) {
+						matcher = EXPIRY_PATTERN.matcher(entry);
+						break outer;
+					}
+				}
+			}
+
+		}
+		if (matcher != null && matcher.matches()) {
+			ttl = Integer.valueOf(matcher.group(1));
+			clientTtl = StringUtils.isNotBlank(matcher.group(3)) ? Integer.valueOf(matcher.group(3)) : ttl;
+		}
+		Duration expiryDuration = new Duration(TimeUnit.SECONDS, ttl);
+		ExpiryPolicy expiryPolicy = expireByCreation ? new CreatedExpiryPolicy(expiryDuration)
+				: new AccessedExpiryPolicy(expiryDuration);
+		return new Expiry(ttl, clientTtl, expiryPolicy);
+	}
+
+	@Data
+	@AllArgsConstructor
+	static class Expiry {
+		final int ttl;
+		final int clientTtl;
+		final ExpiryPolicy policy;
+
+	};
 
 	protected String calculateKey(final HttpServletRequest request) {
 		StringBuilder keyBuilder = new StringBuilder(request.getMethod());
@@ -194,22 +409,8 @@ public class PageCacheFilter extends CachingFilter {
 		return keyBuilder.toString();
 	}
 
-	protected PageInfo buildPageInfo(final HttpServletRequest request, final HttpServletResponse response,
-			final FilterChain chain) throws Exception {
-		throw new UnsupportedOperationException("This method is not supported in " + this.getClass().getName());
-	}
-
-	protected PageInfo buildPage(final HttpServletRequest request, final HttpServletResponse response,
-			final FilterChain chain) throws AlreadyGzippedException, Exception {
-		throw new UnsupportedOperationException("This method is not supported in " + this.getClass().getName());
-	}
-
-	public void doInit(FilterConfig filterConfig) throws CacheException {
-
-	}
-
-	protected CacheManager getCacheManager() {
-		return CacheService.getCacheManager();
+	protected boolean acceptsGzipEncoding(HttpServletRequest request) {
+		return StringUtils.containsIgnoreCase(request.getHeader(HttpHeaders.ACCEPT_ENCODING), GZIP);
 	}
 
 }

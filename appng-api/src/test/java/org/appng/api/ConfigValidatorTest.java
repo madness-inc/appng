@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ public class ConfigValidatorTest {
 		configValidator.validate("application");
 		configValidator.validateMetaData(new URLClassLoader(new URL[0]));
 		Collection<String> errors = configValidator.getErrors();
-		List<String> sorted = new ArrayList<String>(errors);
+		List<String> sorted = new ArrayList<>(errors);
 		Collections.sort(sorted);
 //		System.out.println("");
 //		for (String e : sorted) {
@@ -70,12 +70,13 @@ public class ConfigValidatorTest {
 //		}
 		InputStream expected = classLoader.getResourceAsStream("configvalidator.txt");
 		List<String> expectedErrors = IOUtils.readLines(expected, Charset.defaultCharset());
+		Assert.assertEquals(70, expectedErrors.size());
 		for (int i = 0; i < expectedErrors.size(); i++) {
 			Assert.assertEquals("error in line " + (i + 1), expectedErrors.get(i), sorted.get(i));
 		}
 
 		List<ConfigValidationError> detaildErrors = configValidator.getDetaildErrors();
-		sorted = new ArrayList<String>();
+		sorted = new ArrayList<>();
 		for (ConfigValidationError error : detaildErrors) {
 			Assert.assertNotNull(error.getLine());
 			sorted.add(error.toString());
@@ -85,7 +86,7 @@ public class ConfigValidatorTest {
 //		for (String e : sorted) {
 //			System.out.println(e);
 //		}
-		Assert.assertEquals(46, detaildErrors.size());
+		Assert.assertEquals(51, detaildErrors.size());
 
 		InputStream expectedDetails = classLoader.getResourceAsStream("configvalidatorDetails.txt");
 		List<String> expectedDetailErrors = IOUtils.readLines(expectedDetails, Charset.defaultCharset());

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 package org.appng.core.service;
 
+import java.io.File;
 import java.util.Arrays;
 
 import javax.sql.DataSource;
@@ -22,23 +23,25 @@ import javax.sql.DataSource;
 import org.apache.commons.lang3.StringUtils;
 import org.appng.core.domain.DatabaseConnection;
 import org.appng.core.domain.DatabaseConnection.DatabaseType;
+import org.appng.core.domain.SiteApplication;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.FlywayException;
+import org.flywaydb.core.api.Location;
 import org.flywaydb.core.api.MigrationInfo;
 import org.flywaydb.core.api.MigrationInfoService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.flywaydb.core.api.configuration.FluentConfiguration;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
- * A service offering methods for configuring and initializing {@link DatabaseConnection}s using <a
- * href="http://www.flywaydb.org">Flyway</a>.
+ * A service offering methods for configuring and initializing {@link DatabaseConnection}s using
+ * <a href="http://www.flywaydb.org">Flyway</a>.
  * 
  * @author Matthias Müller
  */
+@Slf4j
 public class MigrationService {
-
-	protected Logger log = LoggerFactory.getLogger(getClass());
 
 	public static final String DATABASE_MIN_CONNECTIONS = "database.minConnections";
 	public static final String DATABASE_MAX_CONNECTIONS = "database.maxConnections";
@@ -56,13 +59,12 @@ public class MigrationService {
 	protected static final String APP_NG_ROOT_DATABASE = "appNG Root Database";
 	protected static final String DATABASE_NAME_PREFIX = "appNG ";
 
-	private static final String LOCATION_PREFIX = "db.migration.";
+	private static final String LOCATION_PREFIX = "db/migration/";
 
 	/**
 	 * Enum type defining the different states of a database migration.
 	 * 
 	 * @author Matthias Müller
-	 * 
 	 */
 	public enum MigrationStatus {
 		/** no database supported */
@@ -73,6 +75,8 @@ public class MigrationService {
 		DB_NOT_AVAILABLE,
 		/** database migrated */
 		DB_MIGRATED,
+		/** database not migrated */
+		DB_NOT_MIGRATED,
 		/** error */
 		ERROR;
 
@@ -92,12 +96,13 @@ public class MigrationService {
 	 * {@link java.util.Properties}.
 	 * 
 	 * @param config
-	 *            the properties read from {@value org.appng.core.controller.PlatformStartup#CONFIG_LOCATION}
+	 *               the properties read from {@value org.appng.core.controller.PlatformStartup#CONFIG_LOCATION}
+	 * 
 	 * @return the appNG root {@link DatabaseConnection}
 	 */
 	public DatabaseConnection initDatabase(java.util.Properties config) {
 		DatabaseConnection platformConnection = getPlatformConnection(config);
-		Boolean doRepair = Boolean.valueOf(config.getProperty(DATABASE_REPAIR, "true"));
+		Boolean doRepair = Boolean.valueOf(config.getProperty(DATABASE_REPAIR));
 		initDatabase(platformConnection, doRepair);
 		return platformConnection;
 	}
@@ -106,13 +111,13 @@ public class MigrationService {
 		String type = properties.getProperty(DATABASE_TYPE);
 		DatabaseType databaseType = DatabaseType.MYSQL;
 		if (StringUtils.isEmpty(type)) {
-			log.warn("Property  " + DATABASE_TYPE + " is not specified, using default: " + databaseType.name());
+			LOGGER.warn("Property {} is not specified, using default: {}", DATABASE_TYPE, databaseType.name());
 		} else {
 			try {
 				databaseType = DatabaseType.valueOf(type.toUpperCase());
 			} catch (IllegalArgumentException e) {
-				log.error("Invalid value for property " + DATABASE_TYPE + ": " + type + " ; must be one of: "
-						+ Arrays.asList(DatabaseType.values()));
+				LOGGER.error("Invalid value for property {}: {} ; must be one of: {}", DATABASE_TYPE, type,
+						Arrays.asList(DatabaseType.values()));
 			}
 		}
 
@@ -120,14 +125,23 @@ public class MigrationService {
 		String driverClass = properties.getProperty(HIBERNATE_CONNECTION_DRIVER_CLASS);
 		String username = properties.getProperty(HIBERNATE_CONNECTION_USERNAME);
 		String password = properties.getProperty(HIBERNATE_CONNECTION_PASSWORD);
+
+		Integer minConnections = Integer.valueOf((String) properties.getOrDefault(DATABASE_MIN_CONNECTIONS, "5"));
+		Integer maxConnections = Integer.valueOf((String) properties.getOrDefault(DATABASE_MAX_CONNECTIONS, "20"));
 		String validationQuery = properties.getProperty(DATABASE_VALIDATION_QUERY);
-		Integer validationPeriod = Integer.parseInt(properties.getProperty(DATABASE_VALIDATION_PERIOD));
+		String validationPeriod = properties.getProperty(DATABASE_VALIDATION_PERIOD);
 
 		DatabaseConnection conn = new DatabaseConnection(databaseType, jdbcUrl, driverClass, username,
 				password.getBytes(), validationQuery);
 		conn.setName(DATABASE_NAME_PREFIX + databaseType.name());
 		conn.setDescription(APP_NG_ROOT_DATABASE);
-		conn.setValidationPeriod(validationPeriod);
+		if (StringUtils.isNotBlank(validationPeriod)) {
+			conn.setValidationPeriod(Integer.valueOf(validationPeriod));
+		}
+		conn.registerDriver(true);
+		conn.setMigrationInfoService(statusComplete(conn));
+		conn.setMinConnections(minConnections);
+		conn.setMaxConnections(maxConnections);
 		return conn;
 	}
 
@@ -135,8 +149,10 @@ public class MigrationService {
 	 * Returns the current {@link MigrationInfo} for the connection
 	 * 
 	 * @param config
-	 *            the configuration read from {@value org.appng.core.controller.PlatformStartup#CONFIG_LOCATION}
+	 *               the configuration read from {@value org.appng.core.controller.PlatformStartup#CONFIG_LOCATION}
+	 * 
 	 * @return the current {@link MigrationInfo} for the given connection
+	 * 
 	 * @see #status(DatabaseConnection)
 	 */
 	public MigrationInfo status(java.util.Properties config) {
@@ -147,8 +163,10 @@ public class MigrationService {
 	 * Returns the current {@link MigrationInfo} for the given {@link DatabaseConnection}
 	 * 
 	 * @param connection
-	 *            a {@link DatabaseConnection}
+	 *                   a {@link DatabaseConnection}
+	 * 
 	 * @return the current {@link MigrationInfo} for the given connection (may be {@code null}).
+	 * 
 	 * @see MigrationInfoService#current()
 	 */
 	public MigrationInfo status(DatabaseConnection connection) {
@@ -160,64 +178,110 @@ public class MigrationService {
 	}
 
 	/**
-	 * Returns the current {@link MigrationInfoService} for the given {@link DatabaseConnection}
+	 * Returns the current {@link MigrationInfoService} for the given {@link DatabaseConnection} (the appNG root
+	 * connection).
 	 * 
 	 * @param connection
-	 *            a {@link DatabaseConnection}
+	 *                   a {@link DatabaseConnection}
+	 * 
 	 * @return the current {@link MigrationInfoService} for the given connection (may be {@code null}).
+	 * 
 	 * @see MigrationInfoService
 	 */
 	public MigrationInfoService statusComplete(DatabaseConnection connection) {
+		return statusComplete(connection, true);
+	}
+
+	/**
+	 * Returns the current {@link MigrationInfoService} for the given {@link DatabaseConnection} (the appNG root
+	 * connection).
+	 * 
+	 * @param connection
+	 *                       a {@link DatabaseConnection}
+	 * @param testConnection
+	 *                       if the connection needs to be tested
+	 * 
+	 * @return the current {@link MigrationInfoService} for the given connection (may be {@code null}).
+	 * 
+	 * @see MigrationInfoService
+	 */
+	public MigrationInfoService statusComplete(DatabaseConnection connection, boolean testConnection) {
 		StringBuilder dbInfo = new StringBuilder();
-		if (connection.testConnection(dbInfo)) {
-			log.info("connected to " + connection.getJdbcUrl() + " (" + dbInfo.toString() + ")");
-			Flyway flyway = new Flyway();
-			DataSource dataSource = getDataSource(connection);
-			flyway.setDataSource(dataSource);
-			String location = LOCATION_PREFIX + connection.getType().name().toLowerCase();
-			flyway.setLocations(location);
-			return flyway.info();
+		if (!testConnection || connection.testConnection(dbInfo, true)) {
+			LOGGER.info("connected to {} ({})", connection.getJdbcUrl(), dbInfo.toString());
+			Flyway flyway = getFlyway(connection, null, LOCATION_PREFIX + connection.getType().name().toLowerCase());
+			MigrationInfoService info = flyway.info();
+			connection.setMigrationInfoService(info);
+			return info;
 		} else {
-			log.error(connection.toString() + " is not working, unable to retrieve connection status.");
+			LOGGER.error("{} is not working, unable to retrieve connection status.", connection.toString());
 		}
 		return null;
+	}
+
+	/**
+	 * Returns the current {@link MigrationInfoService} for the given {@link DatabaseConnection}, which must be owned by
+	 * a {@link SiteApplication}.
+	 * 
+	 * @param connection
+	 *                   a {@link DatabaseConnection} owned by a {@link SiteApplication}
+	 * @param sqlFolder
+	 *                   the path to migration scripts
+	 * 
+	 * @return the current {@link MigrationInfoService} for the given connection (may be {@code null}).
+	 * 
+	 * @see MigrationInfoService
+	 */
+	public MigrationInfoService statusComplete(DatabaseConnection connection, File sqlFolder) {
+		if (null != connection && connection.testConnection(null)) {
+			String typeFolder = connection.getType().name().toLowerCase();
+			File scriptFolder = new File(sqlFolder.getAbsolutePath(), typeFolder);
+			Flyway flyway = getFlyway(connection, null, Location.FILESYSTEM_PREFIX + scriptFolder.getAbsolutePath());
+			MigrationInfoService info = flyway.info();
+			connection.setMigrationInfoService(info);
+			return info;
+		}
+		return null;
+	}
+
+	protected Flyway getFlyway(DatabaseConnection connection, ClassLoader classLoader, String... locations) {
+		// Flyway changed the name of the table from "schema_version" to
+		// "flyway_schema_history"
+		// https://github.com/flyway/flyway/issues/1965
+		FluentConfiguration configuration = null == classLoader ? new FluentConfiguration()
+				: new FluentConfiguration(classLoader);
+		return configuration.table("schema_version").dataSource(connection.getDataSource()).locations(locations).load();
 	}
 
 	protected MigrationStatus initDatabase(DatabaseConnection rootConnection, Boolean doRepair) {
 		StringBuilder dbInfo = new StringBuilder();
 		String jdbcUrl = rootConnection.getJdbcUrl();
-		if (rootConnection.testConnection(dbInfo)) {
-			log.info("connected to " + jdbcUrl + " (" + dbInfo.toString() + ")");
-			Flyway flyway = new Flyway();
-			String location = LOCATION_PREFIX + rootConnection.getType().name().toLowerCase();
-			flyway.setLocations(location);
+		if (rootConnection.testConnection(dbInfo, true)) {
+			LOGGER.info("connected to {} ({})", jdbcUrl, dbInfo.toString());
+			Flyway flyway = getFlyway(rootConnection, null,
+					LOCATION_PREFIX + rootConnection.getType().name().toLowerCase());
 			if (doRepair) {
-				flyway.setDataSource(getDataSource(rootConnection));
 				flyway.repair();
 			}
 			return migrate(flyway, rootConnection);
 		} else {
-			log.error(rootConnection.toString() + " is not working, initializing database was not successful.");
+			LOGGER.error("{} is not working, initializing database was not successful.", rootConnection.toString());
 		}
 		return MigrationStatus.ERROR;
 	}
 
 	protected MigrationStatus migrate(Flyway flyway, DatabaseConnection databaseConnection) {
-		String jdbcUrl = databaseConnection.getJdbcUrl();
 		try {
-			DataSource dataSource = getDataSource(databaseConnection);
-			flyway.setDataSource(dataSource);
 			flyway.migrate();
 			return MigrationStatus.DB_MIGRATED;
 		} catch (FlywayException e) {
-			log.error("error while migrating " + jdbcUrl, e);
+			LOGGER.error(String.format("error while migrating %s", databaseConnection.getJdbcUrl()), e);
 		}
 		return MigrationStatus.ERROR;
 	}
 
 	protected DataSource getDataSource(DatabaseConnection databaseConnection) {
-		return getDataSource(databaseConnection.getJdbcUrl(), databaseConnection.getUserName(), new String(
-				databaseConnection.getPassword()));
+		return databaseConnection.getDataSource();
 	}
 
 	protected DataSource getDataSource(String url, String username, String password) {

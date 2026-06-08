@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,6 +59,7 @@ import org.appng.api.model.Role;
 import org.appng.api.model.Site;
 import org.appng.api.model.Subject;
 import org.appng.api.support.ApplicationRequest;
+import org.appng.api.support.ApplicationRequest.ApplicationPath;
 import org.appng.api.support.CallableAction;
 import org.appng.api.support.CallableDataSource;
 import org.appng.api.support.DefaultPermissionProcessor;
@@ -67,9 +68,11 @@ import org.appng.api.support.ElementHelper;
 import org.appng.api.support.RequestFactoryBean;
 import org.appng.api.support.environment.DefaultEnvironment;
 import org.appng.core.controller.filter.CsrfSetupFilter;
+import org.appng.core.controller.filter.MetricsFilter;
 import org.appng.core.domain.DatabaseConnection;
 import org.appng.core.domain.SiteApplication;
 import org.appng.core.model.JarInfo.JarInfoBuilder;
+import org.appng.el.ExpressionEvaluator;
 import org.appng.xml.MarshallService;
 import org.appng.xml.platform.Action;
 import org.appng.xml.platform.ActionRef;
@@ -95,6 +98,7 @@ import org.appng.xml.platform.Permissions;
 import org.appng.xml.platform.Platform;
 import org.appng.xml.platform.PlatformConfig;
 import org.appng.xml.platform.Section;
+import org.appng.xml.platform.SectionConfig;
 import org.appng.xml.platform.SectionDef;
 import org.appng.xml.platform.Sectionelement;
 import org.appng.xml.platform.SectionelementDef;
@@ -103,14 +107,14 @@ import org.appng.xml.platform.Structure;
 import org.appng.xml.platform.Template;
 import org.appng.xml.platform.UrlParams;
 import org.appng.xml.platform.UrlSchema;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.MessageSource;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.util.StopWatch;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * An {@link ApplicationProvider} actually processes the {@link ApplicationRequest} by building and executing
@@ -121,21 +125,17 @@ import org.springframework.util.StopWatch;
  * @see CallableDataSource#perform(String, boolean, boolean)
  * 
  * @author Matthias Müller
- * 
  */
+@Slf4j
 public class ApplicationProvider extends SiteApplication implements AccessibleApplication {
-
-	private static final Logger log = LoggerFactory.getLogger(ApplicationProvider.class);
 
 	private Site site;
 	private AccessibleApplication application;
 	private ApplicationConfigProvider applicationConfig;
-	private List<JarInfo> jarInfos = new ArrayList<JarInfo>();
+	private List<JarInfo> jarInfos = new ArrayList<>();
 	private ElementHelper elementHelper;
 
 	private DatabaseConnection databaseConnection;
-
-	private ApplicationRequest applicationRequest;
 
 	private boolean monitorPerformance;
 
@@ -159,18 +159,20 @@ public class ApplicationProvider extends SiteApplication implements AccessibleAp
 	 * {@link CallableDataSource}s.
 	 * 
 	 * @param applicationRequest
-	 *            the {@link ApplicationRequest} to process
+	 *                           the {@link ApplicationRequest} to process
 	 * @param marshallService
-	 *            a {@link MarshallService}
+	 *                           a {@link MarshallService}
 	 * @param pathInfo
-	 *            the current {@link Path}
+	 *                           the current {@link Path}
 	 * @param platformConfig
-	 *            the current {@link PlatformConfig}
+	 *                           the current {@link PlatformConfig}
+	 * 
 	 * @return the {@link ApplicationReference} to be used for the {@link Content} of the {@link Platform}
 	 */
 	public ApplicationReference process(ApplicationRequest applicationRequest, MarshallService marshallService,
 			Path pathInfo, PlatformConfig platformConfig) {
 		PermissionProcessor permissionProcessor = applicationRequest.getPermissionProcessor();
+		setPlatformScope(applicationRequest.getEnvironment());
 
 		ApplicationConfigProvider applicationConfigProvider = null;
 		try {
@@ -241,13 +243,13 @@ public class ApplicationProvider extends SiteApplication implements AccessibleAp
 		Environment env = applicationRequest.getEnvironment();
 
 		UrlSchema urlSchema = pageConfig.getUrlSchema();
-		Set<String> sessionParamNames = new HashSet<String>();
+		Set<String> sessionParamNames = new HashSet<>();
 		for (Param sessionParam : applicationConfig.getSession().getSessionParams().getSessionParam()) {
 			sessionParamNames.add(sessionParam.getName());
 		}
 
 		PageParameterProcessor pageParameterProcessor = new PageParameterProcessor(getSessionParamKey(site),
-				sessionParamNames, env, applicationRequest, page.getId());
+				sessionParamNames, env, applicationRequest);
 		boolean urlParamsAdded = pageParameterProcessor.processPageParams(applicationUrlParameters, urlSchema);
 		Map<String, String> pageParams = pageParameterProcessor.getParameters();
 		initSession(applicationConfig, env, getSessionParamKey(site));
@@ -277,7 +279,8 @@ public class ApplicationProvider extends SiteApplication implements AccessibleAp
 		Structure structure = null;
 		boolean debugPermission = permissionProcessor.hasPermission("debug");
 		try {
-			structure = buildStructure(applicationRequest, applicationConfig, pageReference, page);
+			structure = buildStructure(applicationRequest, applicationConfig, pageReference, page, true,
+					Collections.emptyList());
 		} catch (ProcessingException e) {
 			FieldProcessor fieldProcessor = e.getFieldProcessor();
 			structure = handleException(applicationRequest, pageReference, e, fieldProcessor, debugPermission);
@@ -290,7 +293,190 @@ public class ApplicationProvider extends SiteApplication implements AccessibleAp
 			performPage.stop();
 			pageReference.setExecutionTime(performPage.getTotalTimeMillis());
 		}
+		setPlatformScope(isPrivileged(), applicationRequest.getEnvironment());
 		return applicationReference;
+	}
+
+	protected void checkConditionsAndPermissions(ApplicationRequest applicationRequest, PageDefinition page) {
+		Map<String, Object> conditionParams = new HashMap<>(applicationRequest.getParameters());
+		conditionParams.put(ApplicationPath.PATH_VAR, applicationRequest.applicationPath());
+		ExpressionEvaluator conditionEvaluator = new ExpressionEvaluator(conditionParams);
+
+		Map<SectionDef, List<SectionelementDef>> nonAccessibleElements = new HashMap<>();
+		List<SectionDef> sections = page.getStructure().getSection();
+		PermissionProcessor permissionProcessor = applicationRequest.getPermissionProcessor();
+		for (SectionDef sectionDef : sections) {
+			nonAccessibleElements.put(sectionDef, new ArrayList<>());
+			for (SectionelementDef element : sectionDef.getElement()) {
+				boolean conditionMatches = true;
+				boolean hasPermission = true;
+				ActionRef action = element.getAction();
+				if (null != action && null != action.getCondition()) {
+					conditionMatches = ElementHelper.conditionMatches(conditionEvaluator, action.getCondition());
+					hasPermission = permissionProcessor.hasPermissions(new PermissionOwner(action));
+					if (!conditionMatches) {
+						LOGGER.debug("include condition for action '{}' of event '{}' did not match - {}",
+								action.getId(), action.getEventId(), action.getCondition().getExpression());
+					}
+					if (!hasPermission) {
+						LOGGER.debug("missing permissions for action '{}' of event '{}'", action.getId(),
+								action.getEventId());
+					}
+				}
+				DatasourceRef datasource = element.getDatasource();
+				if (null != datasource && null != datasource.getCondition()) {
+					conditionMatches = ElementHelper.conditionMatches(conditionEvaluator, datasource.getCondition());
+					hasPermission = permissionProcessor.hasPermissions(new PermissionOwner(datasource));
+					if (!conditionMatches) {
+						LOGGER.debug("include condition for datasource '{}' did not match - {}", datasource.getId(),
+								datasource.getCondition().getExpression());
+					}
+					if (!hasPermission) {
+						LOGGER.debug("missing permissions for datasource '{}' ", datasource.getId());
+					}
+				}
+
+				if (!(conditionMatches && hasPermission)) {
+					nonAccessibleElements.get(sectionDef).add(element);
+				}
+			}
+		}
+
+		for (SectionDef sectionDef : sections) {
+			List<SectionelementDef> toBeRemoved = nonAccessibleElements.get(sectionDef);
+			sectionDef.getElement().removeAll(toBeRemoved);
+
+			if (null == sectionDef.getId()) {
+				Label title = sectionDef.getTitle();
+				SectionConfig config = sectionDef.getConfig();
+				if (null != title && null != title.getId()) {
+					sectionDef.setId(title.getId());
+				} else if (null != config && null != config.getTitle().getId()) {
+					sectionDef.setId(config.getTitle().getId());
+				} else {
+					for (SectionelementDef element : sectionDef.getElement()) {
+						if (StringUtils.isBlank(element.getPassive())
+								|| !Boolean.TRUE.equals(conditionEvaluator.evaluate(element.getPassive()))) {
+							String sectionId = null == element.getDatasource() ? element.getAction().getId()
+									: element.getDatasource().getId();
+							sectionDef.setId(sectionId);
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	public PageReference processPage(ApplicationRequest applicationRequest, MarshallService marshallService,
+			Path pathInfo, String pageId, List<String> sectionIds, List<String> applicationUrlParameters) {
+		PermissionProcessor permissionProcessor = applicationRequest.getPermissionProcessor();
+		Environment env = applicationRequest.getEnvironment();
+
+		ApplicationConfigProvider applicationConfigProvider = null;
+		try {
+			applicationConfigProvider = applicationConfig.cloneConfig(marshallService);
+			applicationRequest.setApplicationConfig(applicationConfigProvider);
+		} catch (InvalidConfigurationException e) {
+			error("error while (re)loading configuration!", e);
+		}
+
+		trace("Processing application \"" + pathInfo.getApplicationName() + "\" with url-parameters \""
+				+ applicationUrlParameters + "\"");
+
+		ApplicationRootConfig applicationRootConfig = applicationConfigProvider.getApplicationRootConfig();
+		ApplicationConfig applicationConfig = applicationRootConfig.getConfig();
+		permissionProcessor.hasPermissions(new PermissionOwner(applicationConfig));
+
+		StopWatch performPage = new StopWatch();
+		if (monitorPerformance) {
+			performPage.start();
+		}
+
+		PageReference pageReference = new PageReference();
+
+		boolean isDefault = pageId == null;
+		String defaultPageName = applicationConfigProvider.getDefaultPage();
+		if (isDefault) {
+			pageId = defaultPageName;
+		}
+
+		PageDefinition defaultPage = applicationConfigProvider.getPage(defaultPageName);
+		PageDefinition page = applicationConfigProvider.getPage(pageId);
+		if (null == page) {
+			if (!isDefault) {
+				warn("could not find requested page with id '" + pageId + "', returning defaultpage '" + defaultPageName
+						+ "' instead");
+				page = defaultPage;
+				pageId = defaultPageName;
+				isDefault = true;
+			}
+			if (null == page) {
+				warn("no page found");
+				return null;
+			}
+		} else {
+			trace("found requested page with id '" + pageId + "'");
+		}
+
+		PageConfig pageConfig = page.getConfig();
+		addTemplate(applicationConfig, pageConfig.getTemplates());
+
+		pageReference.setConfig(pageConfig);
+		pageReference.setType(page.getType());
+		pageReference.setId(page.getId());
+
+		if (!permissionProcessor.hasPermissions(new PermissionOwner(page))) {
+			info("no permissions to display page '" + page.getId() + "', returning default page '" + defaultPageName
+					+ "'");
+			page = defaultPage;
+		}
+
+		Set<String> sessionParamNames = new HashSet<>();
+		for (Param sessionParam : applicationConfig.getSession().getSessionParams().getSessionParam()) {
+			sessionParamNames.add(sessionParam.getName());
+		}
+
+		PageParameterProcessor pageParameterProcessor = new PageParameterProcessor(getSessionParamKey(site),
+				sessionParamNames, env, applicationRequest);
+		pageParameterProcessor.processPageParams(applicationUrlParameters, pageConfig.getUrlSchema());
+		Map<String, String> pageParams = pageParameterProcessor.getParameters();
+		initSession(applicationConfig, env, getSessionParamKey(site));
+
+		if (pathInfo.hasAction()) {
+			// if action has been explicitly set at item element, override
+			// an existing entry in params
+			pageParams.put(pathInfo.getActionName(), pathInfo.getActionValue());
+		}
+
+		applicationRequest.addParameters(pageParams);
+		applicationRequest.setLabels(applicationConfig);
+		applicationRequest.setLabels(page.getConfig());
+		if (null == applicationConfig.getTitle()) {
+			Label title = new Label();
+			title.setValue(getDisplayName());
+			applicationConfig.setTitle(title);
+		}
+
+		elementHelper.initNavigation(applicationRequest, pathInfo, pageConfig);
+		Structure structure = null;
+		boolean debugPermission = permissionProcessor.hasPermission("debug");
+
+		try {
+			structure = buildStructure(applicationRequest, applicationConfig, pageReference, page, false, sectionIds);
+		} catch (ProcessingException e) {
+			FieldProcessor fieldProcessor = e.getFieldProcessor();
+			structure = handleException(applicationRequest, pageReference, e, fieldProcessor, debugPermission);
+		} catch (Exception e) {
+			handleException(applicationRequest, pageReference, e, null, debugPermission);
+		}
+
+		pageReference.setStructure(structure);
+		if (monitorPerformance) {
+			performPage.stop();
+			pageReference.setExecutionTime(performPage.getTotalTimeMillis());
+		}
+		return pageReference;
 	}
 
 	private Structure handleException(ApplicationRequest applicationRequest, PageReference pageReference, Exception e,
@@ -334,49 +520,59 @@ public class ApplicationProvider extends SiteApplication implements AccessibleAp
 	}
 
 	private Structure buildStructure(ApplicationRequest applicationRequest, ApplicationConfig applicationConfig,
-			final PageReference pageReference, PageDefinition page) throws ProcessingException {
+			final PageReference pageReference, PageDefinition page, boolean includeElements, List<String> sectionIds)
+			throws ProcessingException {
+		checkConditionsAndPermissions(applicationRequest, page);
+
 		Structure structure = new Structure();
 
 		List<SectionDef> sectionDefs = page.getStructure().getSection();
 		boolean hasRedirect = false;
-		List<DataSourceElement> dataSourceWrappers = new ArrayList<DataSourceElement>();
+		List<DataSourceWrapper> dataSourceWrappers = new ArrayList<>();
 
+		int sectionIdx = 0;
 		for (SectionDef sectionDef : sectionDefs) {
 			Section section = new Section();
+			section.setId(sectionDef.getId());
+			section.setTitle(sectionDef.getTitle());
+			applicationRequest.setLabel(section.getTitle());
 
 			String hidden = applicationRequest.getExpressionEvaluator().getString(sectionDef.getHidden());
 			section.setHidden(hidden);
 			List<SectionelementDef> elements = sectionDef.getElement();
 
+			boolean include = includeElements
+					|| ((0 == sectionIdx && sectionIds.isEmpty()) || sectionIds.contains(section.getId()));
 			hasRedirect |= addElements(applicationRequest, applicationConfig, section, elements, pageReference,
-					dataSourceWrappers);
+					dataSourceWrappers, include);
 
 			if (!section.getElement().isEmpty()) {
-				section.setTitle(sectionDef.getTitle());
-				applicationRequest.setLabel(section.getTitle());
 				structure.getSection().add(section);
 			}
+			sectionIdx++;
 		}
 		if (!hasRedirect) {
 			Messages messagesFromSession = elementHelper.removeMessages(applicationRequest.getEnvironment());
 			if (null != messagesFromSession) {
 				pageReference.setMessages(messagesFromSession);
 			}
-			for (final DataSourceElement dataSourceWrapper : dataSourceWrappers) {
-				Callback<Void> dataSourceCallback = new Callback<Void>() {
+			for (final DataSourceWrapper dataSourceWrapper : dataSourceWrappers) {
+				if (dataSourceWrapper.mustPerform) {
+					Callback<Void> dataSourceCallback = new Callback<Void>() {
 
-					public void perform() throws ProcessingException {
-						dataSourceWrapper.perform(pageReference.getId());
+						public void perform() throws ProcessingException {
+							dataSourceWrapper.perform(pageReference.getId(), false);
+						}
+
+						public Void getResult() {
+							return null;
+						}
+					};
+
+					long time = doMonitored(dataSourceCallback);
+					if (monitorPerformance) {
+						dataSourceWrapper.setExecutionTime(time);
 					}
-
-					public Void getResult() {
-						return null;
-					}
-				};
-
-				long time = doMonitored(dataSourceCallback);
-				if (monitorPerformance) {
-					dataSourceWrapper.setExecutionTime(time);
 				}
 			}
 
@@ -392,23 +588,40 @@ public class ApplicationProvider extends SiteApplication implements AccessibleAp
 		return structure;
 	}
 
+	protected class DataSourceWrapper extends DataSourceElement {
+		protected boolean mustPerform;
+
+		public DataSourceWrapper(Site site, AccessibleApplication application, ApplicationRequest applicationRequest,
+				ParameterSupport parameterSupportDollar, DatasourceRef datasourceRef) throws ProcessingException {
+			super(site, application, applicationRequest, parameterSupportDollar, datasourceRef);
+		}
+
+	}
+
 	private boolean addElements(final ApplicationRequest applicationRequest, final ApplicationConfig applicationConfig,
 			Section section, List<SectionelementDef> elements, final PageReference pageReference,
-			List<DataSourceElement> dataSourceWrappers) throws ProcessingException {
+			List<DataSourceWrapper> dataSourceWrappers, boolean include) throws ProcessingException {
 		boolean hasRedirect = false;
+		boolean isSectionHidden = Boolean.parseBoolean(section.getHidden());
+		ExpressionEvaluator expressionEvaluator = applicationRequest.getExpressionEvaluator();
+
 		for (final SectionelementDef sectionelement : elements) {
 
-			String folded = applicationRequest.getExpressionEvaluator().getString(sectionelement.getFolded());
-			String passive = applicationRequest.getExpressionEvaluator().getString(sectionelement.getPassive());
+			String folded = expressionEvaluator.getString(sectionelement.getFolded());
+			String passive = expressionEvaluator.getString(sectionelement.getPassive());
+			boolean mustSetTitle = !Boolean.valueOf(passive) && null == section.getTitle();
+
 			sectionelement.setFolded(folded);
 			sectionelement.setPassive(passive);
 			applicationRequest.setLabel(sectionelement.getTitle());
 
 			if (null != sectionelement.getDatasource()) {
-				DataSourceElement datasourceElement = getDataSourceSectionElement(applicationRequest, applicationConfig,
-						sectionelement, pageReference.getId());
+				DataSourceWrapper datasourceElement = getDataSourceSectionElement(applicationRequest, sectionelement);
 				if (null != datasourceElement) {
-					datasourceElement.setTitle(sectionelement.getTitle());
+					if (mustSetTitle) {
+						setSectionTitle(section, datasourceElement.getDatasource().getConfig().getTitle());
+					}
+					datasourceElement.mustPerform = include;
 					dataSourceWrappers.add(datasourceElement);
 					section.getElement().add(datasourceElement);
 				}
@@ -420,7 +633,10 @@ public class ApplicationProvider extends SiteApplication implements AccessibleAp
 
 					public void perform() throws ProcessingException {
 						this.result = getActionSectionElement(applicationRequest, applicationConfig, sectionelement,
-								pageReference);
+								pageReference, isSectionHidden, true);
+						if (mustSetTitle) {
+							setSectionTitle(section, result.getAction().getConfig().getTitle());
+						}
 					}
 
 					public ActionElement getResult() {
@@ -432,10 +648,10 @@ public class ApplicationProvider extends SiteApplication implements AccessibleAp
 
 				if (null != actionElement) {
 					if (actionElement.doExecute()) {
-						hasRedirect |= !actionElement.hasErrors() && actionElement.getOnSuccess() != null;
+						hasRedirect |= actionElement.getOnSuccess() != null
+								&& (!actionElement.hasErrors() || sectionelement.getAction().isForceForward());
 					}
 					if (actionElement.doInclude()) {
-						actionElement.setTitle(sectionelement.getTitle());
 						section.getElement().add(actionElement);
 						if (monitorPerformance) {
 							actionElement.setExecutionTime(time);
@@ -446,6 +662,13 @@ public class ApplicationProvider extends SiteApplication implements AccessibleAp
 
 		}
 		return hasRedirect;
+	}
+
+	protected void setSectionTitle(Section section, Label title) {
+		Label sectionTitle = new Label();
+		sectionTitle.setId(title.getId());
+		sectionTitle.setValue(title.getValue());
+		section.setTitle(sectionTitle);
 	}
 
 	private interface Callback<T> {
@@ -504,13 +727,16 @@ public class ApplicationProvider extends SiteApplication implements AccessibleAp
 		return sb.toString();
 	}
 
-	private DataSourceElement getDataSourceSectionElement(ApplicationRequest applicationRequest,
-			ApplicationConfig applicationConfig, SectionelementDef sectionelement, String pageId)
-			throws ProcessingException {
+	private DataSourceWrapper getDataSourceSectionElement(ApplicationRequest applicationRequest,
+			SectionelementDef sectionelement) throws ProcessingException {
 		DatasourceRef datasourceRef = sectionelement.getDatasource();
 		if (null != datasourceRef) {
-			DataSourceElement wrapper = new DataSourceElement(site, application, applicationRequest,
+			DataSourceWrapper wrapper = new DataSourceWrapper(site, application, applicationRequest,
 					applicationRequest.getParameterSupportDollar(), datasourceRef);
+			if (null != wrapper.getDatasource()) {
+				DataConfig config = wrapper.getDatasource().getConfig();
+				wrapper.setTitle(null == config ? null : config.getTitle());
+			}
 			if (wrapper.doInclude()) {
 				wrapper.setFolded(sectionelement.getFolded());
 				wrapper.setMode(sectionelement.getMode());
@@ -522,12 +748,16 @@ public class ApplicationProvider extends SiteApplication implements AccessibleAp
 	}
 
 	private ActionElement getActionSectionElement(ApplicationRequest applicationRequest,
-			ApplicationConfig applicationConfig, SectionelementDef sectionelement, PageReference pageReference)
-			throws ProcessingException {
+			ApplicationConfig applicationConfig, SectionelementDef sectionelement, PageReference pageReference,
+			boolean isSectionHidden, boolean perform) throws ProcessingException {
 		ActionRef actionRef = sectionelement.getAction();
 		if (null != actionRef) {
 			ActionElement actionElement = new ActionElement(site, application, applicationRequest, actionRef);
-			actionElement.perform(sectionelement);
+			if (perform) {
+				actionElement.perform(sectionelement, isSectionHidden);
+			}
+			DataConfig config = actionElement.getAction().getConfig();
+			actionElement.setTitle(null == config ? null : config.getTitle());
 			return actionElement;
 		}
 		return null;
@@ -552,32 +782,32 @@ public class ApplicationProvider extends SiteApplication implements AccessibleAp
 	}
 
 	private void trace(String message) {
-		if (log.isTraceEnabled()) {
-			log.trace(getPrefix() + message);
+		if (LOGGER.isTraceEnabled()) {
+			LOGGER.trace(getPrefix() + message);
 		}
 	}
 
 	private void debug(String message) {
-		if (log.isDebugEnabled()) {
-			log.debug(getPrefix() + message);
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug(getPrefix() + message);
 		}
 	}
 
 	private void info(String message) {
-		if (log.isInfoEnabled()) {
-			log.info(getPrefix() + message);
+		if (LOGGER.isInfoEnabled()) {
+			LOGGER.info(getPrefix() + message);
 		}
 	}
 
 	private void warn(String message) {
-		if (log.isWarnEnabled()) {
-			log.warn(getPrefix() + message);
+		if (LOGGER.isWarnEnabled()) {
+			LOGGER.warn(getPrefix() + message);
 		}
 	}
 
 	private void error(String message, Exception e) {
-		if (log.isErrorEnabled()) {
-			log.error(getPrefix() + message, e);
+		if (LOGGER.isErrorEnabled()) {
+			LOGGER.error(getPrefix() + message, e);
 		}
 	}
 
@@ -711,7 +941,7 @@ public class ApplicationProvider extends SiteApplication implements AccessibleAp
 	}
 
 	public List<JarInfo> getJarInfos() {
-		if (null == jarInfos) {
+		if (jarInfos.isEmpty()) {
 			for (Resource resource : application.getResources().getResources(ResourceType.JAR)) {
 				JarInfo jarInfo = JarInfoBuilder.getJarInfo(resource.getCachedFile(), application.getName());
 				jarInfos.add(jarInfo);
@@ -740,7 +970,7 @@ public class ApplicationProvider extends SiteApplication implements AccessibleAp
 		try {
 			applicationConfig.close();
 		} catch (IOException e) {
-			log.warn("error closing {}", applicationConfig);
+			LOGGER.warn("error closing {}", applicationConfig);
 		}
 		applicationConfig = null;
 		application.closeContext();
@@ -793,6 +1023,7 @@ public class ApplicationProvider extends SiteApplication implements AccessibleAp
 
 	public ApplicationRequest getApplicationRequest(HttpServletRequest servletRequest,
 			HttpServletResponse servletResponse, boolean createNew) {
+		ApplicationRequest applicationRequest;
 		Environment env = initEnvironment(servletRequest, servletResponse);
 		Subject subject = env.getSubject();
 		PermissionProcessor permissionProcessor = null;
@@ -805,11 +1036,12 @@ public class ApplicationProvider extends SiteApplication implements AccessibleAp
 		if (createNew) {
 			MessageSource messageSource = getBean(MessageSource.class);
 			ConversionService conversionService = getBean("conversionService", ConversionService.class);
-			RequestFactoryBean rfb = new RequestFactoryBean(servletRequest, env, conversionService, messageSource);
+			RequestFactoryBean rfb = new RequestFactoryBean(servletRequest, env, site, application, conversionService,
+					messageSource);
 			rfb.afterPropertiesSet();
-			this.applicationRequest = (ApplicationRequest) rfb.getObject();
+			applicationRequest = (ApplicationRequest) rfb.getObject();
 		} else {
-			this.applicationRequest = getBean("request", ApplicationRequest.class);
+			applicationRequest = getBean("request", ApplicationRequest.class);
 		}
 
 		applicationRequest.setPermissionProcessor(permissionProcessor);
@@ -817,18 +1049,11 @@ public class ApplicationProvider extends SiteApplication implements AccessibleAp
 	}
 
 	private Environment initEnvironment(HttpServletRequest servletRequest, HttpServletResponse servletResponse) {
-		DefaultEnvironment env = (DefaultEnvironment) getBean("environment");
-		if (null == env) {
-			throw new IllegalStateException("environment can not be null!");
-		}
-		if (!env.isInitialized()) {
-			env.init(servletRequest.getServletContext(), servletRequest.getSession(), servletRequest, servletResponse,
-					site.getHost());
-			for (Application application : site.getApplications()) {
-				String sessionParamName = application.getSessionParamKey(site);
-				if (null == env.getAttribute(SESSION, sessionParamName)) {
-					env.setAttribute(SESSION, sessionParamName, new HashMap<String, String>());
-				}
+		Environment env = getBean("environment", Environment.class);
+		for (Application application : site.getApplications()) {
+			String sessionParamName = application.getSessionParamKey(site);
+			if (null == env.getAttribute(SESSION, sessionParamName)) {
+				env.setAttribute(SESSION, sessionParamName, new HashMap<>());
 			}
 		}
 		return env;
@@ -840,35 +1065,50 @@ public class ApplicationProvider extends SiteApplication implements AccessibleAp
 		ApplicationConfigProvider applicationConfigProvider = getApplicationConfig().cloneConfig(marshallService);
 		applicationRequest.setApplicationConfig(applicationConfigProvider);
 		Action action = applicationConfigProvider.getAction(eventId, actionId);
+		applicationRequest.getWrappedRequest().getHttpServletRequest().setAttribute(MetricsFilter.EVENT_ID, eventId);
+		applicationRequest.getWrappedRequest().getHttpServletRequest().setAttribute(MetricsFilter.ACTION_ID, actionId);
 		if (null == action) {
+			LOGGER.debug("Action {}:{} not found on application {} of site {}", eventId, actionId,
+					application.getName(), site.getName());
 			servletResponse.setStatus(HttpStatus.NOT_FOUND.value());
-			return null;
-		}
-		if (permissionsPresent(action.getConfig()) || applicationRequest.getEnvironment().isSubjectAuthenticated()) {
-			Params params = action.getConfig().getParams();
-			ActionRef actionRef = new ActionRef();
-			actionRef.setEventId(eventId);
-			actionRef.setId(actionId);
-			actionRef.setParams(params);
-			if (applyPermissionsOnRef) {
-				actionRef.setPermissions(action.getConfig().getPermissions());
-			}
-
-			setParamValues(applicationRequest, params);
-			CallableAction callableAction = new CallableAction(site, application, applicationRequest, actionRef);
-
-			if (callableAction.doInclude() || callableAction.doExecute()) {
-				callableAction.perform();
-				Messages messages = elementHelper.removeMessages(applicationRequest.getEnvironment());
-				if (null != messages) {
-					messages.setRef(actionId);
-					action.setMessages(messages);
+		} else {
+			Environment environment = applicationRequest.getEnvironment();
+			if (permissionsPresent(action.getConfig()) || environment.isSubjectAuthenticated()) {
+				Params params = action.getConfig().getParams();
+				ActionRef actionRef = new ActionRef();
+				actionRef.setEventId(eventId);
+				actionRef.setId(actionId);
+				actionRef.setParams(params);
+				if (applyPermissionsOnRef) {
+					actionRef.setPermissions(action.getConfig().getPermissions());
 				}
-				return action;
+
+				setParamValues(applicationRequest, params);
+				CallableAction callableAction = new CallableAction(site, application, applicationRequest, actionRef);
+
+				if (callableAction.doInclude() || callableAction.doExecute()) {
+					LOGGER.debug("Performing action {}:{} of application {} on site {}", eventId, actionId,
+							application.getName(), site.getName());
+					callableAction.perform(false);
+					Messages messages = elementHelper.removeMessages(environment);
+					if (null != messages) {
+						messages.setRef(actionId);
+						action.setMessages(messages);
+					}
+					return action;
+				}
 			}
 		}
-		servletResponse.setStatus(HttpStatus.FORBIDDEN.value());
+		LOGGER.debug("Subject {} not authorized for action {}:{} on application {} of site {}",
+				getSubjectName(applicationRequest.getEnvironment()), eventId, actionId, application.getName(),
+				site.getName());
+		servletResponse.setStatus(HttpStatus.UNAUTHORIZED.value());
 		return null;
+	}
+
+	private String getSubjectName(Environment environment) {
+		Subject subject = environment.getSubject();
+		return subject == null ? "<unknown>" : subject.getAuthName();
 	}
 
 	protected void setParamValues(ApplicationRequest applicationRequest, Params params) {
@@ -889,30 +1129,38 @@ public class ApplicationProvider extends SiteApplication implements AccessibleAp
 		ApplicationConfigProvider applicationConfigProvider = getApplicationConfig().cloneConfig(marshallService);
 		applicationRequest.setApplicationConfig(applicationConfigProvider);
 		Datasource dataSource = applicationConfigProvider.getDatasource(dataSourceId);
+		applicationRequest.getWrappedRequest().getHttpServletRequest().setAttribute(MetricsFilter.DATASOURCE_ID, dataSourceId);
 		if (null == dataSource) {
+			LOGGER.debug("DataSource {} not found on application {} of site {}", dataSource, application.getName(),
+					site.getName());
 			servletResponse.setStatus(HttpStatus.NOT_FOUND.value());
-			return null;
-		}
-		DataConfig config = dataSource.getConfig();
-		if (permissionsPresent(config) || applicationRequest.getEnvironment().isSubjectAuthenticated()) {
-			Params params = config.getParams();
-			DatasourceRef datasourceRef = new DatasourceRef();
-			datasourceRef.setId(dataSourceId);
-			if (applyPermissionsOnRef) {
-				datasourceRef.setPermissions(config.getPermissions());
-			}
-			datasourceRef.setParams(params);
-			setParamValues(applicationRequest, params);
-			ParameterSupport parameterSupport = applicationRequest.getParameterSupportDollar();
+		} else {
+			DataConfig config = dataSource.getConfig();
+			Environment environment = applicationRequest.getEnvironment();
+			if (permissionsPresent(config) || environment.isSubjectAuthenticated()) {
+				Params params = config.getParams();
+				DatasourceRef datasourceRef = new DatasourceRef();
+				datasourceRef.setId(dataSourceId);
+				if (applyPermissionsOnRef) {
+					datasourceRef.setPermissions(config.getPermissions());
+				}
+				datasourceRef.setParams(params);
+				setParamValues(applicationRequest, params);
+				ParameterSupport parameterSupport = applicationRequest.getParameterSupportDollar();
 
-			CallableDataSource callableDataSource = new CallableDataSource(site, application, applicationRequest,
-					parameterSupport, datasourceRef);
-			if (callableDataSource.doInclude()) {
-				callableDataSource.perform("service");
-				return callableDataSource.getDatasource();
+				CallableDataSource callableDataSource = new CallableDataSource(site, application, applicationRequest,
+						parameterSupport, datasourceRef);
+				if (callableDataSource.doInclude()) {
+					LOGGER.debug("Performing dataSource {} of application {} on site {}", dataSourceId,
+							application.getName(), site.getName());
+					callableDataSource.perform("service", false);
+					return callableDataSource.getDatasource();
+				}
 			}
 		}
-		servletResponse.setStatus(HttpStatus.FORBIDDEN.value());
+		LOGGER.debug("Subject {} not authorized for DataSource {} on application {} of site {}",
+				getSubjectName(applicationRequest.getEnvironment()), dataSource, application.getName(), site.getName());
+		servletResponse.setStatus(HttpStatus.UNAUTHORIZED.value());
 		return null;
 	}
 
@@ -921,6 +1169,7 @@ public class ApplicationProvider extends SiteApplication implements AccessibleAp
 	 * this means direct access is forbidden.
 	 * 
 	 * @param config
+	 * 
 	 * @return
 	 */
 	private boolean permissionsPresent(Config config) {
@@ -956,12 +1205,12 @@ public class ApplicationProvider extends SiteApplication implements AccessibleAp
 		return databaseConnection;
 	}
 
-	public void setPlatformScope() {
-		setPlatformScope(isCoreApplication());
+	public void setPlatformScope(Environment env) {
+		setPlatformScope(isPrivileged(), env);
 	}
 
-	public void setPlatformScope(boolean enabled) {
-		DefaultEnvironment defaultEnvironment = (DefaultEnvironment) applicationRequest.getEnvironment();
+	public void setPlatformScope(boolean enabled, Environment env) {
+		DefaultEnvironment defaultEnvironment = (DefaultEnvironment) env;
 		if (enabled) {
 			defaultEnvironment.enable(PLATFORM);
 		} else {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,16 +32,15 @@ import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.test.context.ContextConfiguration;
 
 @ContextConfiguration(initializers = CliCoreDBNotInitializedTest.class, inheritInitializers = false, inheritLocations = true)
-public class CliCoreDBNotInitializedTest extends AbstractCommandTest implements
-		ApplicationContextInitializer<ConfigurableApplicationContext> {
+public class CliCoreDBNotInitializedTest extends AbstractCommandTest
+		implements ApplicationContextInitializer<ConfigurableApplicationContext> {
 
 	private CliCore cliCore = new CliCore();
 	private Properties cliConfig;
 
 	public void initialize(ConfigurableApplicationContext applicationContext) {
-		Properties properties = CommandTestInitializer.getProperties();
+		Properties properties = CommandTestInitializer.getProperties(getClass());
 		properties.remove("hibernate.hbm2ddl.auto");
-		properties.put("databaseName", getClass().getSimpleName());
 		PropertyResourceConfigurer configurer = new PropertySourcesPlaceholderConfigurer();
 		configurer.setProperties(properties);
 		applicationContext.addBeanFactoryPostProcessor(configurer);
@@ -82,9 +81,9 @@ public class CliCoreDBNotInitializedTest extends AbstractCommandTest implements
 	public void setup() {
 		cliCore = new CliCore();
 		cliCore.setContext(context);
-		cliConfig = CommandTestInitializer.getProperties();
-		cliConfig.setProperty(Platform.Property.PLATFORM_ROOT_PATH, CliBootstrapTest.TARGET
-				+ CliBootstrapTest.BOOTSTRAP_ROOT);
+		cliConfig = CommandTestInitializer.getProperties(getClass());
+		cliConfig.setProperty(Platform.Property.PLATFORM_ROOT_PATH,
+				CliBootstrapTest.TARGET + CliBootstrapTest.BOOTSTRAP_ROOT);
 	}
 
 	@Override

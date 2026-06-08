@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,16 +53,14 @@ import org.w3c.dom.Node;
  * use {@link XPathDifferenceHandler} instead.
  * 
  * @author Matthias Müller
- * 
  */
 public class AttributeValueDifferenceHandler extends DifferenceHandler {
 
 	private List<String> ignored;
 
 	/**
-	 * 
 	 * @param ignored
-	 *            name(s) of the attribute(s) to ignore the value for
+	 *                name(s) of the attribute(s) to ignore the value for
 	 */
 	public AttributeValueDifferenceHandler(String... ignored) {
 		this.ignored = Arrays.asList(ignored);

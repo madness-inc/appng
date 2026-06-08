@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,11 +23,9 @@ import javax.security.auth.Subject;
 import org.appng.xml.platform.Messages;
 
 /**
- * 
  * Utility-class providing constants used for accessing an {@link Environment}-attribute with {@link Scope#SESSION}.
  * 
  * @author Matthias Müller
- * 
  */
 public final class Session {
 
@@ -36,6 +34,9 @@ public final class Session {
 	}
 
 	public static class Environment {
+
+		/** A list of the user's roles */
+		public static final String APPNG_ROLES = "appng-roles";
 
 		/**
 		 * The start time of the current session as unix-time, return type is {@code long}

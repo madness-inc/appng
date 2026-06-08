@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ import org.appng.api.ParameterSupport;
  * A {@link ParameterSupport} which uses '${' as prefix and '}' as suffix.
  * 
  * @author Matthias Müller
- * 
  */
 public class DollarParameterSupport extends ParameterSupportBase {
 
@@ -34,7 +33,7 @@ public class DollarParameterSupport extends ParameterSupportBase {
 	 * Creates a new {@link DollarParameterSupport} using the given parameters.
 	 * 
 	 * @param parameters
-	 *            the parameters to use
+	 *                   the parameters to use
 	 */
 	public DollarParameterSupport(Map<String, String> parameters) {
 		super(PREFIX, SUFFIX, parameters);

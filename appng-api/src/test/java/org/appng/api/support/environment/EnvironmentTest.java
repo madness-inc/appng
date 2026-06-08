@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,13 +21,13 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.TimeZone;
 
+import org.apache.commons.lang3.StringUtils;
 import org.appng.api.AbstractTest;
 import org.appng.api.Environment;
 import org.appng.api.Platform;
 import org.appng.api.Scope;
 import org.appng.api.VHostMode;
 import org.appng.api.model.Properties;
-import org.appng.api.model.Site;
 import org.appng.api.model.Subject;
 import org.junit.Assert;
 import org.junit.Test;
@@ -39,13 +39,13 @@ import org.springframework.mock.web.MockServletContext;
 /**
  * Test for {@link DefaultEnvironment}.
  * 
- * @author Matthias Müller 
+ * @author Matthias Müller
  */
 public class EnvironmentTest extends AbstractTest {
 
 	@Test
 	public void testPlatformEnvironment() {
-		Environment env = DefaultEnvironment.get(ctx, httpServletRequest);
+		Environment env = DefaultEnvironment.get(httpServletRequest, httpServletResponse);
 		env.setAttribute(Scope.PLATFORM, "app-attribute", "app-value");
 		Assert.assertEquals("app-value", env.getAttributeAsString(Scope.PLATFORM, "app-attribute"));
 
@@ -59,7 +59,7 @@ public class EnvironmentTest extends AbstractTest {
 
 	@Test
 	public void testAttributeMethods() {
-		Environment env = DefaultEnvironment.get(ctx, httpServletRequest);
+		Environment env = DefaultEnvironment.get(httpServletRequest, httpServletResponse);
 		env.setAttribute(Scope.PLATFORM, "app-attribute", "10");
 		Assert.assertEquals("10", env.getAttribute(Scope.PLATFORM, "app-attribute"));
 
@@ -75,7 +75,7 @@ public class EnvironmentTest extends AbstractTest {
 		MockServletContext mockCtx = new MockServletContext();
 		Environment initialEnv = DefaultEnvironment.get(mockCtx);
 		initialEnv.setAttribute(Scope.PLATFORM, Platform.Environment.PLATFORM_CONFIG, platformProps);
-		initialEnv.setAttribute(Scope.PLATFORM, Platform.Environment.SITES, new HashMap<String, Site>());
+		initialEnv.setAttribute(Scope.PLATFORM, Platform.Environment.SITES, new HashMap<>());
 
 		MockHttpServletRequest mockRequest = new MockHttpServletRequest(mockCtx);
 		String oldId = mockRequest.getSession().getId();
@@ -114,7 +114,7 @@ public class EnvironmentTest extends AbstractTest {
 
 	@Test
 	public void testGetSubject() {
-		DefaultEnvironment env = DefaultEnvironment.get(ctx, httpServletRequest);
+		DefaultEnvironment env = DefaultEnvironment.get(httpServletRequest, httpServletResponse);
 
 		Subject subject = Mockito.mock(Subject.class);
 		Mockito.when(subject.getName()).thenReturn("admin");
@@ -129,10 +129,9 @@ public class EnvironmentTest extends AbstractTest {
 
 	@Test
 	public void testToggleScope() {
-		DefaultEnvironment env = DefaultEnvironment.get(ctx, httpServletRequest);
+		DefaultEnvironment env = DefaultEnvironment.get(httpServletRequest, httpServletResponse);
 		toggleScope(env, Scope.PLATFORM);
 		toggleScope(env, Scope.SESSION);
-		toggleScope(env, Scope.SITE);
 		toggleScope(env, Scope.REQUEST);
 	}
 
@@ -145,7 +144,7 @@ public class EnvironmentTest extends AbstractTest {
 
 	@Test
 	public void testGetServletRequest() {
-		DefaultEnvironment env = DefaultEnvironment.get(ctx, httpServletRequest);
+		DefaultEnvironment env = DefaultEnvironment.get(httpServletRequest, httpServletResponse);
 		Assert.assertEquals(httpServletRequest, env.getServletRequest());
 	}
 
@@ -157,14 +156,19 @@ public class EnvironmentTest extends AbstractTest {
 
 	@Test
 	public void testSiteEnv() {
-		SiteEnvironment siteEnv = new SiteEnvironment(ctx, "localhost");
-		Assert.assertEquals("localhost", siteEnv.getAttribute("host"));
+		Mockito.when(site.getName()).thenReturn("localhost");
+		MockServletContext mockedCtx = new MockServletContext();
+		SiteEnvironment siteEnv = new SiteEnvironment(mockedCtx, site);
+		Assert.assertEquals(site, siteEnv.getAttribute("site"));
 		Assert.assertEquals(Scope.SITE, siteEnv.getScope());
+		DefaultEnvironment.get(mockedCtx).clearSiteScope(site);
+		Assert.assertNull(siteEnv.getAttribute("name"));
 	}
 
 	@Test
 	public void testSessionEnvironment() {
-		SessionEnvironment sessionEnv = new SessionEnvironment(httpSession);
+		MockHttpServletRequest request = new MockHttpServletRequest(ctx);
+		SessionEnvironment sessionEnv = new SessionEnvironment(request, StringUtils.EMPTY);
 		String attributeName = "localhost";
 		Object attribute = sessionEnv.getAttribute(attributeName);
 		Assert.assertEquals(null, attribute);
@@ -172,9 +176,10 @@ public class EnvironmentTest extends AbstractTest {
 		Assert.assertEquals("foo", attribute = sessionEnv.removeAttribute(attributeName));
 		Assert.assertEquals((Object) null, sessionEnv.getAttribute(attributeName));
 
-		Assert.assertEquals(httpSession, sessionEnv.getHttpSession());
-		Assert.assertTrue(sessionEnv.isValid());
+		Assert.assertEquals(request.getSession(), sessionEnv.getHttpSession());
+		String oldId = sessionEnv.getHttpSession().getId();
 		sessionEnv.logout();
-		Assert.assertFalse(sessionEnv.isValid());
+		String newId = sessionEnv.getHttpSession().getId();
+		Assert.assertNotEquals(oldId, newId);
 	}
 }

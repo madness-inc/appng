@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,54 +15,56 @@
  */
 package org.appng.core.repository.config;
 
-import javax.sql.DataSource;
-
 import org.apache.commons.lang3.StringUtils;
 import org.appng.core.domain.DatabaseConnection;
 import org.appng.core.domain.DatabaseConnection.DatabaseType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
 import ch.sla.jdbcperflogger.driver.WrappingDriver;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 
 /**
- * 
  * A {@link DatasourceConfigurer} using <a href="http://brettwooldridge.github.io/HikariCP/">HikariCP</a>. Also supports
  * <a href="https://github.com/sylvainlaurent/JDBC-Performance-Logger">JDBC-Performance-Logger</a> for measuring
  * performance of SQL statements.
  * 
  * @author Matthias Müller
  */
+@Slf4j
 public class HikariCPConfigurer implements DatasourceConfigurer {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(HikariCPConfigurer.class);
-	private HikariDataSource hikariDataSource;
-	private boolean logPerformance = false;
+	private @Getter HikariDataSource dataSource;
+	private @Setter boolean logPerformance = false;
+	private @Setter long connectionTimeout = DEFAULT_TIMEOUT;
+	private @Setter long validationTimeout = DEFAULT_TIMEOUT;
+	private @Setter long maxLifetime = DEFAULT_LIFE_TIME;
+	private @Setter boolean autoCommit = false;
+	private @Setter String connectionInitSql;
 
 	public HikariCPConfigurer() {
 
 	}
 
-	public HikariCPConfigurer(DatabaseConnection connection) {
-		configure(connection);
-	}
-
-	public HikariCPConfigurer(DatabaseConnection connection, boolean logPerformance) {
-		this.logPerformance = logPerformance;
-		configure(connection);
-	}
-
 	public void configure(DatabaseConnection connection) {
 		HikariConfig configuration = new HikariConfig();
 
+		configuration.setMinimumIdle(connection.getMinConnections());
 		configuration.setMaximumPoolSize(connection.getMaxConnections());
+		configuration.setConnectionTimeout(connectionTimeout);
+		configuration.setValidationTimeout(validationTimeout);
+		configuration.setMaxLifetime(maxLifetime);
+		if (StringUtils.isNotBlank(connectionInitSql)) {
+			configuration.setConnectionInitSql(connectionInitSql);
+		}
 		if (StringUtils.isNotBlank(connection.getValidationQuery())) {
 			configuration.setConnectionTestQuery(connection.getValidationQuery());
 		}
 		configuration.setPoolName(connection.getName());
+		configuration.setAutoCommit(autoCommit);
 
 		DatabaseType type = connection.getType();
 		configuration.setRegisterMbeans(true);
@@ -87,24 +89,12 @@ public class HikariCPConfigurer implements DatasourceConfigurer {
 			configuration.addDataSourceProperty("password", connection.getPasswordPlain());
 			LOGGER.info("connection {} uses datasource {}", jdbcUrl, dataSourceClassName);
 		}
-		this.hikariDataSource = new HikariDataSource(configuration);
+		this.dataSource = new HikariDataSource(configuration);
 	}
 
 	public void destroy() {
-		hikariDataSource.close();
-		hikariDataSource = null;
-	}
-
-	public DataSource getDataSource() {
-		return hikariDataSource;
-	}
-
-	public boolean isLogPerformance() {
-		return logPerformance;
-	}
-
-	public void setLogPerformance(boolean logPerformance) {
-		this.logPerformance = logPerformance;
+		dataSource.close();
+		dataSource = null;
 	}
 
 }

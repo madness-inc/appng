@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,25 +20,24 @@ import java.lang.management.ManagementFactory;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Utility-class for registering/unregistering JMX-objects.
  * 
  * @author Matthias Müller
  */
+@Slf4j
 public class JMXUtils {
-
-	private static final Logger LOGGER = LoggerFactory.getLogger(JMXUtils.class);
 
 	/**
 	 * Registers the given object under the given name, if no other object is already registered under this name.
 	 * 
 	 * @param object
-	 *            the object to register
+	 *               the object to register
 	 * @param name
-	 *            the name for the object to register
+	 *               the name for the object to register
+	 * 
 	 * @return {@code true} if the object has been registered, {@code false} otherwise (also if an exception occurred
 	 *         while registering).
 	 */
@@ -51,7 +50,7 @@ public class JMXUtils {
 				return true;
 			}
 		} catch (Exception e) {
-			LOGGER.error("error while registering " + name, e);
+			LOGGER.error(String.format("error while registering %s", name), e);
 		}
 		return false;
 	}
@@ -60,7 +59,8 @@ public class JMXUtils {
 	 * Unregisters the object currently registered under the given name, if existing.
 	 * 
 	 * @param name
-	 *            the name for the object to unregister
+	 *             the name for the object to unregister
+	 * 
 	 * @return {@code true} if the object has been unregistered, {@code false} otherwise (also if an exception occurred
 	 *         while unregistering).
 	 */
@@ -73,7 +73,7 @@ public class JMXUtils {
 				return true;
 			}
 		} catch (Exception e) {
-			LOGGER.error("error while deregistering " + name, e);
+			LOGGER.error(String.format("error while deregistering %s", name), e);
 		}
 		return false;
 	}

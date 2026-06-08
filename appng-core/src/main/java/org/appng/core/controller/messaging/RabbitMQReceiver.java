@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,121 +17,121 @@ package org.appng.core.controller.messaging;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadFactory;
 
 import org.apache.commons.lang3.StringUtils;
-import org.appng.api.BusinessException;
-import org.appng.api.InvalidConfigurationException;
-import org.appng.api.messaging.Event;
 import org.appng.api.messaging.EventHandler;
 import org.appng.api.messaging.EventRegistry;
 import org.appng.api.messaging.Receiver;
 import org.appng.api.messaging.Serializer;
-import org.appng.api.model.Site;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.AMQP.Queue.DeclareOk;
+import com.rabbitmq.client.BuiltinExchangeType;
 import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.Consumer;
 import com.rabbitmq.client.DefaultConsumer;
 import com.rabbitmq.client.Envelope;
 
-import net.jodah.lyra.ConnectionOptions;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Message receiver implementing {@link Receiver} to use a RabbitMQ message broker. Following platform properties are
  * needed (default value in brackets):
  * <ul>
- * <li>{@code rabbitMQAdresses} (localhost:5672): A comma separated list of &lt;host&gt;:&lt;port&gt; for RabbitMQ server(s)</li>
+ * <li>{@code rabbitMQAdresses} (localhost:5672): A comma separated list of &lt;host&gt;:&lt;port&gt; for RabbitMQ
+ * server(s)</li>
  * <li>{@code rabbitMQUser} (guest): Username</li>
  * <li>{@code rabbitMQPassword} (guest): Password</li>
- * <li>{@code rabbitMQExchange} (appng-messaging): Name of the exchange where the receiver binds its messaging queue on. Be
- * aware that this name must be different among different clusters using the same RabbitMQ server</li>
+ * <li>{@code rabbitMQExchange} (appng-messaging): Name of the exchange where the receiver binds its messaging queue on.
+ * Be aware that this name must be different among different clusters using the same RabbitMQ server</li>
+ * <li>{@code rabbitMQAutoDeleteQueue} (true): If the queue to create should be marked as autodelete.</li>
+ * <li>{@code rabbitMQDurableQueue} (false): If the queue to create should be marked as durable.</li>
+ * <li>{@code rabbitMQExclusiveQueue} (true): If the queue to create should be marked as exclusive.</li>
  * </ul>
  * 
  * @author Claus Stümke, aiticon GmbH, 2015
- *
+ * @author Matthias Müller
  */
+@Slf4j
 public class RabbitMQReceiver extends RabbitMQBase implements Receiver {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(RabbitMQReceiver.class);
+	private static final String RABBIT_MQ_AUTO_DELETE_QUEUE = "rabbitMQAutoDeleteQueue";
+	private static final String RABBIT_MQ_DURABLE_QUEUE = "rabbitMQDurableQueue";
+	private static final String RABBIT_MQ_EXCLUSIVE_QUEUE = "rabbitMQExclusiveQueue";
 	private EventRegistry eventRegistry = new EventRegistry();
-	private Connection connection;
+	private DeclareOk queueDeclare;
 
 	public Receiver configure(Serializer eventSerializer) {
 		this.eventSerializer = eventSerializer;
-		initialize();
+		initialize("appng-rabbitmq-receiver-%d");
 		return this;
 	}
 
+	@SuppressWarnings("resource")
 	public RabbitMQSender createSender() {
-		RabbitMQSender sender = new RabbitMQSender();
-		sender.configure(eventSerializer);
-		return sender;
+		return new RabbitMQSender().configure(eventSerializer);
 	}
 
 	public void runWith(ExecutorService executorService) {
-
 		try {
-			ThreadFactory threadFactory = new ThreadFactoryBuilder().setDaemon(true)
-					.setNameFormat("appng-messaging-rabbitmq").build();
-			factory.setThreadFactory(threadFactory);
-			ConnectionOptions connectionOptions = new ConnectionOptions(factory);
-			connectionOptions.withConsumerExecutor(executorService);
-			connection = getConnection(connectionOptions);
-			Channel channel = connection.createChannel();
-			DeclareOk queueDeclare;
-			channel.exchangeDeclare(this.exchange, EXCHANGE_TYPE_FANOUT);
-			String nodeId = eventSerializer.getNodeId();
-			if (null != nodeId) {
-				// create a queue with a name containing the node id
-				String queueName = "appngNode_" + nodeId + "_queue";
-				queueDeclare = channel.queueDeclare(queueName, false, true, true, null);
-			} else {
-				// no node id, queue name doesn't matter
-				queueDeclare = channel.queueDeclare();
+			channel.exchangeDeclarePassive(exchange);
+			log().info("Exchange {} already exists.", exchange);
+		} catch (IOException e) {
+			try {
+				log().info("Declaring exchange '{}' (type: {})", exchange, BuiltinExchangeType.FANOUT);
+				channel = connection.createChannel();
+				channel.exchangeDeclare(exchange, BuiltinExchangeType.FANOUT, true);
+			} catch (IOException e1) {
+				throw new IllegalStateException("Error declaring exchange.", e1);
 			}
-			channel.queueBind(queueDeclare.getQueue(), this.exchange, "");
-
-			Consumer consumer = new DefaultConsumer(channel) {
-				@Override
-				public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties,
-						byte[] body) throws IOException {
-					Event event = eventSerializer.deserialize(body);
-					if (null != event) {
-						try {
-							onEvent(eventSerializer.getSite(event.getSiteName()), event);
-						} catch (Exception e) {
-							LOGGER.error("Error while executing event " + event, e);
-						}
-					} else {
-						LOGGER.debug("could not read event");
-					}
-				}
-			};
-			channel.basicConsume(queueDeclare.getQueue(), true, consumer);
-		} catch (Exception e) {
-			LOGGER.error("Error starting messaging receiver!");
 		}
 
+		String nodeId = eventSerializer.getNodeId();
+		String queueName = (null == nodeId) ? StringUtils.EMPTY : String.format("%s@%s", nodeId, exchange);
+
+		try {
+			queueDeclare = channel.queueDeclarePassive(queueName);
+			log().info("Queue {} already exists.", queueName);
+		} catch (IOException e) {
+			try {
+				boolean durable = eventSerializer.getPlatformConfig().getBoolean(RABBIT_MQ_DURABLE_QUEUE, false);
+				boolean exclusive = eventSerializer.getPlatformConfig().getBoolean(RABBIT_MQ_EXCLUSIVE_QUEUE, true);
+				boolean autoDelete = eventSerializer.getPlatformConfig().getBoolean(RABBIT_MQ_AUTO_DELETE_QUEUE, true);
+				log().info("Declaring queue '{}'.", queueName);
+				channel = connection.createChannel();
+				queueDeclare = channel.queueDeclare(queueName, durable, exclusive, autoDelete, null);
+			} catch (IOException e1) {
+				throw new IllegalStateException("Error declaring queue.", e);
+			}
+		}
+		try {
+			String queue = queueDeclare.getQueue();
+			log().info("Binding queue '{}' to exchange {}", queue, exchange);
+			channel.queueBind(queue, exchange, "");
+
+			EventConsumer consumer = new EventConsumer(channel);
+			log().info("Consuming queue '{}' with {}", queue, consumer);
+			channel.basicConsume(queue, true, consumer);
+		} catch (IOException e) {
+			throw new IllegalStateException("Error binding queue to exchange.", e);
+		}
 	}
 
-	void onEvent(Site site, Event event) throws InvalidConfigurationException, BusinessException {
-		String currentNode = eventSerializer.getNodeId();
-		String originNode = event.getNodeId();
-		LOGGER.debug("current node: {}, originNode node: {}", currentNode, originNode);
-		boolean sameNode = StringUtils.equals(currentNode, originNode);
-		if (!sameNode) {
-			LOGGER.info("about to execute {} ", event);
-			for (EventHandler<Event> eventHandler : eventRegistry.getHandlers(event)) {
-				eventHandler.onEvent(event, eventSerializer.getEnvironment(), site);
-			}
-		} else {
-			LOGGER.debug("message is from myself and can be ignored");
+	class EventConsumer extends DefaultConsumer {
+
+		public EventConsumer(Channel channel) {
+			super(channel);
+		}
+
+		@Override
+		public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body)
+				throws IOException {
+			Messaging.handleEvent(LOGGER, eventRegistry, eventSerializer, body, false, null);
+		}
+
+		@Override
+		public String toString() {
+			return getClass().getSimpleName() + " (" + channel + ")";
 		}
 	}
 
@@ -143,8 +143,8 @@ public class RabbitMQReceiver extends RabbitMQBase implements Receiver {
 		eventRegistry.setDefaultHandler(defaultHandler);
 	}
 
-	public void close() throws IOException {
-		connection.close();
+	Logger log() {
+		return LOGGER;
 	}
 
 }

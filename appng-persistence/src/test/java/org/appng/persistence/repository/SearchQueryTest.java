@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.appng.persistence.repository;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.persistence.EntityManager;
@@ -25,8 +26,6 @@ import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
 
 import org.appng.persistence.model.TestEntity;
-import org.appng.testsupport.persistence.ConnectionHelper;
-import org.appng.testsupport.persistence.HsqlServer;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -46,16 +45,12 @@ public class SearchQueryTest {
 
 	private static final String INTEGER_VALUE = "integerValue";
 
-	private int hsqlPort;
-
 	private EntityManager em;
 
 	private TestEntity testEntity;
 
 	@Before
 	public void setup() {
-		this.hsqlPort = ConnectionHelper.getHsqlPort();
-		HsqlServer.start(hsqlPort);
 		EntityManagerFactory emf = Persistence.createEntityManagerFactory("hsql-testdb");
 		em = emf.createEntityManager();
 		em.getTransaction().begin();
@@ -70,7 +65,6 @@ public class SearchQueryTest {
 	public void tearDown() {
 		em.getTransaction().commit();
 		em.close();
-		HsqlServer.stop(hsqlPort);
 	}
 
 	@Test
@@ -83,11 +77,24 @@ public class SearchQueryTest {
 	}
 
 	@Test
+	public void testTestEntitySearchQuery() {
+		TestEntitySearchQuery searchQuery = new TestEntitySearchQuery();
+		searchQuery.isNull(BOOLEAN_VALUE);
+		Collection<TestEntity> page = searchQuery.execute(em);
+		Assert.assertEquals(testEntity, page.iterator().next());
+		Assert.assertEquals(1, page.size());
+
+		List<TestEntity> list = searchQuery.execute(em, new Sort(new Sort.Order(Direction.DESC, "name")));
+		Assert.assertEquals(testEntity, list.iterator().next());
+		Assert.assertEquals(1, list.size());
+	}
+
+	@Test
 	public void testAdditionalClausesOnly() {
 		SearchQuery<TestEntity> searchQuery = new SearchQuery<TestEntity>(TestEntity.class);
 		searchQuery.and("1=1");
 
-		Map<String, Object> params = new HashMap<String, Object>();
+		Map<String, Object> params = new HashMap<>();
 		params.put("param1", Integer.MIN_VALUE);
 		searchQuery.and("e." + INTEGER_VALUE + " >= :param1", params);
 
@@ -101,7 +108,7 @@ public class SearchQueryTest {
 		SearchQuery<TestEntity> searchQuery = getSearchQuery(true);
 		searchQuery.isNull(BOOLEAN_VALUE);
 
-		Map<String, Object> params = new HashMap<String, Object>();
+		Map<String, Object> params = new HashMap<>();
 		params.put("param1", Integer.MIN_VALUE);
 		searchQuery.and("e." + INTEGER_VALUE + " >= :param1", params);
 
@@ -115,7 +122,7 @@ public class SearchQueryTest {
 		SearchQuery<TestEntity> searchQuery = new SearchQuery<TestEntity>(TestEntity.class);
 		searchQuery.isNull(BOOLEAN_VALUE);
 
-		Map<String, Object> params = new HashMap<String, Object>();
+		Map<String, Object> params = new HashMap<>();
 		params.put("param1", Integer.MIN_VALUE);
 		searchQuery.and("e." + INTEGER_VALUE + " >= :param1", params);
 
@@ -129,8 +136,8 @@ public class SearchQueryTest {
 		testEntity.setBooleanValue(true);
 		SearchQuery<TestEntity> searchQuery = getSearchQuery(false);
 		searchQuery.isNotNull(BOOLEAN_VALUE);
-		PageRequest pageable = new PageRequest(5, 1000, new Sort(new Sort.Order(Direction.ASC, NAME), new Sort.Order(
-				Direction.ASC, INTEGER_VALUE)));
+		PageRequest pageable = new PageRequest(5, 1000,
+				new Sort(new Sort.Order(Direction.ASC, NAME), new Sort.Order(Direction.ASC, INTEGER_VALUE)));
 		Page<TestEntity> page = searchQuery.execute(pageable, em);
 		Assert.assertEquals(testEntity, page.iterator().next());
 		Assert.assertEquals(1, page.getTotalElements());

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,21 +15,21 @@
  */
 package org.appng.cli.commands;
 
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
+import org.appng.tools.os.OperatingSystem;
 import org.junit.Assert;
 import org.junit.Test;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Test for {@link CommandBatch}.
  * 
  * @author Matthias Herlitzius
- * 
  */
+@Slf4j
 public class CommandBatchTest {
 
 	private CommandBatch batch = new CommandBatch();
@@ -57,18 +57,30 @@ public class CommandBatchTest {
 
 	@Test
 	public void testSysEnvVariables() {
-		String osName = System.getProperty("os.name");
-		boolean isLinux = StringUtils.containsIgnoreCase(osName, "linux");
-		boolean isWindows = StringUtils.containsIgnoreCase(osName, "windows");
-		if (isLinux) {
-			Set<String> validResults = new HashSet<String>(Arrays.asList("en_US.UTF-8", "de_DE.UTF-8"));
+		OperatingSystem os = OperatingSystem.detect();
+		String lang = System.getenv("LANG");
+		LOGGER.info("OS is {} ({}) with LANG {}", os, System.getProperty("os.name"), lang);
+
+		switch (os) {
+		case LINUX:
 			Assert.assertArrayEquals(new String[0], batch.parseLine("def LANG = ${systemEnv['LANG']}"));
-			Assert.assertTrue(validResults.contains(variables.get("LANG")));
-		} else if (isWindows) {
-			Assert.assertArrayEquals(new String[0], batch.parseLine("def SYSTEMROOT = ${systemEnv['SystemRoot']}"));
-			Assert.assertTrue(StringUtils.equalsIgnoreCase(variables.get("SYSTEMROOT"), "c:\\windows"));
-		} else {
-			Assert.fail("No test found for Operating System: " + osName);
+			String langVar = variables.get("LANG");
+			Assert.assertEquals(String.format("Expected value %s for variable LANG, but was %s", lang, langVar), lang,
+					langVar);
+			break;
+
+		case WINDOWS:
+			Assert.assertArrayEquals(new String[0], batch.parseLine("def temp = ${systemEnv['TEMP']}"));
+			Assert.assertTrue(StringUtils.isNotBlank(variables.get("temp")));
+			break;
+
+		case MACOSX:
+			Assert.assertArrayEquals(new String[0], batch.parseLine("def HOME = ${systemEnv['HOME']}"));
+			Assert.assertTrue(StringUtils.containsIgnoreCase(variables.get("HOME"), "users"));
+			break;
+
+		case OTHER:
+			Assert.fail("Unsupported operating system found: " + os);
 		}
 	}
 

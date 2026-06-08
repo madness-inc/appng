@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,11 +39,12 @@ public class ExpressionEvaluatorTest {
 	@Before
 	public void setup() {
 		Locale.setDefault(Locale.ENGLISH);
-		parameters = new HashMap<String, Object>();
+		parameters = new HashMap<>();
 		parameters.put("a", FIVE);
 		parameters.put("b", SIX);
-		Map<String, Object> nested = new HashMap<String, Object>();
-		nested.put("foo", 5);
+		Map<String, Object> nested = new HashMap<>();
+		nested.put("foo", "5");
+		nested.put("fizz", "TRUE");
 		parameters.put("SESSION", nested);
 		evaluator = new ExpressionEvaluator(parameters);
 	}
@@ -51,6 +52,9 @@ public class ExpressionEvaluatorTest {
 	@Test
 	public void testNestedMap() {
 		Assert.assertTrue(evaluator.evaluate("${SESSION.foo eq 5}"));
+		Assert.assertTrue(evaluator.evaluate("${SESSION.foo eq '5'}"));
+		Assert.assertTrue(evaluator.evaluate("${SESSION.fizz}"));
+		Assert.assertTrue(evaluator.evaluate("${SESSION.fizz eq 'TRUE'}"));
 		Assert.assertTrue(evaluator.evaluate("${SESSION['foo'] eq 5}"));
 		Assert.assertTrue(evaluator.evaluate("${SESSION.foo ne null}"));
 		Assert.assertFalse(evaluator.evaluate("${SESSION['bar'] eq 5}"));
@@ -199,7 +203,7 @@ public class ExpressionEvaluatorTest {
 
 	@Test
 	public void testMap() {
-		Map<String, String> map = new HashMap<String, String>();
+		Map<String, String> map = new HashMap<>();
 		map.put("foo", "bar");
 		evaluator.setVariable("map", map);
 		assertTrue("${map['foo'] eq 'bar'}");
@@ -236,7 +240,7 @@ public class ExpressionEvaluatorTest {
 		d1.setType(Type.ON);
 		d1.setBar("bar");
 		d1.setFoo(42);
-		ArrayList<Dummy> dummies = new ArrayList<Dummy>();
+		ArrayList<Dummy> dummies = new ArrayList<>();
 		Dummy d2 = new Dummy();
 		dummies.add(d2);
 		d2.setFoo(23);

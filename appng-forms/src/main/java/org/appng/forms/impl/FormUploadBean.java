@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,18 +25,16 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.appng.forms.FormUpload;
 import org.appng.forms.FormUploadValidator;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Default {@link FormUpload} implementation.
  * 
  * @author Matthias Müller
- * 
  */
+@Slf4j
 public class FormUploadBean implements FormUpload {
-
-	private static final Logger log = LoggerFactory.getLogger(FormUploadBean.class);
 
 	private String originalName;
 	private File file;
@@ -45,7 +43,8 @@ public class FormUploadBean implements FormUpload {
 	private long maxSize = -1L;
 	private long minSize = 0L;
 
-	public FormUploadBean(File file, String originalName, String contentType, List<String> acceptedTypes, long maxSize) {
+	public FormUploadBean(File file, String originalName, String contentType, List<String> acceptedTypes,
+			long maxSize) {
 		this.file = file;
 		this.originalName = FilenameUtils.getName(originalName);
 		this.contentType = contentType;
@@ -90,7 +89,7 @@ public class FormUploadBean implements FormUpload {
 		try {
 			return FileUtils.readFileToByteArray(getFile());
 		} catch (IOException e) {
-			log.error("error while reading file", e);
+			LOGGER.error("error while reading file", e);
 		}
 		return null;
 	}
@@ -124,7 +123,7 @@ public class FormUploadBean implements FormUpload {
 			validator = validatorClass.newInstance();
 			return isValid(validator);
 		} catch (Exception e) {
-			log.error("unable to instanciate validator class '" + validatorClass.getName() + "'", e);
+			LOGGER.error(String.format("unable to instanciate validator class '%s'", validatorClass.getName()), e);
 		}
 		return true;
 	}

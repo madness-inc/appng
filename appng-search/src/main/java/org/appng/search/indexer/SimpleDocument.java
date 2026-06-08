@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,22 +38,21 @@ import org.appng.api.observe.impl.ObservableDelegate;
 import org.appng.api.search.Document;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document.OutputSettings;
-import org.jsoup.safety.Whitelist;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.jsoup.safety.Safelist;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * A basic {@link Document}-implementation, suitable for most cases. Uses an {@link ObservableDelegate} to manage its
  * {@link Observer}s.
  * 
  * @author Matthias Müller
- * 
  */
+@Slf4j
 public class SimpleDocument implements Document {
 
-	private static final Logger LOG = LoggerFactory.getLogger(SimpleDocument.class);
 	public static final FastDateFormat DATEFORMAT = FastDateFormat.getInstance(YYYY_MM_DD_HH_MM_SS);
 
 	private Observable<Document> observable;
@@ -86,7 +85,7 @@ public class SimpleDocument implements Document {
 
 	public SimpleDocument() {
 		observable = new ObservableDelegate<Document>(this);
-		fields = new HashMap<String, IndexableField>();
+		fields = new HashMap<>();
 	}
 
 	public SimpleDocument(float score) {
@@ -230,7 +229,7 @@ public class SimpleDocument implements Document {
 
 	public static SimpleDocument extract(org.apache.lucene.document.Document doc, int docId, float score) {
 		SimpleDocument simpleDoc = new SimpleDocument(score);
-		List<IndexableField> fields = new ArrayList<IndexableField>(doc.getFields());
+		List<IndexableField> fields = new ArrayList<>(doc.getFields());
 
 		simpleDoc.setDocId(docId);
 		simpleDoc.setContent(getStringFromField(doc, FIELD_CONTENT, fields));
@@ -246,7 +245,7 @@ public class SimpleDocument implements Document {
 			try {
 				simpleDoc.setDate(DATEFORMAT.parse(dateString));
 			} catch (ParseException e) {
-				LOG.error("error parsing date", e);
+				LOGGER.error("error parsing date", e);
 			}
 		}
 
@@ -288,11 +287,11 @@ public class SimpleDocument implements Document {
 				Highlighter highlighter = new Highlighter(formatter, queryScorer);
 				TokenStream tokenStream = analyzer.tokenStream(field, doc.getContent());
 				String fragment = highlighter.getBestFragments(tokenStream, doc.getContent(), 3, "...");
-				fragment = Jsoup.clean(fragment, "", new Whitelist().addTags(highlightWith),
+				fragment = Jsoup.clean(fragment, "", new Safelist().addTags(highlightWith),
 						new OutputSettings().prettyPrint(false));
 				doc.setFragment(fragment);
 			} catch (Exception e) {
-				LOG.warn("error while extracting fragment", e);
+				LOGGER.warn("error while extracting fragment", e);
 			}
 		}
 	}

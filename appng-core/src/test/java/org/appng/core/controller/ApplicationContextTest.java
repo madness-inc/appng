@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,8 @@ import org.junit.Test;
 import org.springframework.context.MessageSource;
 import org.springframework.test.context.ContextConfiguration;
 
-@ContextConfiguration(locations = { ApplicationContextTest.BEANS_XML, TestBase.TESTCONTEXT, TestBase.TESTCONTEXT_JPA }, initializers = ApplicationContextTest.class, inheritLocations = false)
+@ContextConfiguration(locations = { ApplicationContextTest.BEANS_XML, TestBase.TESTCONTEXT,
+		TestBase.TESTCONTEXT_JPA }, initializers = ApplicationContextTest.class, inheritLocations = false)
 public class ApplicationContextTest extends TestBase {
 
 	protected static final String BEANS_XML = "classpath:applications/application1/beans.xml";
@@ -116,7 +117,7 @@ public class ApplicationContextTest extends TestBase {
 	}
 
 	private void assertRoleWithPermissions(String role, String... permissions) {
-		List<String> permissionList = new ArrayList<String>(Arrays.asList(permissions));
+		List<String> permissionList = new ArrayList<>(Arrays.asList(permissions));
 		for (Role applicationRole : application.getRoles()) {
 			if (applicationRole.getName().equals(role)) {
 				for (Permission permission : applicationRole.getPermissions()) {

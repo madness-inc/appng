@@ -1,3 +1,5 @@
+:sources: ../../../../src/test/java/
+
 == Implementing services
 
 [[webservices]]
@@ -22,7 +24,7 @@ public class ImageService implements Webservice {
       Image image = getImage(id)
       return image.getData(id);
   }
-  
+
   public String getContentType() {
     return "image/jpg";
   }
@@ -38,7 +40,7 @@ Example: http://localhost:8080/service/manager/myapp/webservice/myWebservice
 
 
 === SOAP services
-The interface {appng}/org/appng/api/SoapService.html[org.appng.api.SoapService^] is used to implement a https://en.wikipedia.org/wiki/SOAP[SOAP^] compliant service based on http://projects.spring.io/spring-ws/[Spring WS^]. For more information on Spring WS, see the http://docs.spring.io/spring-ws/site/reference/html/tutorial.html[Reference Documentation^] and this https://spring.io/guides/gs/producing-web-service/[Getting Started Guide^].
+The interface {appng}/org/appng/api/SoapService.html[org.appng.api.SoapService^] is used to implement a https://en.wikipedia.org/wiki/SOAP[SOAP^] compliant service based on http://projects.spring.io/spring-ws/[Spring WS^]. For more information on Spring WS, see the https://docs.spring.io/spring-ws/site/reference/html/tutorial.html[Reference Documentation^] and this https://spring.io/guides/gs/producing-web-service/[Getting Started Guide^].
 
 The following steps are required to build a SOAP service:
 
@@ -213,7 +215,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController //<1>
 public class CalculatorService {
-    
+
     @RequestMapping(value = "/add/{a}/{b}", //<2>
         method = RequestMethod.GET, //<3>
         produces = MediaType.TEXT_PLAIN_VALUE) //<4>
@@ -228,7 +230,7 @@ public class CalculatorService {
 <3> Define the HTTP method
 <4> Define the media-type this method produces
 <5> Return a `ResponseEntity` of the desired type
-<6> Map the path variables to the parameters 
+<6> Map the path variables to the parameters
 <7> Return the response
 
 In order to make the necessary conversion of the `ResponseEntity` work, there needs to be an appropriate {spring}/javadoc-api/org/springframework/http/converter/HttpMessageConverter.html[HttpMessageConverter^] present in your application.
@@ -248,7 +250,7 @@ public class IntegerMessageConverter implements HttpMessageConverter<Integer> {
 	public boolean canWrite(Class<?> clazz, MediaType mediaType) {
 		return Integer.class.equals(clazz);
 	}
-	
+
 	public void write(Integer t, MediaType contentType, HttpOutputMessage outputMessage)
 			throws IOException, HttpMessageNotWritableException {
 		outputMessage.getBody().write(String.valueOf(t).getBytes());
@@ -257,7 +259,7 @@ public class IntegerMessageConverter implements HttpMessageConverter<Integer> {
 	public boolean canRead(Class<?> clazz, MediaType mediaType) {
 		return false;
 	}
-	
+
 	public Integer read(Class<? extends Integer> clazz, HttpInputMessage inputMessage)
 			throws IOException, HttpMessageNotReadableException {
 		return null;
@@ -281,8 +283,81 @@ The URL schema for the REST service is
 Example:
 http://localhost:8080/service/manager/myapp/rest/add/3/4
 
+==== Exception handling
+
+For handling exceptions, you can (and should) use Spring's {spring}/javadoc-api/org/springframework/web/bind/annotation/ExceptionHandler.html[@ExceptionHandler^]. You may also use 
+a bean annotated with {spring}/javadoc-api/org/springframework/web/bind/annotation/ControllerAdvice.html[@ControllerAdvice^] for centralized exception handling. More details can be found in the {spring}/spring-framework-reference/htmlsingle/#mvc-exceptionhandlers[corresponding section^] of Spring's reference documentation.
+
+[TIP]
+====
+A method annotated with `@ExceptionHandler` can use a {appng}/org/appng/api/model/Site.html[Site^], {appng}/org/appng/api/model/Application.html[Application^] and {appng}/org/appng/api/Environment.html[Environment^] as a parameter.
+====
+
+==== JSON REST services
+[source,java]
+----
+include::{sources}org/example/CalculatorService.java[indent=0]
+----
+<1> Map to the path `/add`
+<2> Only allow the `POST` method
+<3> Use constant from {spring}/javadoc-api/org/springframework/http/MediaType.html[MediaType^] to set the returned content type
+<4> Use an `Operators` object as a parameter and annotate it with {spring}/javadoc-api/org/springframework/web/bind/annotation/RequestBody.html[RequestBody^].
+
+[TIP]
+====
+A method annotated with `@RequestMapping` can use appNG's {appng}/org/appng/api/model/Site.html[Site^], {appng}/org/appng/api/model/Application.html[Application^] and {appng}/org/appng/api/Environment.html[Environment^] interfaces as a parameter.
+
+Also note that there are many built-in {spring}/javadoc-api/org/springframework/web/method/support/HandlerMethodArgumentResolver.html[HandlerMethodArgumentResolver^]s that add support for additional parameter types.
+====
+
+To support JSON format, you have to register the aforementioned `MappingJackson2HttpMessageConverter` in your `beans.xml`:
+[source,xml]
+----
+<bean class="org.springframework.http.converter.json.MappingJackson2HttpMessageConverter">
+  <property name="prettyPrint" value="true" /> <!--1-->
+</bean>
+----
+<1> Use  `prettyPrint` for a better readability.
+
+The *request* will use the `POST` method and JSON formatting for it's content:
+[source,json]
+----
+{
+  "a" : 39,
+  "b" : 3
+}
+----
+
+The *response* to this request looks like this:
+[source,json]
+----
+{
+  "a" : 39,
+  "b" : 3,
+  "result" : 42
+}
+----
 
 For more details on this topic, see {spring}/spring-framework-reference/htmlsingle/#mvc-ann-restcontroller[section 22.3.3^] of Spring's reference documentation.
+
+===== Multipart requests
+When using multipart requests (`enctype="multipart/form-data"`) in a `@RestController`, it is not possible to use a {spring}/javadoc-api/org/springframework/web/multipart/MultipartFile.html[MultipartFile^] as a parameter. The reason for that is the fact that appNG parses
+the request by itself and wraps it in a {appng}/org/appng/forms/Request.html[org.appng.forms.Request^].
+
+You can access this interal `org.appng.forms.Request` to retrieve the uploaded files as shown below (the `httpServletRequest` is a parameter of a RESTful method):
+[source,java]
+----
+@PostMapping("/file-upload")
+public ResponseEntity<String> handleFileUpload(HttpServletRequest httpServletRequest) {
+    org.appng.forms.Request request = (org.appng.forms.Request)
+        httpServletRequest.getAttribute(org.appng.forms.Request.REQUEST_PARSED);
+    List<org.appng.forms.FormUpload> formUploads = request.getFormUploads("file");
+  ...
+}
+----
+
+As an alternative, you can just implement a {appng}/org/appng/api/Webservice.html[Webservice^] and use {appng}/org/appng/forms/RequestContainer.html#getFormUploads--[RequestContainer.getFormUploads()^] to retrieve the uploaded files.
+
 
 
 === Job scheduling
@@ -320,6 +395,8 @@ If set to `true` and the `cronExpression` property is properly set, the job will
 If set to `true`, this job will only run once per appNG cluster, i.e. it is not executed on each node, which is the default behavior.
 * `hardInterruptable` +
 If set to `true`, this job can safely be interrupted, e.g when a `Site` is being reloaded. This is achieved by running the job in a separate thread and calling {jse}/java/lang/Thread.html#interrupt--[Thread.interrupt^].
+* `allowConcurrentExecutions` +
+If set to `true`, multiple instances of this job can run concurrently (default is `false`).
 
 The best way to configure a job is in `beans.xml`:
 [source,xml]
@@ -339,17 +416,211 @@ The best way to configure a job is in `beans.xml`:
 <1> add the standard predefined parameters
 <2> add some custom parameters
 
+== Commonly used API
 
-== Interfaces to be used
+As you may have noticed, there are a handful of interfaces that occur quite often when implementing functionality with appNG:
+
+* {appng}/org/appng/api/model/Site.html[org.appng.api.model.Site^]
+
+* {appng}/org/appng/api/model/Application.html[org.appng.api.model.Application^]
+
+* {appng}/org/appng/api/Request.html[org.appng.api.Request^]
+
+* {appng}/org/appng/api/Environment.html[org.appng.api.Environment^]
+
+* {appng}/org/appng/api/model/Properties.html[org.appng.api.model.Properties^]
+
+The following section explains those in more detail.
 
 === `org.appng.api.model.Site`
-{appng}/org/appng/api/model/Site.html[Javadoc^]
+
+A {appng}/org/appng/api/model/Site.html[Site^] first and foremost is used for aggregating several applications under a corporate domain. Most frequently, `site.getProperties()` is used to retrieve the site's
+configuration in order to build some (relative or absolute) links, for example to a `WebService`:
+
+The constants for the available property names can be found at {appng}/org/appng/api/SiteProperties.html[org.appng.api.SiteProperties^].
+
+[source,java]
+----
+String servicePath = site.getProperties().getString(SiteProperties.SERVICE_PATH);
+String absolutePath = String.format("%s/%s/%s/%s/webservice/pictureService?id=4711", site.getDomain(), servicePath, site.getName(), application.getName()));
+----
+
+Another common use-case for a site is to redirect the user to another location using `site.sendRedirect()`.
+
 
 === `org.appng.api.model.Application`
-{appng}/org/appng/api/model/Application.html[Javadoc^]
+Through the {appng}/org/appng/api/model/Application.html[Application^] interface, any relevant information about the current application can be retrieved.
+This includes
 
-=== `org.appng.api.Request`
-{appng}/org/appng/api/Request.html[Javadoc^]
+* {appng}/org/appng/api/model/Properties.html[Properties^] (`getProperties()`)
+* {appng}/org/appng/api/model/Resources.html[Resources^] (`getResources()`)
+* {appng}/org/appng/api/model/Permission.html[Permission^]s  (`getPermissions()`)
+* {appng}/org/appng/api/model/Role.html[Role^]s  (`getRoles()`)
+* {appng}/org/appng/api/model/ApplicationSubject.html[ApplicationSubject^]s  (`getApplicationSubjects()`)
+* {appng}/org/appng/api/model/FeatureProvider.html[FeatureProvider^]  (`getFeatureProvider()`)
+
+Please check the corresponding JavaDoc for details.
+
+=== `org.appng.api.model.Request`
+The {appng}/org/appng/api/Request.html[Request^] offers a large number of methods which serve one of the following purposes:
+
+* retrieving request values (`getParameter()`, `getParameterList()`, `getParameterNames()`, `getParameters()`, `getParametersList()`, `getFormUploads()`)
+* validating objects (`validateBean()`, `validateField()`)
+* binding data (`fillBindObject()`, `setPropertyValue()`, `setPropertyValues()`)
+* converting values (`canConvert()`, `convert()`)
+* internationalization (`getMessage()`, `getMessageSource()`)
+* retrieving information about the  environment (`getEnvironment()`, `getSubject()`, `getLocale()`)
+
+Please check the corresponding JavaDoc for details.
 
 === `org.appng.api.Environment`
-{appng}/org/appng/api/Environment.html[Javadoc^]
+
+The {appng}/org/appng/api/Environment.html[Environment^] is used for storing and retrieving differently scoped attributes using `getAttribute(Scope scope, String name)` and
+`setAttribute(Scope scope, String name, Object value)`.
+
+Below you can find a description of the available {appng}/org/appng/api/Scope.html[org.appng.api.Scope^]s.
+
+==== `PLATFORM` scope
+This scope is mainly used for exchanging platform related configuration across different core components and is bound to
+the {jee}/javax/servlet/ServletContext.html[javax.servlet.ServletContext^] appNG is executed in.
+Therefore, this scope is only accessible from the appNG core and *privileged* applications.
+
+The constants used as attributes names can be found at {appng}/org/appng/api/Platform.Environment.html[org.appng.api.Platform.Environment^].
+
+Example usage:
+[source,java]
+----
+Map<String, Site> siteMap = environment.getAttribute(Scope.PLATFORM, Platform.Environment.SITES);
+----
+
+WARNING: Even for privileged applications, the `PLATFORM` scope should be considered as 'read only', because it contains data that is critical for executing appNG correctly.
+
+==== `SITE` scope
+The `SITE` scope can be used to store and retrieve data that is *not* bound to a particular session and thus needs to be available on a more global level.
+As the `PLATFORM` scope, it is bound to the {jee}/javax/servlet/ServletContext.html[javax.servlet.ServletContext^] appNG is executed in. There are no built-in attributes that
+are stored in the `SITE` scope.
+
+
+==== `SESSION` scope
+This is propably the most commonly used scope when developing appNG applications. It is bound to the {jee}/javax/servlet/http/HttpSession.html[javax.servlet.http.HttpSession^] and
+therefore keeps track of the user's session state. For example, you can use it to store the current workflow state within your application.
+
+The built-in constants used as attribute names can be found at {appng}/org/appng/api/Session.html[org.appng.api.Session^].
+
+Example usage:
+[source,java]
+----
+String sessionId = environment.getAttribute(Scope.SESSION, Session.SID);
+MyApplicationState state = environment.getAttribute(Scope.SESSION, "myApplicationState");
+if ( null == state ) {
+  state = new MyApplicationState();
+  environment.setAttribute(Scope.SESSION, "myApplicationState", state);
+}
+----
+
+
+==== `REQUEST` scope
+The `REQUEST` scope is bound to the {jee}/javax/servlet/ServletRequest.html[javax.servlet.ServletRequest^] and therefore can be used to track the state of the request.
+If, at all, you will most likely access this scope in a reading way.
+
+The built-in constants used as attribute names can be found at
+{appng}/org/appng/api/support/environment/EnvironmentKeys.html[org.appng.api.support.environment.EnvironmentKeys^]
+
+Example usage:
+[source,java]
+----
+Path path = environment.getAttribute(Scope.REQUEST, EnvironmentKeys.PATH_INFO);
+String servletPath = environment.getAttribute(Scope.REQUEST, EnvironmentKeys.SERVLETPATH);
+String queryString = environment.getAttribute(Scope.REQUEST, EnvironmentKeys.QUERY_STRING);
+----
+
+
+==== `URL` scope
+The `URL` scope has solely the purpose of accessing URL parameters in a JSP with the <<appng-attribute,appNG:attribute>> tag.
+
+
+=== `org.appng.api.model.Properties`
+To configure an `Application` and a `Site`, both of these offer the `getProperties()`-method, returning some
+{appng}/org/appng/api/model/Properties.html[org.appng.api.model.Properties^]. These can be used to retrieve type-safe configuration values, optionally providing a
+default value.
+
+[source,java]
+----
+Integer foo = properties.getInteger("foo");
+Integer bar = properties.getInteger("bar", 42);
+List<String> values = properties.getList("values", "foo;bar", ";");
+----
+
+You can also inject single property values into a bean using Spring's {spring}/javadoc-api/org/springframework/beans/factory/annotation/Value.html[@Value^] annotation:
+[source,java]
+----
+@Value("${foo}")
+private String foo;
+private String servicePath;
+
+public MyService(@Value("${site.service-path}") servicePath){
+  this.servicePath = servicePath;
+}
+
+----
+Be sure you've read the section about <<placeholders>>.
+
+
+
+=== Sending emails
+Using the classes contained in {appng}/org/appng/mail/package-summary.html[org.appng.mail^], it very is easy to send plain text and also HTML mails.
+First, a `MailTransport` needs to be defined in `beans.xml`:
+
+[source,xml]
+----
+<bean id="mailTransport" class="org.appng.mail.impl.DefaultTransport">
+  <constructor-arg>
+    <props>
+      <prop key="mail.smtp.host">example.com</prop>
+      <prop key="mail.smtp.port">25</prop>
+      <prop key="mail.smtp.starttls.enable">true</prop>
+      <prop key="mail.smtp.auth">true</prop>
+    </props>
+  </constructor-arg>
+  <constructor-arg value="user" />
+  <constructor-arg value="password" />
+</bean>
+----
+
+This can than be used to send emails:
+[source,java]
+----
+Mail mail = mailTransport.createMail();
+mail.setFrom(mailSender);
+mail.setSubject(mailSubject);
+mail.addReceiver("johndoe@example.com", RecipientType.TO);
+mail.addReceiver("janedoe@example.com", RecipientType.CC);
+mail.setTextContent("Hello from appNG");
+mail.setHTMLContent("Hello from <strong>appNG</strong>")
+mailTransport.send(mail);
+----
+
+=== Working with images
+Often applications are required to resize or crop images, hence appNG offers some tooling for that.
+
+NOTE: Note that https://www.imagemagick.org[ImageMagick^] 6.9.9 needs to be installed and be available in the system's path (7.x is currently not supported).
+Furthermore, the <<configurable-application-features,built-in application property>>  `featureImageProcessing` must be enabled.
+
+The following example demonstrates how to fit an image into a (imaginary) box sized 120x120 pixel:
+[source,java]
+----
+FeatureProvider featureProvider = application.getFeatureProvider(); //<1>
+File imageCache = featureProvider.getImageCache(); //<2>
+File sourceFile = new File(imageCache, "tempfile"); //<3>
+byte[] pictureData = getPictureData(); //<4>
+org.apache.commons.io.FileUtils.writeByteArrayToFile(sourceFile, pictureData); //<5>
+ImageProcessor imageProcessor = featureProvider.getImageProcessor(sourceFile, "tempfile-resized"); //<6>
+File result = imageProcessor.resize(120, 120).quality(0.8).getImage(); //<7>
+----
+<1> Retrieve a `FeatureProvider` from the `Application`.
+<2> Retrieve a folder used for caching the image data.
+<3> In that folder, create a new file.
+<4> Retrieve the binary data of the image.
+<5> Write the original image data to the `sourceFile`.
+<6> Retrieve a new {appng}/org/appng/tools/image/ImageProcessor.html[ImageProcessor^] using `sourceFile` as a source and defining the name of the target file (which will be located in the folder `imageCache`).
+<7> Resize the image to make it fit into a (imaginary) box with a size of 120x120 pixel (aspect ratio is kept!), set the quality to 80%, and finally return the target file.

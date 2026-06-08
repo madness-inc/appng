@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.appng.tools.os.Command;
 import org.appng.tools.os.OperatingSystem;
 import org.appng.tools.os.StringConsumer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Utility class to set the owner and group for a given {@link File} using the {@code chown} system command.
@@ -31,16 +31,16 @@ import org.slf4j.LoggerFactory;
  * 
  * @see OperatingSystem#isLinux()
  */
+@Slf4j
 public class FileOwner {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(FileOwner.class);
 	private File file;
 
 	/**
 	 * Create a new {@code FileOwner} for the given {@link File}.
 	 * 
 	 * @param file
-	 *            the {@link File} to set the owner and group for
+	 *             the {@link File} to set the owner and group for
 	 */
 	public FileOwner(File file) {
 		this.file = file;
@@ -51,9 +51,10 @@ public class FileOwner {
 	 * system command. Works only on linux operating systems (see {@link OperatingSystem#isLinux()}).
 	 * 
 	 * @param user
-	 *            the owner (user) to set
+	 *              the owner (user) to set
 	 * @param group
-	 *            the group to set
+	 *              the group to set
+	 * 
 	 * @return {@code true} if setting the user/group was successful, {@code false} otherwise
 	 */
 	public boolean own(String user, String group) {

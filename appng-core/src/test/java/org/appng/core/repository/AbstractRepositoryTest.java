@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,8 @@
  */
 package org.appng.core.repository;
 
+import org.appng.core.service.PlatformTestConfig;
 import org.appng.core.service.TestInitializer;
-import org.appng.testsupport.persistence.ConnectionHelper;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.test.annotation.DirtiesContext;
@@ -29,14 +28,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 @Rollback(true)
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(locations = "classpath:platformContext.xml")
+@ContextConfiguration(classes = PlatformTestConfig.class)
 @DirtiesContext
 public abstract class AbstractRepositoryTest extends TestInitializer {
-
-	@BeforeClass
-	public static void setup() {
-		ConnectionHelper.getHsqlPort();
-	}
 
 	@Test
 	public abstract void test();

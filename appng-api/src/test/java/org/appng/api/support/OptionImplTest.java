@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import org.junit.Test;
  * Test for {@link OptionImpl}.
  * 
  * @author Gajanan Nilwarn
- * 
  */
 public class OptionImplTest {
 
@@ -44,7 +43,16 @@ public class OptionImplTest {
 	@Test
 	public void testAddAttribute() {
 		option.addAttribute("key", "value");
-		Assert.assertEquals("value", option.getAttribute("key"));
+		Assert.assertEquals("value", option.getString("key"));
+	}
+
+	@Test
+	public void testGetInteger() {
+		option.addAttribute("key", "value");
+		option.addAttribute("int", "1");
+		Assert.assertEquals(Integer.valueOf(1), option.getInteger("int"));
+		Assert.assertNull(option.getInteger("key"));
+		Assert.assertNull(option.getInteger("not-exists"));
 	}
 
 	@Test

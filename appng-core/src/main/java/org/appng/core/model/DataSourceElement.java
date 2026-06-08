@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,6 @@ import org.appng.xml.platform.SectionelementDef;
  * {@link CallableDataSource}.
  * 
  * @author Matthias Müller
- * 
  */
 class DataSourceElement extends Sectionelement {
 
@@ -44,21 +43,24 @@ class DataSourceElement extends Sectionelement {
 	 * Creates a new {@code DataSourceElement}.
 	 * 
 	 * @param site
-	 *            the current {@link Site}
+	 *                           the current {@link Site}
 	 * @param application
-	 *            the current {@link Application}
+	 *                           the current {@link Application}
 	 * @param applicationRequest
-	 *            the current {@link ApplicationRequest}
+	 *                           the current {@link ApplicationRequest}
 	 * @param parameterSupport
-	 *            a {@link ParameterSupport} containing the parameters of the {@link PageDefinition}
+	 *                           a {@link ParameterSupport} containing the parameters of the {@link PageDefinition}
 	 * @param datasourceRef
-	 *            the {@link DatasourceRef} as given in the {@link SectionelementDef} of a {@link PageDefinition}.
+	 *                           the {@link DatasourceRef} as given in the {@link SectionelementDef} of a
+	 *                           {@link PageDefinition}.
+	 * 
 	 * @throws ProcessingException
-	 *             if an error occurs while assembling the {@code DataSourceElement}
+	 *                             if an error occurs while assembling the {@code DataSourceElement}
 	 */
-	DataSourceElement(Site site, Application application, ApplicationRequest applicationRequest, ParameterSupport parameterSupport,
-			DatasourceRef datasourceRef) throws ProcessingException {
-		this.callableDataSource = new CallableDataSource(site, application, applicationRequest, parameterSupport, datasourceRef);
+	DataSourceElement(Site site, Application application, ApplicationRequest applicationRequest,
+			ParameterSupport parameterSupport, DatasourceRef datasourceRef) throws ProcessingException {
+		this.callableDataSource = new CallableDataSource(site, application, applicationRequest, parameterSupport,
+				datasourceRef);
 		this.datasource = callableDataSource.getDatasource();
 	}
 
@@ -74,10 +76,16 @@ class DataSourceElement extends Sectionelement {
 
 	/**
 	 * Delegates to {@link CallableDataSource#perform(String)}.
-	 * 
 	 */
 	Data perform(String pageId) throws ProcessingException {
-		return callableDataSource.perform(pageId);
+		return perform(pageId, false);
+	}
+
+	/**
+	 * Delegates to {@link CallableDataSource#perform(String, boolean)}
+	 */
+	Data perform(String pageId, boolean addMessagesToSession) throws ProcessingException {
+		return callableDataSource.perform(pageId, addMessagesToSession);
 	}
 
 }

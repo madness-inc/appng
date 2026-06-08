@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,26 +15,36 @@
  */
 package org.appng.core.controller;
 
+import java.io.Serializable;
 import java.util.Date;
+
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * A simple value object representing a users's http-session.
  * 
  * @author Matthias Müller
+ * 
+ * @see SessionListener
  */
-public class Session implements Cloneable {
+@Getter
+@EqualsAndHashCode(of = "id")
+public class Session implements Cloneable, Serializable {
 
+	private static final long serialVersionUID = 1L;
 	private String id;
-	private String domain;
-	private String site;
-	private String user;
-	private String userAgent;
-	private String ip;
+	private @Setter String domain;
+	private @Setter String site;
+	private @Setter String user;
+	private @Setter String userAgent;
+	private @Setter String ip;
 	private int requests = 0;
 	private Date creationTime;
 	private Date lastAccessedTime;
 	private int maxInactiveInterval;
-	private boolean expire;
+	private boolean expired;
 	private boolean allowExpire = true;
 
 	public Session(String id) {
@@ -46,108 +56,30 @@ public class Session implements Cloneable {
 		update(creationTime, lastAccessedTime, maxInactiveInterval);
 	}
 
-	void update(long creationtime, long lastAccessedTime, int maxInactiveInterval) {
+	public void update(long creationtime, long lastAccessedTime, int maxInactiveInterval) {
 		this.creationTime = new Date(creationtime);
 		this.lastAccessedTime = new Date(lastAccessedTime);
 		this.maxInactiveInterval = maxInactiveInterval;
 	}
 
-	public Date getCreationTime() {
-		return creationTime;
-	}
-
-	public Date getLastAccessedTime() {
-		return lastAccessedTime;
-	}
-
-	public Date getExpiryDate() {
-		return new Date(getLastAccessedTime().getTime() + getMaxInactiveInterval() * 1000);
-	}
-
-	public int getMaxInactiveInterval() {
-		return maxInactiveInterval;
-	}
-
-	public void expire() {
-		this.expire = true;
-	}
-
-	public boolean isExpired() {
-		return expire;
-	}
-
-	public String getDomain() {
-		return domain;
-	}
-
-	void setDomain(String domain) {
-		this.domain = domain;
-	}
-
-	public String getSite() {
-		return site;
-	}
-
-	void setSite(String site) {
-		this.site = site;
-	}
-
-	public String getUser() {
-		return user;
-	}
-
-	void setUser(String user) {
-		this.user = user;
-	}
-
-	public String getUserAgent() {
-		return userAgent;
-	}
-
-	void setUserAgent(String userAgent) {
-		this.userAgent = userAgent;
-	}
-
-	public String getIp() {
-		return ip;
-	}
-
-	void setIp(String ip) {
-		this.ip = ip;
-	}
-
-	public String getId() {
-		return id;
-	}
-
-	public int getRequests() {
-		return requests;
+	void expire() {
+		this.expired = true;
 	}
 
 	public void addRequest() {
 		requests++;
 	}
-
-	public String getShortId() {
-		return getId().substring(0, 8);
-	}
-
-	public boolean isAllowExpire() {
-		return allowExpire;
+	
+	public Date getExpiryDate() {
+		return new Date(getLastAccessedTime().getTime() + getMaxInactiveInterval() * 1000);
 	}
 
 	public void setAllowExpire(boolean allowExpire) {
 		this.allowExpire = allowExpire;
 	}
 
-	@Override
-	public int hashCode() {
-		return getId().hashCode();
-	}
-
-	@Override
-	public boolean equals(Object other) {
-		return other == null ? false : (other instanceof Session) ? other.hashCode() == hashCode() : false;
+	public String getShortId() {
+		return getId().substring(0, 8);
 	}
 
 	@Override
@@ -163,7 +95,7 @@ public class Session implements Cloneable {
 		session.lastAccessedTime = lastAccessedTime;
 		session.maxInactiveInterval = maxInactiveInterval;
 		session.requests = requests;
-		session.expire = expire;
+		session.expired = expired;
 		session.domain = domain;
 		session.ip = ip;
 		session.site = site;

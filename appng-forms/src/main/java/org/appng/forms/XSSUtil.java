@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,22 +19,20 @@ import javax.servlet.http.HttpServletRequest;
 
 import org.apache.commons.lang3.StringUtils;
 import org.jsoup.Jsoup;
-import org.jsoup.safety.Whitelist;
+import org.jsoup.safety.Safelist;
 import org.owasp.esapi.Encoder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * A utility class helping with XSS prevention.<br/>
  * Uses <a href="https://www.javadoc.io/doc/org.owasp.esapi/esapi/2.1.0.1">ESAPI</a> and
- * <a href="https://jsoup.org/cookbook/cleaning-html/whitelist-sanitizer">JSOUP</a>.
+ * <a href="https://jsoup.org/cookbook/cleaning-html/safelist-sanitizer">JSOUP</a>.
  * 
  * @author Matthias Müller
- * 
  */
+@Slf4j
 public class XSSUtil {
-
-	private static final Logger LOG = LoggerFactory.getLogger(XSSUtil.class);
 
 	/**
 	 * request-attribute indicating XSS has been stripped from the {@link HttpServletRequest} ({@link Boolean#TRUE} in
@@ -43,16 +41,16 @@ public class XSSUtil {
 	private static final String XSS_STRIPPED = XSSUtil.class.getName() + ".xssStripped";
 
 	private Encoder encoder;
-	private Whitelist whitelist;
+	private Safelist safelist;
 	private String[] exceptions;
 
 	public XSSUtil(Encoder encoder) {
-		this(encoder, Whitelist.basic());
+		this(encoder, Safelist.basic());
 	}
 
-	public XSSUtil(Encoder encoder, Whitelist whitelist, String... exceptions) {
+	public XSSUtil(Encoder encoder, Safelist safelist, String... exceptions) {
 		this.encoder = encoder;
-		this.whitelist = whitelist;
+		this.safelist = safelist;
 		this.exceptions = exceptions;
 	}
 
@@ -60,7 +58,7 @@ public class XSSUtil {
 		if (null == parameter) {
 			return parameter;
 		}
-		return Jsoup.clean(encoder.canonicalize(parameter), whitelist);
+		return Jsoup.clean(encoder.canonicalize(parameter), safelist);
 	}
 
 	public String[] stripXss(String[] values) {
@@ -80,8 +78,8 @@ public class XSSUtil {
 
 	public boolean doProcess(HttpServletRequest request, String... exceptions) {
 		if (null != request.getAttribute(XSS_STRIPPED)) {
-			if (LOG.isDebugEnabled()) {
-				LOG.debug("request attribute '{}' is {} for request {}, no need to process", XSS_STRIPPED,
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("request attribute '{}' is {} for request {}, no need to process", XSS_STRIPPED,
 						request.getAttribute(XSS_STRIPPED), request.getServletPath());
 			}
 			return false;
@@ -99,8 +97,9 @@ public class XSSUtil {
 
 	public void setProcessed(HttpServletRequest request, boolean processed) {
 		request.setAttribute(XSS_STRIPPED, processed);
-		if (LOG.isDebugEnabled()) {
-			LOG.debug("setting request attribute '{}' to TRUE for request {}", XSS_STRIPPED, request.getServletPath());
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("setting request attribute '{}' to TRUE for request {}", XSS_STRIPPED,
+					request.getServletPath());
 		}
 	}
 

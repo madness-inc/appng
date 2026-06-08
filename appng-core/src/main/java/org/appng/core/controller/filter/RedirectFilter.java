@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.MalformedURLException;
-import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -31,7 +30,6 @@ import java.util.regex.Pattern;
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
 import javax.servlet.FilterConfig;
-import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
@@ -41,14 +39,12 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.appng.api.Environment;
 import org.appng.api.Platform;
-import org.appng.api.RequestUtil;
 import org.appng.api.Scope;
 import org.appng.api.SiteProperties;
 import org.appng.api.model.Properties;
 import org.appng.api.model.Site;
 import org.appng.api.support.environment.DefaultEnvironment;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.appng.xml.BuilderFactory;
 import org.tuckey.web.filters.urlrewrite.Conf;
 import org.tuckey.web.filters.urlrewrite.ConfHandler;
 import org.tuckey.web.filters.urlrewrite.NormalRule;
@@ -63,22 +59,23 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * A {@link Filter} extending <a href="http://www.tuckey.org/urlrewrite/">UrlRewriteFilter</a> that supports
  * configuration per {@link Site}.
  * 
  * @author Matthias Müller
  */
+@Slf4j
 public class RedirectFilter extends UrlRewriteFilter {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(RedirectFilter.class);
-
-	private static ConcurrentMap<String, CachedUrlRewriter> REWRITERS = new ConcurrentHashMap<String, CachedUrlRewriter>();
-	private FilterConfig filterConfig;
+	private static ConcurrentMap<String, CachedUrlRewriter> REWRITERS = new ConcurrentHashMap<>();
+	private int reloadIntervall;
 
 	@Override
 	public void init(final FilterConfig filterConfig) throws ServletException {
-		this.filterConfig = filterConfig;
+		this.reloadIntervall = Integer.parseInt(filterConfig.getInitParameter("confReloadCheckInterval"));
 		Log.setLevel("slf4j");
 		super.init(filterConfig);
 	}
@@ -87,7 +84,7 @@ public class RedirectFilter extends UrlRewriteFilter {
 		private final Pattern pattern;
 		private final String target;
 
-		RedirectRule(NormalRule rule, String domain) {
+		RedirectRule(NormalRule rule) {
 			if (rule.getFrom().startsWith("^") && rule.getFrom().endsWith("$")) {
 				this.pattern = Pattern.compile(rule.getFrom().substring(1, rule.getFrom().length() - 1));
 			} else {
@@ -117,13 +114,13 @@ public class RedirectFilter extends UrlRewriteFilter {
 		public CachedUrlRewriter(UrlRewriteConfig conf, String domain, String jspType) {
 			super(conf);
 			created = System.currentTimeMillis();
-			redirectRules = new ArrayList<RedirectRule>();
+			redirectRules = new ArrayList<>();
 			for (Rule rule : conf.getRules()) {
 				if (rule instanceof NormalRule) {
 					NormalRule normalRule = (NormalRule) rule;
 					if (normalRule.getToType().contains("redirect") && normalRule.getFrom().contains(jspType)
 							&& !FunctionReplacer.containsFunction(normalRule.getTo())) {
-						redirectRules.add(new RedirectRule(normalRule, domain));
+						redirectRules.add(new RedirectRule(normalRule));
 					}
 				}
 			}
@@ -142,9 +139,10 @@ public class RedirectFilter extends UrlRewriteFilter {
 
 	public static class UrlRewriteConfig extends Conf {
 
-		public UrlRewriteConfig(File file) throws IOException, SAXException, ParserConfigurationException {
-			super(null, new FileInputStream(file), file.getName(), file.toURI().toURL().toString(), false);
-			processConfDoc(parseConfig(file.toURI().toURL()));
+		public UrlRewriteConfig(InputStream is, String fileName, URL systemId)
+				throws IOException, SAXException, ParserConfigurationException {
+			super(null, is, fileName, systemId.toString(), false);
+			processConfDoc(parseConfig(systemId));
 			initialise();
 			getLoadedDate().setTime(System.currentTimeMillis());
 		}
@@ -167,7 +165,7 @@ public class RedirectFilter extends UrlRewriteFilter {
 		String confSystemId = resource.toString();
 		ConfHandler handler = new ConfHandler(confSystemId);
 
-		DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+		DocumentBuilderFactory factory = BuilderFactory.documentBuilderFactory();
 		factory.setValidating(true);
 		factory.setNamespaceAware(true);
 		factory.setXIncludeAware(true);
@@ -181,7 +179,7 @@ public class RedirectFilter extends UrlRewriteFilter {
 
 		Element rootElement = doc.getDocumentElement();
 		NodeList children = rootElement.getChildNodes();
-		List<Node> deprecatedNodes = new ArrayList<Node>();
+		List<Node> deprecatedNodes = new ArrayList<>();
 		for (int i = 0; i < children.getLength(); i++) {
 			Node node = children.item(i);
 			if (node.getNodeType() == Node.ELEMENT_NODE && !"rule".equals(node.getNodeName())) {
@@ -203,10 +201,9 @@ public class RedirectFilter extends UrlRewriteFilter {
 
 	@Override
 	protected UrlRewriter getUrlRewriter(ServletRequest request, ServletResponse response, FilterChain chain) {
-		ServletContext context = filterConfig.getServletContext();
-		Environment env = DefaultEnvironment.get(context, request);
+		DefaultEnvironment env = EnvironmentFilter.environment();
+		Site site = env.getSite();
 		String jspType = getJspType(env);
-		Site site = RequestUtil.getSite(env, request);
 
 		if (null != site) {
 			boolean reload = true;
@@ -214,31 +211,36 @@ public class RedirectFilter extends UrlRewriteFilter {
 			if (REWRITERS.containsKey(siteName)) {
 				CachedUrlRewriter cachedUrlRewriter = REWRITERS.get(siteName);
 				long ageMillis = (System.currentTimeMillis() - cachedUrlRewriter.created);
-				int reloadIntervall = Integer.parseInt(filterConfig.getInitParameter("confReloadCheckInterval"));
 				reload = ageMillis > reloadIntervall;
 				LOGGER.trace("found existing CachedUrlRewriter for site {}, age: {}ms, reload required: {}", siteName,
 						ageMillis, reload);
 			}
 
 			if (reload) {
-				URL resource = getConfPath(env, site);
-				if (null != resource) {
-					UrlRewriteConfig conf;
-					try {
-						conf = new UrlRewriteConfig(new File(resource.toURI()));
-						checkConf(conf);
-						if (conf.isOk()) {
-							CachedUrlRewriter cachedUrlRewriter = new CachedUrlRewriter(conf, site.getDomain(),
-									jspType);
-							REWRITERS.put(siteName, cachedUrlRewriter);
-							LOGGER.debug("reloaded config for site {} from {}, {} rules found", siteName, resource,
-									conf.getRules().size());
-						} else {
-							LOGGER.warn("invalid config-file for site '" + siteName + "': " + resource);
+				File confFile = getConfFile(site);
+				if (confFile.exists()) {
+					if (confFile.canRead()) {
+						try (FileInputStream is = new FileInputStream(confFile)) {
+							UrlRewriteConfig conf = new UrlRewriteConfig(is, confFile.getName(),
+									confFile.toURI().toURL());
+							checkConf(conf);
+							if (conf.isOk()) {
+								CachedUrlRewriter cachedUrlRewriter = new CachedUrlRewriter(conf, site.getDomain(),
+										jspType);
+								REWRITERS.put(siteName, cachedUrlRewriter);
+								LOGGER.debug("reloaded config for site {} from {}, {} rules found", siteName, confFile,
+										conf.getRules().size());
+							} else {
+								LOGGER.warn("invalid config-file for site '{}': {}", siteName, confFile);
+							}
+						} catch (IOException | SAXException | ParserConfigurationException e) {
+							LOGGER.error("error processing {}", confFile);
 						}
-					} catch (IOException | SAXException | ParserConfigurationException | URISyntaxException e) {
-						LOGGER.error("error processing " + resource);
+					} else {
+						LOGGER.warn("Can not read {}, please check file permissions!", confFile.getAbsolutePath());
 					}
+				} else {
+					LOGGER.debug("Configuration file does not exist: {}", confFile);
 				}
 			}
 			return REWRITERS.get(siteName);
@@ -255,16 +257,9 @@ public class RedirectFilter extends UrlRewriteFilter {
 		return platformProperties.getString(Platform.Property.JSP_FILE_TYPE);
 	}
 
-	private static URL getConfPath(Environment env, Site site) {
-		Properties platformProperties = env.getAttribute(Scope.PLATFORM, Platform.Environment.PLATFORM_CONFIG);
-		String repositoryDirectory = platformProperties.getString(Platform.Property.REPOSITORY_PATH);
+	private static File getConfFile(Site site) {
+		String rootPath = site.getProperties().getString(SiteProperties.SITE_ROOT_DIR);
 		String rewriteConfig = site.getProperties().getString(SiteProperties.REWRITE_CONFIG);
-		String confPath = repositoryDirectory + "/" + site.getName() + rewriteConfig;
-		try {
-			return ((DefaultEnvironment) env).getServletContext().getResource(confPath);
-		} catch (MalformedURLException e) {
-			LOGGER.warn("unable to read redirects for site '" + site.getName() + "' ", e);
-		}
-		return null;
+		return Paths.get(rootPath, rewriteConfig).toAbsolutePath().toFile();
 	}
 }

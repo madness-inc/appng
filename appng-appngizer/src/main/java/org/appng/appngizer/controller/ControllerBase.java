@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,19 @@
 package org.appng.appngizer.controller;
 
 import java.net.URI;
+import java.util.Iterator;
 
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
+import javax.validation.ConstraintViolation;
+import javax.validation.ConstraintViolationException;
 
 import org.appng.api.BusinessException;
 import org.appng.api.Platform;
 import org.appng.api.model.Properties;
+import org.appng.appngizer.model.xml.Error;
+import org.appng.appngizer.model.xml.Errors;
 import org.appng.appngizer.model.xml.Nameable;
 import org.appng.core.domain.ApplicationImpl;
 import org.appng.core.domain.DatabaseConnection;
@@ -35,44 +40,79 @@ import org.appng.core.service.TemplateService;
 import org.flywaydb.core.api.MigrationInfo;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationContext;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.util.UriComponentsBuilder;
 
+@RequestMapping(produces = { MediaType.TEXT_XML_VALUE, MediaType.APPLICATION_XML_VALUE })
 public abstract class ControllerBase {
 
 	@Autowired
-	ServletContext context;
+	protected ServletContext context;
 
 	@Autowired
-	HttpSession session;
+	protected HttpSession session;
 
 	@Autowired
-	CoreService coreService;
+	protected CoreService coreService;
 
 	@Autowired
-	TemplateService templateService;
+	protected TemplateService templateService;
 
 	@Autowired
-	DatabaseService databaseService;
+	protected DatabaseService databaseService;
 
 	@Autowired
-	AppNGizerConfigurer configurer;
+	protected AppNGizerConfigurer configurer;
 
-	@Autowired
-	ApplicationContext appCtx;
-
-	@ResponseStatus(value = HttpStatus.INTERNAL_SERVER_ERROR)
 	@ExceptionHandler(BusinessException.class)
-	public void onBusinessException(HttpServletRequest request, BusinessException e) {
-		String message = String.format("%s error while processing [%s] %s", request.getSession().getId(),
-				request.getMethod(), request.getServletPath());
+	public ResponseEntity<Errors> onBusinessException(HttpServletRequest request, BusinessException e) {
+		String message = String.format("[%s] error while processing [%s] on %s", request.getSession().getId(),
+				request.getMethod(), request.getRequestURI());
 		logger().error(message, e);
+		Errors errors = new Errors();
+		Error error = new Error();
+		error.setPath(e.getClass().getName());
+		error.setValue(e.getMessage());
+		errors.getError().add(error);
+		return new ResponseEntity<Errors>(errors, HttpStatus.INTERNAL_SERVER_ERROR);
+	}
+
+	@ExceptionHandler(ConstraintViolationException.class)
+	public ResponseEntity<Errors> onConstraintViolationException(HttpServletRequest request,
+			ConstraintViolationException e) {
+		String message = String.format("[%s] error while processing [%s] on %s", request.getSession().getId(),
+				request.getMethod(), request.getRequestURI());
+		logger().error(message, e);
+		Errors errors = new Errors();
+		Iterator<ConstraintViolation<?>> iterator = e.getConstraintViolations().iterator();
+		while (iterator.hasNext()) {
+			ConstraintViolation<?> cv = (ConstraintViolation<?>) iterator.next();
+			Error error = new Error();
+			error.setPath(cv.getPropertyPath().toString());
+			error.setValue(cv.getMessage());
+			errors.getError().add(error);
+		}
+		return new ResponseEntity<Errors>(errors, HttpStatus.BAD_REQUEST);
+	}
+
+	@ExceptionHandler(ConflictException.class)
+	public ResponseEntity<Errors> onConflictException(HttpServletRequest request, ConflictException e) {
+		String message = String.format("[%s] error while processing [%s] on %s", request.getSession().getId(),
+				request.getMethod(), request.getRequestURI());
+		logger().error(message, e);
+		Errors errors = new Errors();
+		for (String cn : e.getConflicts()) {
+			Error error = new Error();
+			error.setValue(cn);
+			errors.getError().add(error);
+		}
+		return new ResponseEntity<Errors>(errors, HttpStatus.CONFLICT);
 	}
 
 	abstract Logger logger();
@@ -102,7 +142,7 @@ public abstract class ControllerBase {
 	}
 
 	UriComponentsBuilder getUriBuilder() {
-		return ServletUriComponentsBuilder.fromCurrentContextPath();
+		return ServletUriComponentsBuilder.fromCurrentContextPath().path("appNGizer");
 	}
 
 	<T> ResponseEntity<T> ok(T entity) {
@@ -155,11 +195,12 @@ public abstract class ControllerBase {
 
 	protected MigrationInfo getDatabaseStatus() {
 		DatabaseConnection platformConnection = databaseService.getPlatformConnection(configurer.getProps());
-		return databaseService.statusComplete(platformConnection).current();
+		return platformConnection.getMigrationInfoService().current();
 	}
 
 	public String getSharedSecret() {
 		Properties platformCfg = getCoreService().getPlatformProperties();
 		return platformCfg.getString(Platform.Property.SHARED_SECRET);
 	}
+
 }

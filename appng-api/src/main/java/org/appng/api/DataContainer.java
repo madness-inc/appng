@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,8 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.apache.commons.collections.comparators.ComparatorChain;
-import org.apache.commons.lang3.StringUtils;
 import org.appng.xml.platform.Data;
 import org.appng.xml.platform.FieldDef;
-import org.appng.xml.platform.FieldType;
 import org.appng.xml.platform.Result;
 import org.appng.xml.platform.Resultset;
 import org.appng.xml.platform.Selection;
@@ -54,7 +52,6 @@ import org.springframework.data.domain.Sort.Order;
  * the {@link Data} returned by {@link #getWrappedData()} using a {@link ResultService}.
  * 
  * @author Matthias Müller
- * 
  */
 public final class DataContainer {
 
@@ -70,7 +67,7 @@ public final class DataContainer {
 	 * Creates a new {@link DataContainer} using the given {@link FieldProcessor}.
 	 * 
 	 * @param fieldProcessor
-	 *            the {@link FieldProcessor} containing all readable {@link FieldDef}initions
+	 *                       the {@link FieldProcessor} containing all readable {@link FieldDef}initions
 	 */
 	public DataContainer(final FieldProcessor fieldProcessor) {
 		this.data = new Data();
@@ -90,12 +87,11 @@ public final class DataContainer {
 	 * Sets the single item
 	 * 
 	 * @param item
-	 *            the item
+	 *             the item
 	 */
 	public void setItem(Object item) {
 		this.item = item;
 		setSingleResult(true);
-		initItem();
 	}
 
 	/**
@@ -126,12 +122,11 @@ public final class DataContainer {
 	 * supported when using this method.
 	 * 
 	 * @param items
-	 *            a {@code Collection} of items
+	 *              a {@code Collection} of items
 	 */
 	public void setItems(Collection<?> items) {
 		this.items = items;
 		setSingleResult(false);
-		initItems(items);
 		setPageable(null);
 	}
 
@@ -140,9 +135,10 @@ public final class DataContainer {
 	 * of items, based on the given {@link Pageable}. See {@link #setPage(Collection, Pageable, boolean)} for details.
 	 * 
 	 * @param items
-	 *            the {@code Collection} of items the extract the {@link Page} from
+	 *                 the {@code Collection} of items the extract the {@link Page} from
 	 * @param pageable
-	 *            the {@link Pageable} for the {@link Page} to extract
+	 *                 the {@link Pageable} for the {@link Page} to extract
+	 * 
 	 * @see #setPage(Collection, Pageable, boolean)
 	 */
 	public void setPage(Collection<?> items, Pageable pageable) {
@@ -162,12 +158,11 @@ public final class DataContainer {
 	 * </p>
 	 * 
 	 * @param items
-	 *            the {@code Collection} of items the extract the {@link Page} from
+	 *                 the {@code Collection} of items the extract the {@link Page} from
 	 * @param pageable
-	 *            the {@link Pageable} for the {@link Page} to extract
+	 *                 the {@link Pageable} for the {@link Page} to extract
 	 * @param skipSort
-	 *            if the items should not get sorted, even if the {@code pageable} has a {@code Sort} property set
-	 * 
+	 *                 if the items should not get sorted, even if the {@code pageable} has a {@code Sort} property set
 	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public void setPage(Collection<?> items, Pageable pageable, boolean skipSort) {
@@ -193,6 +188,7 @@ public final class DataContainer {
 		if (null != sort && !items.isEmpty()) {
 			ComparatorChain comparatorChain = new ComparatorChain();
 			Iterator<Order> iterator = sort.iterator();
+
 			while (iterator.hasNext()) {
 				final Order order = iterator.next();
 				final int factor = order.isAscending() ? 1 : -1;
@@ -228,6 +224,7 @@ public final class DataContainer {
 	 * Returns the {@link Pageable} (may be {@code null}) for this {@code DataContainer}
 	 * 
 	 * @return the {@link Pageable}, if any
+	 * 
 	 * @see #setPage(Page)
 	 * @see #setPage(Collection, Pageable)
 	 */
@@ -246,6 +243,7 @@ public final class DataContainer {
 	 * Returns the {@link Page} (may be {@code null}) for this {@code DataContainer}
 	 * 
 	 * @return the {@link Page}, if any
+	 * 
 	 * @see #setPage(Page)
 	 * @see #setPage(Collection, Pageable)
 	 */
@@ -257,18 +255,18 @@ public final class DataContainer {
 	 * Sets the {@link Page} for this {@code DataContainer}
 	 * 
 	 * @param page
-	 *            the {@link Page} to set
+	 *             the {@link Page} to set
 	 */
 	public void setPage(Page<?> page) {
 		this.page = page;
 		setSingleResult(false);
-		initItems(page);
 	}
 
 	/**
 	 * Convenience method to access the {@link Selection}s of the wrapped {@link Data}.
 	 * 
 	 * @return a list of {@link Selection}s
+	 * 
 	 * @see #getWrappedData()
 	 */
 	public List<Selection> getSelections() {
@@ -279,6 +277,7 @@ public final class DataContainer {
 	 * Convenience method to access the {@link SelectionGroup}s of the wrapped {@link Data}.
 	 * 
 	 * @return a list of {@link SelectionGroup}s
+	 * 
 	 * @see #getWrappedData()
 	 */
 	public List<SelectionGroup> getSelectionGroups() {
@@ -292,52 +291,6 @@ public final class DataContainer {
 	 */
 	public Data getWrappedData() {
 		return data;
-	}
-
-	private void initItems(Iterable<?> items) {
-		for (Object item : items) {
-			initItem(item);
-		}
-	}
-
-	private void initItem() {
-		initItem(item);
-	}
-
-	private void initItem(Object item) {
-		if (null != fieldProcessor) {
-			List<FieldDef> fields = fieldProcessor.getFields();
-			initFields(null, fields, new BeanWrapperImpl(item));
-		}
-	}
-
-	/**
-	 * This is needed because a LazyInitializationException occurs otherwise when accessing uninitialized fields during
-	 * result-transformation
-	 * 
-	 * @param parentName
-	 * @param fields
-	 * @param wrapper
-	 */
-	private void initFields(String parentName, List<FieldDef> fields, BeanWrapper wrapper) {
-		if (null != fields) {
-			for (FieldDef fieldDef : fields) {
-				if (!FieldType.LINKPANEL.equals(fieldDef.getType())) {
-					String name = fieldDef.getName();
-					if (StringUtils.isNotEmpty(parentName)) {
-						name = parentName + "." + name;
-					}
-					boolean readable = wrapper.isReadableProperty(name);
-					if (readable) {
-						Object propertyValue = wrapper.getPropertyValue(name);
-						if (propertyValue instanceof Collection<?>) {
-							((Collection<?>) propertyValue).size();
-						}
-					}
-					initFields(name, fieldDef.getFields(), wrapper);
-				}
-			}
-		}
 	}
 
 	/**

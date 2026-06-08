@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import javax.servlet.http.HttpServletResponse;
 
@@ -40,12 +42,15 @@ import org.appng.api.ProcessingException;
 import org.appng.api.Request;
 import org.appng.api.Scope;
 import org.appng.api.model.Application;
+import org.appng.api.model.Properties;
 import org.appng.api.model.Site;
 import org.appng.api.model.Subject;
 import org.appng.api.support.environment.EnvironmentKeys;
+import org.appng.api.support.environment.ScopedEnvironment;
 import org.appng.xml.platform.ApplicationConfig;
 import org.appng.xml.platform.ApplicationRootConfig;
 import org.appng.xml.platform.Bean;
+import org.appng.xml.platform.Condition;
 import org.appng.xml.platform.DataConfig;
 import org.appng.xml.platform.Datasource;
 import org.appng.xml.platform.DatasourceRef;
@@ -67,7 +72,6 @@ import org.springframework.mock.web.MockHttpServletRequest;
  * Test for {@link CallableDataSource}.
  * 
  * @author Matthias Herlitzius
- * 
  */
 public class CallableDataSourceTest {
 
@@ -102,6 +106,9 @@ public class CallableDataSourceTest {
 	private ApplicationRequest applicationRequest;
 
 	@Mock
+	private Properties properties;
+
+	@Mock
 	private Environment environment;
 
 	@Mock
@@ -115,6 +122,11 @@ public class CallableDataSourceTest {
 	@Before
 	public void setup() {
 		MockitoAnnotations.initMocks(this);
+		Mockito.when(site.getProperties()).thenReturn(properties);
+		Mockito.when(application.getProperties()).thenReturn(properties);
+		java.util.Properties props = new java.util.Properties();
+		props.put("foo", 41.06);
+		Mockito.when(properties.getPlainProperties()).thenReturn(props);
 		permissionProcessor = new DefaultPermissionProcessor(subject, site, application);
 		Mockito.when(applicationRequest.getPermissionProcessor()).thenReturn(permissionProcessor);
 		Mockito.when(applicationRequest.getApplicationConfig()).thenReturn(applicationConfigProvider);
@@ -129,6 +141,9 @@ public class CallableDataSourceTest {
 		Mockito.when(datasourceRef.getId()).thenReturn(MY_DATASOURCE);
 		Mockito.when(datasourceRef.getParams()).thenReturn(new Params());
 		Mockito.when(datasourceRef.getPageSize()).thenReturn(10);
+		Condition condition = new Condition();
+		condition.setExpression("${SITE.foo > 41.05 and SESSION.foobar}");
+		Mockito.when(datasourceRef.getCondition()).thenReturn(condition);
 		Mockito.when(site.getSiteClassLoader()).thenReturn(new URLClassLoader(new URL[0]));
 		Mockito.when(application.getBean(TEST_BEAN, DataProvider.class)).thenReturn(dataProvider);
 		Mockito.when(applicationConfigProvider.getDatasource(MY_DATASOURCE)).thenReturn(datasource);
@@ -140,6 +155,12 @@ public class CallableDataSourceTest {
 
 		Mockito.when(applicationRequest.getEnvironment()).thenReturn(environment);
 		Mockito.when(environment.getAttribute(Scope.REQUEST, EnvironmentKeys.PATH_INFO)).thenReturn(path);
+		
+		ScopedEnvironment session = Mockito.mock(ScopedEnvironment.class);
+		ConcurrentMap<String, Object> sessionMap = new ConcurrentHashMap<>();
+		sessionMap.put("foobar", true);
+		Mockito.when(session.getContainer()).thenReturn(sessionMap);
+		Mockito.when(environment.getEnvironment(Scope.SESSION)).thenReturn(session);
 		ApplicationRootConfig applicationRootConfig = new ApplicationRootConfig();
 		applicationRootConfig.setConfig(new ApplicationConfig());
 		Mockito.when(applicationConfigProvider.getApplicationRootConfig()).thenReturn(applicationRootConfig);
@@ -170,7 +191,7 @@ public class CallableDataSourceTest {
 			MetaData metaData = new MetaData();
 			metaData.setBindClass(Set.class.getName());
 			DataContainer dataContainer = new DataContainer(new FieldProcessorImpl("foo", metaData));
-			dataContainer.setItem(new ArrayList<String>());
+			dataContainer.setItem(new ArrayList<>());
 			mockDataProvider(dataContainer);
 
 			getDataSource().perform("test");
@@ -190,7 +211,7 @@ public class CallableDataSourceTest {
 		MetaData metaData = new MetaData();
 		metaData.setBindClass(Person.class.getName());
 		DataContainer dataContainer = new DataContainer(new FieldProcessorImpl("foo", metaData));
-		Page<Person> page = new PageImpl<Person>(Collections.<Person> emptyList(), pageable, total);
+		Page<Person> page = new PageImpl<Person>(Collections.<Person>emptyList(), pageable, total);
 		dataContainer.setPage(page);
 		mockDataProvider(dataContainer);
 	}

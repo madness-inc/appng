@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.util.Date;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.time.FastDateFormat;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Field;
@@ -46,8 +45,8 @@ import org.appng.api.search.Consumer;
 import org.appng.api.search.Document;
 import org.appng.api.search.DocumentEvent;
 import org.appng.api.search.DocumentProducer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * A {@link Consumer} of {@link DocumentEvent}s produced by a {@link DocumentProducer}. Therefore it holds a queue of
@@ -56,11 +55,9 @@ import org.slf4j.LoggerFactory;
  * within the given timeout, the producer is being discarded and the next one is taken.
  * 
  * @author Matthias Müller
- * 
  */
+@Slf4j
 public class DocumentIndexer extends Consumer<DocumentEvent, DocumentProducer> implements Runnable {
-
-	private static final Logger logger = LoggerFactory.getLogger(DocumentIndexer.class);
 
 	private static final String YYYY_MM_DD_HH_MM_SS = "yyyy-MM-dd HH:mm:ss";
 	public static final Event CLEAR_INDEX = new Event("clear-index");
@@ -73,10 +70,10 @@ public class DocumentIndexer extends Consumer<DocumentEvent, DocumentProducer> i
 	 * Creates a new {@code DocumentIndexer}.
 	 * 
 	 * @param indexDir
-	 *            the directory to read/save the Lucene index from/to
+	 *                 the directory to read/save the Lucene index from/to
 	 * @param timeout
-	 *            the timeout in milliseconds when retrieving the next {@link DocumentEvent} from a
-	 *            {@link DocumentProducer}
+	 *                 the timeout in milliseconds when retrieving the next {@link DocumentEvent} from a
+	 *                 {@link DocumentProducer}
 	 */
 	public DocumentIndexer(int queueSize, File indexDir, Long timeout) {
 		super(queueSize);
@@ -100,7 +97,7 @@ public class DocumentIndexer extends Consumer<DocumentEvent, DocumentProducer> i
 		Analyzer analyzer = null;
 		boolean needsRollback = false;
 		try {
-			while (true) {
+			while (!Thread.currentThread().isInterrupted()) {
 				DocumentProducer producer = get();
 				Constructor<? extends Analyzer> constructor = producer.getAnalyzerClass().getConstructor();
 				analyzer = constructor.newInstance();
@@ -108,10 +105,10 @@ public class DocumentIndexer extends Consumer<DocumentEvent, DocumentProducer> i
 				directory = FSDirectory.open(indexDir.toPath());
 				indexWriter = new IndexWriter(directory, config);
 				needsRollback = true;
-				logger.debug("opened IndexWriter#" + indexWriter.hashCode() + " with Analyzer " + analyzer.getClass());
+				LOGGER.debug("opened IndexWriter#{} with Analyzer {}", indexWriter.hashCode(), analyzer.getClass());
 				reader = DirectoryReader.open(indexWriter);
 				searcher = new IndexSearcher(reader);
-				int before = indexWriter.numDocs();
+				int before = indexWriter.getDocStats().numDocs;
 				DocumentEvent documentEvent = null;
 				int created = 0;
 				int updated = 0;
@@ -120,7 +117,7 @@ public class DocumentIndexer extends Consumer<DocumentEvent, DocumentProducer> i
 					Event event = documentEvent.getEvent();
 					if (CLEAR_INDEX.equals(event)) {
 						indexWriter.deleteAll();
-						logger.info("clearing index at " + indexDir.getAbsolutePath());
+						LOGGER.info("clearing index at {}", indexDir.getAbsolutePath());
 					} else {
 
 						long start = System.currentTimeMillis();
@@ -137,53 +134,54 @@ public class DocumentIndexer extends Consumer<DocumentEvent, DocumentProducer> i
 						BooleanQuery query = queryBuilder.build();
 						String queryString = query.toString();
 						TopDocs search = searcher.search(query, 10);
-						int found = search.totalHits;
+						long found = search.totalHits.value;
 						if (found > 0) {
 							indexWriter.deleteDocuments(query);
-							logger.debug("deleting " + found + " existing document(s) for query " + queryString);
+							LOGGER.debug("deleting {} existing document(s) for query {}", found, queryString);
 						}
 
 						if (Document.CREATE.equals(event)) {
 							indexWriter.addDocument(luceneDocument);
-							logger.debug("creating document " + queryString);
+							LOGGER.debug("creating document {}", queryString);
 							created++;
 						} else if (Document.UPDATE.equals(event)) {
 							indexWriter.addDocument(luceneDocument);
-							logger.debug("updating document " + queryString);
+							LOGGER.debug("updating document {}", queryString);
 							updated++;
 						} else if (Document.DELETE.equals(event)) {
 							deleted++;
 						}
 
 						long duration = System.currentTimeMillis() - start;
-						logger.debug("[" + duration + "ms] " + event + ", query: " + queryString);
+						LOGGER.debug("[{}ms] {}, query: {}", duration, event, queryString);
 					}
 				}
 				indexWriter.commit();
 				needsRollback = false;
-				logger.info("comitted IndexWriter#{}", indexWriter.hashCode());
-				int after = indexWriter.numDocs();
+				LOGGER.info("comitted IndexWriter#{}", indexWriter.hashCode());
+				int after = indexWriter.getDocStats().numDocs;
 				int overall = created + updated + deleted;
 				String mssg = "done with DocumentProducer '{}' which offered {} events (CREATE: {}, UPDATE: {}, DELETE: {}). The index now contains {} documents (was {} before)";
-				logger.info(mssg, producer.getName(), overall, created, updated, deleted, after, before);
-				logger.debug("comitted IndexWriter#" + indexWriter.hashCode() + ", containing " + after
-						+ " documents (before: " + before + ") directory: " + indexDir.getAbsolutePath());
+				LOGGER.info(mssg, producer.getName(), overall, created, updated, deleted, after, before);
+				LOGGER.debug("comitted IndexWriter#{}, containing {} documents (before: {}) directory: {}",
+						indexWriter.hashCode(), after, before, indexDir.getAbsolutePath());
 				close(indexWriter, reader, directory);
 			}
 		} catch (IOException ioe) {
-			logger.error("an I/O error occured", ioe);
+			LOGGER.error("an I/O error occured", ioe);
 		} catch (InterruptedException ie) {
-			logger.error("thread was interrupted", ie);
+			LOGGER.error("thread was interrupted", ie);
+			Thread.currentThread().interrupt();
 		} catch (Exception e) {
-			logger.error("unexpected error", e);
+			LOGGER.error("unexpected error", e);
 		} finally {
 			if (null != indexWriter && needsRollback) {
 				try {
-					logger.info("rolling back changes on IndexWriter#{}", indexWriter.hashCode());
+					LOGGER.info("rolling back changes on IndexWriter#{}", indexWriter.hashCode());
 					indexWriter.rollback();
-					logger.info("rolling back on IndexWriter#{} successfull", indexWriter.hashCode());
+					LOGGER.info("rolling back on IndexWriter#{} successfull", indexWriter.hashCode());
 				} catch (IOException e) {
-					logger.info("error rolling back changes on IndexWriter#{}", +indexWriter.hashCode());
+					LOGGER.info("error rolling back changes on IndexWriter#{}", +indexWriter.hashCode());
 				}
 			}
 			close(indexWriter, reader, directory);
@@ -193,9 +191,14 @@ public class DocumentIndexer extends Consumer<DocumentEvent, DocumentProducer> i
 	private void close(Closeable... closeables) {
 		for (Closeable closeable : closeables) {
 			if (null != closeable) {
-				IOUtils.closeQuietly(closeable);
-				logger.debug("closed " + closeable);
-				closeable = null;
+				try {
+					closeable.close();
+					LOGGER.debug("closed {}", closeable);
+				} catch (IOException e) {
+					LOGGER.debug(String.format("error closing %s", closeable), e);
+				} finally {
+					closeable = null;
+				}
 			}
 		}
 	}

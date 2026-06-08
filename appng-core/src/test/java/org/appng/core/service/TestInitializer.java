@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,27 +15,27 @@
  */
 package org.appng.core.service;
 
-import org.appng.testsupport.persistence.ConnectionHelper;
+import org.appng.core.controller.PlatformStartup;
 import org.springframework.beans.factory.config.PropertyResourceConfigurer;
 import org.springframework.context.ApplicationContextInitializer;
-import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.support.AbstractApplicationContext;
 import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 
-public class TestInitializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
+public class TestInitializer implements ApplicationContextInitializer<AbstractApplicationContext> {
 
 	protected boolean showSql = false;
 
-	public void initialize(ConfigurableApplicationContext applicationContext) {
+	public void initialize(AbstractApplicationContext applicationContext) {
 		java.util.Properties properties = getProperties();
 		PropertyResourceConfigurer configurer = new PropertySourcesPlaceholderConfigurer();
 		configurer.setProperties(properties);
 		applicationContext.addBeanFactoryPostProcessor(configurer);
+		applicationContext.setDisplayName(PlatformStartup.APPNG_CONTEXT);
 	}
 
 	protected java.util.Properties getProperties() {
 		java.util.Properties properties = new java.util.Properties();
-		properties.put("hsqlPort", ConnectionHelper.getHsqlPort());
-		properties.put("hsqlPath", "file:target/hsql/" + getClass().getSimpleName() + "/db");
+		properties.put("database", getClass().getSimpleName());
 		properties.put("hibernate.show_sql", showSql);
 		return properties;
 	}

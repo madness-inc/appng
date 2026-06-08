@@ -11,37 +11,57 @@
 	<parent>
 		<groupId>org.appng</groupId>
 		<artifactId>appng-parent</artifactId>
-		<version>1.15.0</version>
+		<version>1.26.6-SNAPSHOT</version>
 		<relativePath>../pom.xml</relativePath>
 	</parent>
 
-	<profiles>
-		<profile>
-			<id>versioneye</id>
-			<build>
-				<plugins>
-					<plugin>
-						<groupId>com.versioneye</groupId>
-						<artifactId>versioneye-maven-plugin</artifactId>
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.appng</groupId>
+				<artifactId>appng-maven-plugin</artifactId>
+				<version>1.24.5</version>
+				<executions>
+					<execution>
+						<id>messageConstants</id>
+						<goals>
+							<goal>generateMessageConstants</goal>
+						</goals>
 						<configuration>
-							<projectId>5975f38b6725bd00164c9435</projectId>
-							<organisation>appNG</organisation>
-							<team>Owners</team>
+							<filePath>src/main/resources/messages-core.properties</filePath>
+							<targetClass>org.appng.api.MessageConstants</targetClass>
+							<outfolder>target/generated-sources/constants</outfolder>
 						</configuration>
-						<executions>
-							<execution>
-								<phase>package</phase>
-								<goals>
-									<goal>update</goal>
-									<goal>securityAndLicenseCheck</goal>
-								</goals>
-							</execution>
-						</executions>
-					</plugin>
-				</plugins>
-			</build>
-		</profile>
-	</profiles>
+					</execution>
+				</executions>
+				<dependencies>
+					<dependency>
+						<groupId>javax.xml.bind</groupId>
+						<artifactId>jaxb-api</artifactId>
+						<version>2.3.1</version>
+					</dependency>
+				</dependencies>
+			</plugin>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>build-helper-maven-plugin</artifactId>
+				<version>3.0.0</version>
+				<executions>
+					<execution>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>add-source</goal>
+						</goals>
+						<configuration>
+							<sources>
+								<source>target/generated-sources/constants</source>
+							</sources>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
 
 	<!-- BEGIN DEPENDENCY MANAGEMENT -->
 	<dependencies>
@@ -76,8 +96,8 @@
 			<version>1.6.3</version>
 		</dependency>
 		<dependency>
-			<groupId>javax.validation</groupId>
-			<artifactId>validation-api</artifactId>
+			<groupId>jakarta.validation</groupId>
+			<artifactId>jakarta.validation-api</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>commons-io</groupId>

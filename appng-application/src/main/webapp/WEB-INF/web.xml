@@ -2,14 +2,21 @@
 <web-app version="3.0" xmlns="http://java.sun.com/xml/ns/javaee" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd">
 
+	<servlet>
+		<servlet-name>appNGizer</servlet-name>
+		<servlet-class>org.appng.appngizer.controller.AppNGizerServlet</servlet-class>
+		<load-on-startup>1</load-on-startup>
+	</servlet>
+
+	<servlet-mapping>
+		<servlet-name>appNGizer</servlet-name>
+		<url-pattern>/appNGizer/*</url-pattern>
+	</servlet-mapping>
+
 	<!-- init Logging -->
 	<listener>
-		<listener-class>org.springframework.web.util.Log4jConfigListener</listener-class>
+		<listener-class>org.appng.core.controller.Log4jConfigurer</listener-class>
 	</listener>
-	<context-param>
-		<param-name>log4jConfigLocation</param-name>
-		<param-value>/WEB-INF/conf/log4j.properties</param-value>
-	</context-param>
 
 	<!-- install listener, looks for WEB-INF/conf/auto-install.list and executes it, if present -->
 	<listener>
@@ -21,14 +28,42 @@
 		<listener-class>org.appng.core.controller.PlatformStartup</listener-class>
 	</listener>
 
-	<!-- support Spring request-scope -->
-	<listener>
-		<listener-class>org.springframework.web.context.request.RequestContextListener</listener-class>
-	</listener>
-
 	<!-- ##################### Filter definitions ##################### -->
 
-	<!-- XSS Filter-->
+	<!-- Keycloak -->
+	<!--filter>
+		<filter-name>KeycloakLoginFilter</filter-name>
+		<filter-class>org.appng.core.controller.filter.KeycloakLoginFilter</filter-class>
+	</filter>
+	<filter-mapping>
+		<filter-name>KeycloakLoginFilter</filter-name>
+		<servlet-name>controller</servlet-name>
+		<dispatcher>REQUEST</dispatcher>
+	</filter-mapping-->
+
+	<!-- support Spring's request-scope -->
+	<filter>
+		<filter-name>RequestContextFilter</filter-name>
+		<filter-class>org.springframework.web.filter.RequestContextFilter</filter-class>
+	</filter>
+	<filter-mapping>
+		<filter-name>RequestContextFilter</filter-name>
+		<url-pattern>/*</url-pattern>
+		<dispatcher>REQUEST</dispatcher>
+	</filter-mapping>
+	
+	<!-- set environment -->
+	<filter>
+		<filter-name>EnvironmentFilter</filter-name>
+		<filter-class>org.appng.core.controller.filter.EnvironmentFilter</filter-class>
+	</filter>
+	<filter-mapping>
+		<filter-name>EnvironmentFilter</filter-name>
+		<url-pattern>/*</url-pattern>
+		<dispatcher>REQUEST</dispatcher>
+	</filter-mapping>
+
+	<!-- XSS Filter -->
 	<filter>
 		<filter-name>XSSFilter</filter-name>
 		<filter-class>org.appng.core.controller.filter.XSSFilter</filter-class>
@@ -38,6 +73,12 @@
 		<servlet-name>controller</servlet-name>
 		<dispatcher>REQUEST</dispatcher>
 	</filter-mapping>
+
+	<!-- MetricsFilter -->
+	<filter>
+		<filter-name>MetricsFilter</filter-name>
+		<filter-class>org.appng.core.controller.filter.MetricsFilter</filter-class>
+	</filter>
 
 	<!-- PageCacheFilter -->
 	<filter>
@@ -81,6 +122,12 @@
 	<!-- ##################### Filter mappings - order is important! ##################### -->
 
 	<filter-mapping>
+		<filter-name>MetricsFilter</filter-name>
+		<servlet-name>controller</servlet-name>
+		<dispatcher>REQUEST</dispatcher>
+	</filter-mapping>
+
+	<filter-mapping>
 		<filter-name>PageCacheFilter</filter-name>
 		<servlet-name>controller</servlet-name>
 		<dispatcher>REQUEST</dispatcher>
@@ -113,5 +160,23 @@
 		<error-code>404</error-code>
 		<location>/errorpage</location>
 	</error-page>
+
+	<!-- Keycloak -->
+	<!--security-constraint>
+		<web-resource-collection>
+			<web-resource-name>appNG Manager</web-resource-name>
+			<url-pattern>/manager/*</url-pattern>
+		</web-resource-collection>
+		<auth-constraint>
+			<role-name>appNG Keycloak User</role-name>
+		</auth-constraint>
+	</security-constraint>
+	<login-config>
+		<auth-method>BASIC</auth-method>
+		<realm-name>this is ignored currently</realm-name>
+	</login-config>
+	<security-role>
+		<role-name>appNG Keycloak User</role-name>
+	</security-role-->
 
 </web-app>

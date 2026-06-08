@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,10 +22,13 @@ import java.util.TimeZone;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
 import org.appng.api.model.Application;
+import org.appng.api.model.Site;
 import org.appng.api.model.Subject;
+import org.appng.api.support.environment.ScopedEnvironment;
 
 /**
  * The {@link Environment} is able to set, read and remove attributes of a certain {@link Scope}. The main purposes are:
@@ -40,19 +43,32 @@ import org.appng.api.model.Subject;
  * </ul>
  * 
  * @author Matthias Müller
+ * 
  * @see Scope
  */
 public interface Environment {
 
 	/**
+	 * Returns a {@link ScopedEnvironment} for the given {@link Scope}
+	 * 
+	 * @param scope
+	 *              the {@link Scope} to use
+	 * 
+	 * @return the {@link ScopedEnvironment}, if scope is available, {@code null} otherwise.
+	 */
+	default ScopedEnvironment getEnvironment(Scope scope) {
+		return null;
+	}
+
+	/**
 	 * Sets an attribute for the given {@link Scope} to the given value.
 	 * 
 	 * @param scope
-	 *            the {@link Scope} of the attribute to set
+	 *              the {@link Scope} of the attribute to set
 	 * @param name
-	 *            the name of the attribute to set
+	 *              the name of the attribute to set
 	 * @param value
-	 *            the attribute to set
+	 *              the attribute to set
 	 */
 	void setAttribute(Scope scope, String name, Object value);
 
@@ -60,9 +76,10 @@ public interface Environment {
 	 * Returns the attribute with the given name for the given {@link Scope}.
 	 * 
 	 * @param scope
-	 *            the {@link Scope} of the attribute to get
+	 *              the {@link Scope} of the attribute to get
 	 * @param name
-	 *            the name of the attribute to get
+	 *              the name of the attribute to get
+	 * 
 	 * @return the attribute of the desired type, or {@code null} if the attribute does not exist in the given
 	 *         {@link Scope}
 	 */
@@ -72,9 +89,10 @@ public interface Environment {
 	 * Removes the attribute with the given name from the given {@link Scope} and returns it.
 	 * 
 	 * @param scope
-	 *            the {@link Scope} of the attribute to remove
+	 *              the {@link Scope} of the attribute to remove
 	 * @param name
-	 *            the name of the attribute to remove
+	 *              the name of the attribute to remove
+	 * 
 	 * @return the attribute of the desired type, or {@code null} if the attribute does not exist in the given
 	 *         {@link Scope}
 	 */
@@ -84,9 +102,10 @@ public interface Environment {
 	 * Returns the string-representation of an attribute, calling {@code toString()} on the resulting object.
 	 * 
 	 * @param scope
-	 *            the {@link Scope} of the attribute to get
+	 *              the {@link Scope} of the attribute to get
 	 * @param name
-	 *            the name of the attribute to get
+	 *              the name of the attribute to get
+	 * 
 	 * @return the string-representation of the attribute, or {@code null} if the attribute does not exist in the given
 	 *         {@link Scope}
 	 */
@@ -96,7 +115,8 @@ public interface Environment {
 	 * Returns a {@link Set} of all attribute names for the given {@link Scope}
 	 * 
 	 * @param scope
-	 *            the {@link Scope} the get the attribute names for
+	 *              the {@link Scope} the get the attribute names for
+	 * 
 	 * @return a {@link Set} containing all attribute names, or {@code null} if the {@link Scope} is not available
 	 */
 	Set<String> keySet(Scope scope);
@@ -137,18 +157,34 @@ public interface Environment {
 	 * Initializes the {@link Environment}.
 	 * 
 	 * @param context
-	 *            a {@link ServletContext}
+	 *                 a {@link ServletContext}
 	 * @param session
-	 *            a {@link HttpSession}
+	 *                 a {@link HttpSession}
 	 * @param request
-	 *            a {@link ServletRequest}
+	 *                 a {@link ServletRequest}
 	 * @param response
-	 *            a {@link ServletResponse}
+	 *                 a {@link ServletResponse}
 	 * @param host
-	 *            the host for the site-{@link Scope}
+	 *                 the host for the site-{@link Scope}
+	 * 
 	 * @throws IllegalStateException
-	 *             if this {@link Environment} already has been initialized
+	 *                               if this {@link Environment} already has been initialized
+	 * 
+	 * @deprecated no replacement
 	 */
-	void init(ServletContext context, HttpSession session, ServletRequest request, ServletResponse response, String host);
+	@Deprecated
+	void init(ServletContext context, HttpSession session, ServletRequest request, ServletResponse response,
+			String host);
+
+	/**
+	 * Returns the current {@link Site}, if this environment has been created from a {@link HttpServletRequest}
+	 * 
+	 * @return the site
+	 * 
+	 * @since 1.25
+	 */
+	default Site getSite() {
+		return null;
+	}
 
 }

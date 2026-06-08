@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -85,8 +85,8 @@ public class FormRequestTest {
 		request.append(bar + "\r\n");
 
 		request.append("--" + boundary + "\r\n");
-		request.append("Content-Disposition: form-data; name=\"" + file + "\"; filename=\"" + filenameComplete
-				+ "\"\r\n");
+		request.append(
+				"Content-Disposition: form-data; name=\"" + file + "\"; filename=\"" + filenameComplete + "\"\r\n");
 		request.append("Content-Type: " + contentType + "\r\n");
 		request.append("\r\n");
 
@@ -153,8 +153,8 @@ public class FormRequestTest {
 		String bar = "bar";
 		String answer = "42";
 
-		final Map<String, List<String>> requestParameters = new HashMap<String, List<String>>();
-		List<String> values = new ArrayList<String>();
+		final Map<String, List<String>> requestParameters = new HashMap<>();
+		List<String> values = new ArrayList<>();
 		values.add(bar);
 		values.add(answer);
 		requestParameters.put(foo, values);

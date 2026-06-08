@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,13 @@
  */
 package org.appng.api.support;
 
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Date;
 
+import org.apache.commons.lang3.time.FastDateFormat;
 import org.appng.api.Person;
 import org.appng.api.model.NameProvider;
 import org.appng.api.support.OptionOwner.Selector;
@@ -65,6 +68,11 @@ public class SelectionFactoryTest {
 				o.setSelected(true);
 			}
 		}
+
+		@Override
+		public Integer count(String optionValue) {
+			return 5;
+		}
 	};
 
 	enum Force {
@@ -73,12 +81,12 @@ public class SelectionFactoryTest {
 
 	@BeforeClass
 	public static void setUpBeforeClass() throws Exception {
-		allElements = new ArrayList<Person>();
+		allElements = new ArrayList<>();
 		allElements.add(darklord);
 		allElements.add(luke);
 		allElements.add(han);
 
-		selectedElements = new ArrayList<Person>();
+		selectedElements = new ArrayList<>();
 		selectedElements.add(luke);
 	}
 
@@ -123,6 +131,18 @@ public class SelectionFactoryTest {
 	}
 
 	@Test
+	public void testHitCounter() {
+		org.appng.api.support.SelectionFactory.Selection s1 = selectionFactory.fromNamed(id, title, allElements,
+				selectedElements);
+		org.appng.api.support.SelectionFactory.Selection s2 = selectionFactory.fromNamed(id, title, allElements,
+				selector);
+
+		selectionFactory.countHits(s1, o -> 1);
+		s1.getOptions().forEach(o -> Assert.assertEquals(Integer.valueOf(1), o.getHits()));
+		s2.getOptions().forEach(o -> Assert.assertEquals(Integer.valueOf(5), o.getHits()));
+	}
+
+	@Test
 	public void testFromIdentifiable() {
 		Selection s1 = selectionFactory.fromIdentifiable(id, title, allElements, selectedElements);
 		Selection s2 = selectionFactory.fromIdentifiable(id, title, allElements, luke);
@@ -146,6 +166,19 @@ public class SelectionFactoryTest {
 		Assert.assertEquals("title", selection.getTitle().getId());
 		Assert.assertEquals("id", selection.getOptions().get(0).getName());
 		Assert.assertEquals("03.12.2015", selection.getOptions().get(0).getValue());
+		Assert.assertEquals(SelectionType.DATE, selection.getType());
+		Assert.assertEquals("dd.MM.yyyy", selection.getFormat());
+	}
+
+	@Test
+	public void testGetDateSelectionFastDateFormat() throws ParseException {
+		FastDateFormat fdf = FastDateFormat.getInstance("dd.MM.yyyy");
+		Date date = fdf.parse("17.01.2017");
+		Selection selection = selectionFactory.getDateSelection("id", "title", date, fdf);
+		Assert.assertEquals("id", selection.getId());
+		Assert.assertEquals("title", selection.getTitle().getId());
+		Assert.assertEquals("id", selection.getOptions().get(0).getName());
+		Assert.assertEquals(fdf.format(date), selection.getOptions().get(0).getValue());
 		Assert.assertEquals(SelectionType.DATE, selection.getType());
 		Assert.assertEquals("dd.MM.yyyy", selection.getFormat());
 	}

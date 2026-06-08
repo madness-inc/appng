@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import org.appng.api.model.Site;
  * Enum type defining the possible scopes of an {@link Environment}-attribute.
  * 
  * @author Matthias Müller
- * 
  */
 public enum Scope {
 
@@ -51,16 +50,17 @@ public enum Scope {
 	URL;
 
 	/**
+	 * @param name
+	 *             the name of the {@link Site} to get the identifier for
 	 * 
-	 * @param host
-	 *            the host of the {@link Site} to get the name for
 	 * @return a String used in order to identify an {@link Environment} for a {@link Site}
+	 * 
 	 * @throws IllegalArgumentException
-	 *             if this scope not equals {@link Scope#SITE}
+	 *                                  if this scope not equals {@link Scope#SITE}
 	 */
-	public String forSite(String host) {
+	public String forSite(String name) {
 		if (SITE.equals(this)) {
-			return name() + "." + host;
+			return name() + "." + name;
 		}
 		throw new IllegalArgumentException("not allowed for scope " + name());
 	}

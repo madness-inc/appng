@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import java.util.Date;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.EntityListeners;
 import javax.persistence.EnumType;
 import javax.persistence.Enumerated;
 import javax.persistence.GeneratedValue;
@@ -39,16 +40,16 @@ import org.appng.api.model.Resource;
 import org.appng.api.model.ResourceType;
 
 /**
- * 
  * Default {@link Resource}-implementation
  * 
  * @author Matthias Müller
- * 
  */
 @Entity
 @Table(name = "resource")
-public class ResourceImpl implements Resource, Closeable {
+@EntityListeners(PlatformEventListener.class)
+public class ResourceImpl implements Resource, Auditable<Integer>, Closeable {
 
+	private static final String CHECKSUM_NO_DATA = DigestUtils.sha256Hex(new byte[0]);
 	private Integer id;
 	private String name;
 	private String description;
@@ -73,7 +74,7 @@ public class ResourceImpl implements Resource, Closeable {
 	}
 
 	@Id
-	@GeneratedValue(strategy = GenerationType.AUTO)
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	public Integer getId() {
 		return id;
 	}
@@ -161,13 +162,16 @@ public class ResourceImpl implements Resource, Closeable {
 	}
 
 	public void calculateChecksum() {
-		if (getSize() > 0) {
-			setCheckSum(DigestUtils.sha256Hex(getBytes()));
-		}
+		setCheckSum(getSize() > 0 ? DigestUtils.sha256Hex(getBytes()) : CHECKSUM_NO_DATA);
 	}
 
 	public void close() {
 		this.cachedFile = null;
 	}
 
+	@Override
+	@Transient
+	public String getAuditName() {
+		return Auditable.super.getAuditName() + " of application " + application.getName();
+	}
 }

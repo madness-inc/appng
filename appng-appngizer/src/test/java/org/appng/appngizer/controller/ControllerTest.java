@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,38 +17,44 @@ package org.appng.appngizer.controller;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.servlet.http.HttpServletResponse;
-import javax.xml.transform.stream.StreamSource;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.appng.api.Platform;
+import org.appng.api.Scope;
 import org.appng.api.VHostMode;
 import org.appng.api.model.Property;
 import org.appng.api.model.SimpleProperty;
+import org.appng.api.support.PropertyHolder;
+import org.appng.api.support.environment.DefaultEnvironment;
 import org.appng.appngizer.model.xml.PackageType;
 import org.appng.appngizer.model.xml.Repository;
 import org.appng.appngizer.model.xml.RepositoryMode;
 import org.appng.appngizer.model.xml.RepositoryType;
+import org.appng.core.controller.PlatformStartup;
+import org.appng.core.model.RepositoryCacheFactory;
 import org.appng.core.service.CoreService;
+import org.appng.core.service.PropertySupport;
+import org.appng.testsupport.validation.WritingXmlValidator;
 import org.appng.testsupport.validation.XPathDifferenceHandler;
-import org.custommonkey.xmlunit.Diff;
-import org.custommonkey.xmlunit.XMLAssert;
-import org.custommonkey.xmlunit.XMLUnit;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContextInitializer;
+import org.springframework.context.support.AbstractApplicationContext;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -67,10 +73,16 @@ import org.springframework.xml.transform.StringResult;
 import org.xml.sax.SAXException;
 
 @RunWith(SpringRunner.class)
-@ContextConfiguration(locations = { "classpath:test-context.xml" })
+@ContextConfiguration(locations = { "classpath:test-context.xml" }, initializers = ControllerTest.Initializer.class)
 @DirtiesContext
 @WebAppConfiguration
 public abstract class ControllerTest {
+
+	static class Initializer implements ApplicationContextInitializer<AbstractApplicationContext> {
+		public void initialize(AbstractApplicationContext applicationContext) {
+			applicationContext.setDisplayName(PlatformStartup.APPNG_CONTEXT);
+		}
+	}
 
 	@Autowired
 	protected WebApplicationContext wac;
@@ -81,8 +93,6 @@ public abstract class ControllerTest {
 	protected MockMvc mockMvc;
 
 	protected XPathDifferenceHandler differenceListener;
-
-	public static boolean write = false;
 
 	static boolean platformInitialized = false;
 
@@ -112,7 +122,7 @@ public abstract class ControllerTest {
 		File path = new File(new File("").getAbsolutePath(), "../appng-core/src/test/resources/zip");
 		File repoFolder = new File("target/repo");
 		FileUtils.copyDirectory(path, repoFolder);
-		return "file://" + repoFolder.getAbsolutePath();
+		return repoFolder.toURI().toString();
 	}
 
 	@Before
@@ -121,7 +131,21 @@ public abstract class ControllerTest {
 		this.differenceListener = new XPathDifferenceHandler();
 		this.mockMvc = MockMvcBuilders.webAppContextSetup(this.wac).build();
 		if (!platformInitialized) {
-			wac.getBean(CoreService.class).initPlatformConfig(new Properties(), "target/webapps/ROOT", false, true, true);
+			Map<Object, Object> platformEnv = new ConcurrentHashMap<>();
+			platformEnv.put(Platform.Environment.APPNG_VERSION, "1.21.x");
+			List<? extends Property> properties = Arrays.asList(
+					new SimpleProperty(PropertySupport.PREFIX_PLATFORM + Platform.Property.SHARED_SECRET, "4711"),
+					new SimpleProperty(PropertySupport.PREFIX_PLATFORM + Platform.Property.VHOST_MODE,
+							VHostMode.NAME_BASED.name()));
+			platformEnv.put(Platform.Environment.PLATFORM_CONFIG,
+					new PropertyHolder(PropertySupport.PREFIX_PLATFORM, properties));
+			this.wac.getServletContext().setAttribute(Scope.PLATFORM.name(), platformEnv);
+			RepositoryCacheFactory.init(null, null, null, null, false);
+			Properties defaultOverrides = new Properties();
+			defaultOverrides.put(PropertySupport.PREFIX_PLATFORM + Platform.Property.MESSAGING_ENABLED, "false");
+			wac.getBean(CoreService.class).initPlatformConfig(defaultOverrides, "target/webapps/ROOT", false, true,
+					false);
+			DefaultEnvironment.initGlobal(this.wac.getServletContext());
 			platformInitialized = true;
 		}
 	}
@@ -134,13 +158,13 @@ public abstract class ControllerTest {
 	protected MockHttpServletResponse postAndVerify(String uri, String controlSource, Object content, HttpStatus status)
 			throws Exception {
 		MockHttpServletRequestBuilder post = MockMvcRequestBuilders.post(new URI(uri));
-		return sendBodyAndVerify(post, content, status, controlSource);
+		return sendAndVerify(post, content, status, controlSource);
 	}
 
 	protected MockHttpServletResponse putAndVerify(String uri, String controlSource, Object content, HttpStatus status)
 			throws Exception {
 		MockHttpServletRequestBuilder post = MockMvcRequestBuilders.put(new URI(uri));
-		return sendBodyAndVerify(post, content, status, controlSource);
+		return sendAndVerify(post, content, status, controlSource);
 	}
 
 	protected MockHttpServletResponse getAndVerify(String uri, String controlSource, HttpStatus status)
@@ -151,15 +175,20 @@ public abstract class ControllerTest {
 
 	protected MockHttpServletResponse deleteAndVerify(String uri, String controlSource, HttpStatus status)
 			throws Exception {
-		MockHttpServletRequestBuilder get = MockMvcRequestBuilders.delete(new URI(uri));
-		return verify(get, status, controlSource);
+		return deleteAndVerify(uri, controlSource, null, status);
 	}
 
-	protected MockHttpServletResponse sendBodyAndVerify(MockHttpServletRequestBuilder builder, Object content,
+	protected MockHttpServletResponse deleteAndVerify(String uri, String controlSource, Object content,
+			HttpStatus status) throws Exception {
+		MockHttpServletRequestBuilder delete = MockMvcRequestBuilders.delete(new URI(uri));
+		return sendAndVerify(delete, content, status, controlSource);
+	}
+
+	protected MockHttpServletResponse sendAndVerify(MockHttpServletRequestBuilder builder, Object content,
 			HttpStatus status, String controlSource)
 			throws Exception, UnsupportedEncodingException, SAXException, IOException {
 		if (null != content) {
-			builder.contentType(MediaType.TEXT_XML);
+			builder.contentType(MediaType.TEXT_XML_VALUE);
 			StringResult result = new StringResult();
 			marshaller.marshal(content, result);
 			builder.content(result.toString());
@@ -169,15 +198,19 @@ public abstract class ControllerTest {
 
 	protected MockHttpServletResponse verify(MockHttpServletRequestBuilder builder, HttpStatus status,
 			String controlSource) throws Exception, UnsupportedEncodingException, SAXException, IOException {
+		builder.header(HttpHeaders.AUTHORIZATION, "Bearer 4711");
 		MvcResult mvcResult = mockMvc.perform(builder).andReturn();
 		MockHttpServletResponse response = mvcResult.getResponse();
 		Assert.assertEquals("HTTP status does not match	", status.value(), response.getStatus());
+		if (HttpStatus.OK.equals(status)) {
+			Assert.assertEquals("Content type does not match ", MediaType.TEXT_XML_VALUE, response.getContentType());
+		}
 		validate(response.getContentAsString(), controlSource);
 		return response;
 	}
 
 	protected List<Property> getPlatformProperties(String prefix) {
-		List<Property> platformProperties = new ArrayList<Property>();
+		List<Property> platformProperties = new ArrayList<>();
 		platformProperties.add(new SimpleProperty(prefix + Platform.Property.VHOST_MODE, VHostMode.NAME_BASED.name()));
 		platformProperties.add(new SimpleProperty(prefix + Platform.Property.LOCALE, "en"));
 		platformProperties.add(new SimpleProperty(prefix + Platform.Property.TIME_ZONE, "Europe/Berlin"));
@@ -185,29 +218,14 @@ public abstract class ControllerTest {
 		platformProperties.add(new SimpleProperty(prefix + Platform.Property.CACHE_FOLDER, "cache"));
 		platformProperties.add(new SimpleProperty(prefix + Platform.Property.APPLICATION_CACHE_FOLDER, "application"));
 		platformProperties.add(new SimpleProperty(prefix + Platform.Property.PLATFORM_CACHE_FOLDER, "platform"));
+		platformProperties.add(new SimpleProperty(prefix + Platform.Property.MESSAGING_RECEIVER, "dummy"));
+		platformProperties.add(new SimpleProperty(prefix + Platform.Property.PLATFORM_ROOT_PATH, ""));
 		return platformProperties;
 	}
 
-	@SuppressWarnings("unchecked")
 	protected <T> void validate(String response, String controlSource) throws SAXException, IOException {
 		if (StringUtils.isNoneBlank(response, controlSource)) {
-			if (write) {
-				FileUtils.writeByteArrayToFile(new File("src/test/resources", controlSource), response.getBytes());
-			}
-			InputStream rs = getClass().getClassLoader().getResourceAsStream(controlSource);
-			if (null == rs) {
-				FileUtils.write(new File("src/test/resources", controlSource), response, StandardCharsets.UTF_8);
-				rs = getClass().getClassLoader().getResourceAsStream(controlSource);
-			}
-			T expexted = (T) marshaller.unmarshal(new StreamSource(rs));
-			StringResult expected = new StringResult();
-			marshaller.marshal(expexted, expected);
-
-			Diff diff = XMLUnit.compareXML(expected.toString(), response);
-			if (null != differenceListener) {
-				diff.overrideDifferenceListener(differenceListener);
-			}
-			XMLAssert.assertXMLIdentical("must be identical", diff, true);
+			WritingXmlValidator.validateXml(response, controlSource, differenceListener);
 		}
 	}
 

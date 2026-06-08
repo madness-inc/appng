@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -31,13 +32,13 @@ import org.appng.xml.platform.FieldDef;
 import org.appng.xml.platform.FieldType;
 import org.appng.xml.platform.Label;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanWrapper;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.core.convert.TypeDescriptor;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
- * 
  * A {@link FieldConverter} for {@link FieldDef}initions of type
  * <ul>
  * <li>{@link FieldType#LIST_CHECKBOX}</li>
@@ -48,11 +49,11 @@ import org.springframework.core.convert.TypeDescriptor;
  * </ul>
  * 
  * @author Matthias Müller
- * 
  */
+@Slf4j
 class ListFieldConverter extends ConverterBase {
 
-	protected static final Logger LOG = LoggerFactory.getLogger(ListFieldConverter.class);
+	private static final int NOT_INDEXED = -1;
 
 	ListFieldConverter(ConversionService conversionService) {
 		this.conversionService = conversionService;
@@ -72,46 +73,46 @@ class ListFieldConverter extends ConverterBase {
 		wrapper.setAutoGrowNestedPaths(true);
 		List<String> values = request.getParameterList(name);
 		Class<?> propertyType = getType(wrapper, name);
-		if (null != values) {
-			if (wrapper.isReadableProperty(name))
-				if (FieldType.LIST_OBJECT.equals(field.getType())) {
-					List<FieldDef> innerFields = new ArrayList<FieldDef>(field.getFields());
-					field.getFields().clear();
-					int maxIndex = 0;
-					Pattern pattern = Pattern.compile("^" + Pattern.quote(field.getBinding()) + "\\[(\\d+)\\]\\..+$");
-					for (String paramName : request.getParameterNames()) {
-						Matcher matcher = pattern.matcher(paramName);
-						if (matcher.matches()) {
-							Integer index = Integer.parseInt(matcher.group(1));
-							maxIndex = Math.max(maxIndex, index);
-						}
+		if (null != values && wrapper.isReadableProperty(name)) {
+			if (FieldType.LIST_OBJECT.equals(field.getType())) {
+				List<FieldDef> innerFields = new ArrayList<>(field.getFields());
+				field.getFields().clear();
+				int maxIndex = 0;
+				Pattern pattern = Pattern.compile("^" + Pattern.quote(field.getBinding()) + "\\[(\\d+)\\]\\..+$");
+				for (String paramName : request.getParameterNames()) {
+					Matcher matcher = pattern.matcher(paramName);
+					if (matcher.matches()) {
+						Integer index = Integer.parseInt(matcher.group(1));
+						maxIndex = Math.max(maxIndex, index);
 					}
-					for (int i = 0; i <= maxIndex; i++) {
-						addNestedFields(field, innerFields, i);
-					}
-				} else if (conversionService.canConvert(String.class, propertyType)) {
-					if (isCollection(wrapper, name)) {
-						values.forEach(value -> {
-							Object result = conversionService.convert(value, propertyType);
-							if (null != result) {
-								addCollectionValue(wrapper, name, result);
-							}
-						});
-						logSetObject(field, wrapper.getPropertyValue(name));
-					} else if (values.size() == 1) {
-						Object result = conversionService.convert(values.get(0), propertyType);
-						logSetObject(field, result);
-						field.setObject(result);
-					}
-				} else {
-					LOG.debug("can not convert from {} to {}", String.class, propertyType);
 				}
+				for (int i = 0; i <= maxIndex; i++) {
+					addNestedFields(field, innerFields, i);
+				}
+			} else if (conversionService.canConvert(String.class, propertyType)) {
+				if (isCollection(wrapper, name)) {
+					values.forEach(value -> {
+						Object result = conversionService.convert(value, propertyType);
+						if (null != result) {
+							addCollectionValue(wrapper, name, result);
+						}
+					});
+					logSetObject(field, wrapper.getPropertyValue(name));
+				} else if (values.size() == 1) {
+					Object result = conversionService.convert(values.get(0), propertyType);
+					logSetObject(field, result);
+					field.setObject(result);
+				}
+			} else {
+				LOGGER.debug("can not convert from {} to {}", String.class, propertyType);
+			}
 		}
+
 	}
 
 	@Override
 	protected Logger getLog() {
-		return LOG;
+		return LOGGER;
 	}
 
 	@Override
@@ -128,7 +129,7 @@ class ListFieldConverter extends ConverterBase {
 			if (propertyTypeDescriptor.isCollection()) {
 				Collection<?> collection = (Collection<?>) object;
 				Datafield child = null;
-				List<FieldDef> indexedFields = new ArrayList<FieldDef>(fieldWrapper.getFields());
+				List<FieldDef> indexedFields = new ArrayList<>(fieldWrapper.getFields());
 				if (isObjectList) {
 					fieldWrapper.getFields().clear();
 				}
@@ -157,33 +158,34 @@ class ListFieldConverter extends ConverterBase {
 		return null;
 	}
 
-	private String getIndexedField(String s, int i) {
-		String format = String.format("%s[%d]", s, i);
-		return format;
+	private String getIndexedField(String nameOrBinding, int index) {
+		return String.format("%s[%d]", nameOrBinding, index);
 	}
 
-	private void addNestedFields(FieldDef parentField, List<FieldDef> indexedFields, int index) {
-		for (FieldDef fieldDef : indexedFields) {
-			FieldDef indexedField = copyField(fieldDef);
-			if (index > -1) {
-				indexedField.setBinding(getIndexedField(parentField.getBinding(), index));
-				indexedField.setName(getIndexedField(parentField.getName(), index));
-			} else {
-				indexedField.setBinding(parentField.getBinding() + "." + fieldDef.getName());
+	private void addNestedFields(FieldDef parent, List<FieldDef> childDefinitions, int index) {
+		for (FieldDef fieldDef : childDefinitions) {
+			boolean indexed = index > NOT_INDEXED;
+			String binding = indexed ? getIndexedField(parent.getBinding(), index)
+					: String.format("%s.%s", parent.getBinding(), fieldDef.getName());
+			String name = indexed ? getIndexedField(parent.getName(), index) : fieldDef.getName();
+
+			FieldDef child = copyField(fieldDef, name, binding);
+			addNestedFields(child, fieldDef.getFields(), NOT_INDEXED);
+			List<FieldDef> children = parent.getFields();
+			Optional<FieldDef> anyChild = children.stream().filter(b -> b.getBinding().equals(binding)).findAny();
+			boolean addField = !(anyChild.isPresent() && FieldType.OBJECT.equals(child.getType()));
+			if (addField) {
+				children.add(child);
+				LOGGER.debug("adding nested field {} to {}", FieldWrapper.toString(child),
+						FieldWrapper.toString(parent));
 			}
-			if (FieldType.OBJECT.equals(indexedField.getType())) {
-				addNestedFields(indexedField, fieldDef.getFields(), -1);
-			}
-			parentField.getFields().add(indexedField);
-			LOG.debug("adding nested field {} to {}", FieldWrapper.toString(indexedField),
-					FieldWrapper.toString(parentField));
 		}
 	}
 
-	private FieldDef copyField(FieldDef fieldDef) {
+	private FieldDef copyField(FieldDef fieldDef, String name, String binding) {
 		FieldDef copy = new FieldDef();
-		copy.setBinding(fieldDef.getBinding());
-		copy.setName(fieldDef.getName());
+		copy.setBinding(binding);
+		copy.setName(name);
 		copy.setType(fieldDef.getType());
 		copy.setReadonly(fieldDef.getReadonly());
 		copy.setHidden(fieldDef.getHidden());
@@ -225,8 +227,9 @@ class ListFieldConverter extends ConverterBase {
 	private void addCollectionValue(BeanWrapper wrapper, String name, Object result) {
 		Collection collection = (Collection) wrapper.getPropertyValue(name);
 		if (null == collection) {
-			throw new IllegalArgumentException("collection '" + name + "' of object " + wrapper.getWrappedInstance()
-					+ " is null, can not add value '" + result + "'!");
+			throw new IllegalArgumentException(
+					String.format("collection '%s' of object %s is null, can not add value '%s'!", name,
+							wrapper.getWrappedInstance(), result));
 		}
 		collection.add(result);
 	}

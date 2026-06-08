@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,12 +37,16 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import javax.servlet.ServletContext;
 
@@ -54,7 +58,6 @@ import org.appng.api.ApplicationController;
 import org.appng.api.Environment;
 import org.appng.api.FieldProcessor;
 import org.appng.api.InvalidConfigurationException;
-import org.appng.api.Path;
 import org.appng.api.Platform;
 import org.appng.api.RequestUtil;
 import org.appng.api.Scope;
@@ -64,7 +67,6 @@ import org.appng.api.messaging.Sender;
 import org.appng.api.model.Application;
 import org.appng.api.model.ApplicationSubject;
 import org.appng.api.model.Group;
-import org.appng.api.model.Named;
 import org.appng.api.model.Properties;
 import org.appng.api.model.Resource;
 import org.appng.api.model.ResourceType;
@@ -73,17 +75,22 @@ import org.appng.api.model.Site;
 import org.appng.api.model.Site.SiteState;
 import org.appng.api.support.ApplicationConfigProviderImpl;
 import org.appng.api.support.ConfigValidator;
+import org.appng.api.support.ElementHelper;
 import org.appng.api.support.FieldProcessorImpl;
-import org.appng.api.support.PropertyHolder;
 import org.appng.api.support.SiteClassLoader;
 import org.appng.api.support.environment.DefaultEnvironment;
 import org.appng.api.support.environment.EnvironmentKeys;
 import org.appng.core.controller.RepositoryWatcher;
+import org.appng.core.controller.handler.GuiHandler;
+import org.appng.core.controller.messaging.NodeEvent;
 import org.appng.core.controller.messaging.ReloadSiteEvent;
+import org.appng.core.controller.rest.RestPostProcessor;
+import org.appng.core.controller.rest.openapi.OpenApiPostProcessor;
 import org.appng.core.domain.DatabaseConnection;
+import org.appng.core.domain.PlatformEvent.Type;
+import org.appng.core.domain.PlatformEventListener;
 import org.appng.core.domain.SiteApplication;
 import org.appng.core.domain.SiteImpl;
-import org.appng.core.domain.Template;
 import org.appng.core.model.ApplicationContext;
 import org.appng.core.model.ApplicationProvider;
 import org.appng.core.model.CacheProvider;
@@ -93,12 +100,13 @@ import org.appng.core.model.JarInfo.JarInfoBuilder;
 import org.appng.core.model.PlatformTransformer;
 import org.appng.core.model.RepositoryCacheFactory;
 import org.appng.core.repository.config.ApplicationPostProcessor;
+import org.appng.core.service.MigrationService.MigrationStatus;
 import org.appng.search.indexer.DocumentIndexer;
 import org.appng.tools.ui.StringNormalizer;
 import org.appng.xml.MarshallService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.appng.xml.platform.Messages;
 import org.springframework.beans.factory.BeanFactory;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.beans.factory.support.DefaultSingletonBeanRegistry;
@@ -106,20 +114,25 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.PropertiesPropertySource;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StopWatch;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.hazelcast.cache.HazelcastCacheManager;
+import com.hazelcast.core.HazelcastInstance;
 
-import net.sf.ehcache.CacheManager;
-import net.sf.ehcache.constructs.blocking.BlockingCache;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * A service responsible for initializing the appNG platform with all active {@link Site}s.
  * 
  * @author Matthias Müller
  */
-public class InitializerService {
+@Slf4j
+public class InitializerService implements InitializingBean {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(InitializerService.class);
+	private static final int SITE_SUSPEND_DEFAULT = 5;
+	private static final int SITE_SUSPEND_MAXWAIT = 30;
 	private static final int THREAD_PRIORITY_LOW = 3;
 
 	private static final String LIB_LOCATION = "/WEB-INF/lib";
@@ -134,172 +147,224 @@ public class InitializerService {
 	private CoreService coreService;
 
 	@Autowired
-	private TemplateService templateService;
-
-	@Autowired
 	private DatabaseService databaseService;
 
 	@Autowired
 	private MarshallService marshallService;
 
+	@Autowired
+	protected PlatformEventListener auditableListener;
+	private ExecutorService startupExecutor;
+
+	@Override
+	public void afterPropertiesSet() throws Exception {
+		this.startupExecutor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(),
+				new ThreadFactoryBuilder().setPriority(Thread.MAX_PRIORITY).setNameFormat("appng-startup-%d")
+						.setUncaughtExceptionHandler((t, e) -> {
+							LOGGER.error("Uncaught exception was thrown!", e);
+						}).build());
+	}
+
 	/**
 	 * Initializes and loads the platform, which includes logging some environment settings.
 	 * 
-	 * @param env
-	 *            the current {@link Environment}
-	 * @param rootConnection
-	 *            the root {@link DatabaseConnection}
-	 * @param ctx
-	 *            the current {@link ServletContext}
-	 * @param executor
-	 *            an {@link ExecutorService} used by the cluster messaging
+	 * @param  platformConfig
+	 *                                       the current {@link PlatformProperties}
+	 * @param  env
+	 *                                       the current {@link Environment}
+	 * @param  rootConnection
+	 *                                       the root {@link DatabaseConnection}
+	 * @param  ctx
+	 *                                       the current {@link ServletContext}
+	 * @param  messagingExecutor
+	 *                                       an {@link ExecutorService} used for cluster communication threads
+	 * 
 	 * @throws InvalidConfigurationException
-	 *             if an configuration error occurred
-	 * @see #loadPlatform(java.util.Properties, Environment, String, String, ExecutorService)
+	 *                                       if an configuration error occurred
+	 * 
+	 * @see                                  #loadPlatform(PlatformProperties, Environment, String, String,
+	 *                                       ExecutorService)
 	 */
-	public void initPlatform(java.util.Properties defaultOverrides, Environment env, DatabaseConnection rootConnection,
-			ServletContext ctx, ExecutorService executor) throws InvalidConfigurationException {
+	@Transactional
+	public void initPlatform(PlatformProperties platformConfig, Environment env, DatabaseConnection rootConnection,
+			ServletContext ctx, ExecutorService messagingExecutor) throws InvalidConfigurationException {
 		logEnvironment();
-		loadPlatform(defaultOverrides, env, null, null, executor);
+		loadPlatform(platformConfig, env, null, null, messagingExecutor);
 		addJarInfo(env, ctx);
 		databaseService.setActiveConnection(rootConnection, false);
+		coreService.createEvent(Type.INFO, "Started platform");
 	}
 
 	/**
-	 * Reloads the platform with all of it's {@link Site}s.
+	 * @param      config
+	 * @param      env
+	 * @param      siteName
+	 * @param      target
+	 * @param      messagingExecutor
 	 * 
-	 * @param env
-	 *            the current {@link Environment}
-	 * @param siteName
-	 *            the (optional) name of the {@link Site} that caused the platform reload
-	 * @param target
-	 *            an (optional) target to redirect to after platform reload
-	 * @throws InvalidConfigurationException
-	 *             if an configuration error occurred
+	 * @deprecated                               will be removed with no replacement
+	 * 
+	 * @throws     InvalidConfigurationException
 	 */
+	@Deprecated
 	public void reloadPlatform(java.util.Properties config, Environment env, String siteName, String target,
-			ExecutorService executor) throws InvalidConfigurationException {
-		LOGGER.info(StringUtils.leftPad("Reloading appNG", 100, "="));
-		loadPlatform(config, env, siteName, target, executor);
-		LOGGER.info(StringUtils.leftPad("appNG reloaded", 100, "="));
+			ExecutorService messagingExecutor) throws InvalidConfigurationException {
+		throw new UnsupportedOperationException();
 	}
 
 	public InitializerService() {
-		this.siteThreads = new ConcurrentHashMap<String, List<ExecutorService>>();
+		this.siteThreads = new ConcurrentHashMap<>();
 	}
 
 	private void startIndexThread(Site site, DocumentIndexer documentIndexer) {
 		startSiteThread(site, "appng-indexthread-" + site.getName(), THREAD_PRIORITY_LOW, documentIndexer);
 	}
 
-	private void startRepositoryWatcher(Site site, boolean ehcacheEnabled, String jspType) {
-		if (ehcacheEnabled && site.getProperties().getBoolean(SiteProperties.EHCACHE_WATCH_REPOSITORY, false)) {
-			String watcherRuleSourceSuffix = site.getProperties().getString(
-					SiteProperties.EHCACHE_WATCHER_RULE_SOURCE_SUFFIX, RepositoryWatcher.DEFAULT_RULE_SUFFIX);
+	private void startRepositoryWatcher(Site site, boolean cacheEnabled, String jspType) {
+		if (cacheEnabled && site.getProperties().getBoolean(SiteProperties.CACHE_WATCH_REPOSITORY, false)) {
+			String watcherRuleSourceSuffix = site.getProperties()
+					.getString(SiteProperties.CACHE_WATCHER_RULE_SOURCE_SUFFIX, RepositoryWatcher.DEFAULT_RULE_SUFFIX);
 			String threadName = String.format("appng-repositoryWatcher-%s", site.getName());
 			RepositoryWatcher repositoryWatcher = new RepositoryWatcher(site, jspType, watcherRuleSourceSuffix);
 			startSiteThread(site, threadName, THREAD_PRIORITY_LOW, repositoryWatcher);
 		}
 	}
 
-	private void startSiteThread(Site site, String threadName, int priority, Runnable runnable) {
+	private Future<?> startSiteThread(Site site, String threadName, int priority, Runnable runnable) {
 		if (!siteThreads.containsKey(site.getName())) {
-			siteThreads.put(site.getName(), new ArrayList<ExecutorService>());
+			siteThreads.put(site.getName(), new ArrayList<>());
 		}
 		ThreadFactory threadFactory = new ThreadFactoryBuilder().setDaemon(true).setPriority(priority)
 				.setNameFormat(threadName).build();
 		ExecutorService executor = Executors.newSingleThreadExecutor(threadFactory);
 		siteThreads.get(site.getName()).add(executor);
-		executor.execute(runnable);
+		Future<?> submitted = executor.submit(runnable);
 		LOGGER.info("started site thread [{}] with runnable of type {}", threadName, runnable.getClass().getName());
+		return submitted;
 	}
 
 	/**
 	 * Loads the platform by loading every active {@link Site}.
 	 * 
-	 * @param env
-	 *            the current {@link Environment}
-	 * @param siteName
-	 *            the (optional) name of the {@link Site} that caused the platform reload
-	 * @param target
-	 *            an (optional) target to redirect to after platform reload
+	 * @param  platformConfig
+	 *                                       the current {@link PlatformProperties}
+	 * @param  env
+	 *                                       the current {@link Environment}
+	 * @param  siteName
+	 *                                       the (optional) name of the {@link Site} that caused the platform reload
+	 * @param  target
+	 *                                       an (optional) target to redirect to after platform reload
+	 * @param  messagingExecutor
+	 *                                       an {@link ExecutorService} used for cluster communication threads
+	 * 
 	 * @throws InvalidConfigurationException
-	 *             if an configuration error occurred
+	 *                                       if an configuration error occurred
 	 */
-	public void loadPlatform(java.util.Properties defaultOverrides, Environment env, String siteName, String target,
-			ExecutorService executor) throws InvalidConfigurationException {
-		ServletContext servletContext = ((DefaultEnvironment) env).getServletContext();
-		String rootPath = servletContext.getRealPath("/");
-		PropertyHolder platformConfig = getCoreService().initPlatformConfig(defaultOverrides, rootPath, false, true,
-				false);
-		addPropertyIfExists(platformConfig, defaultOverrides, APPNG_USER);
-		addPropertyIfExists(platformConfig, defaultOverrides, APPNG_GROUP);
-		platformConfig.setFinal();
+	public void loadPlatform(PlatformProperties platformConfig, Environment env, String siteName, String target,
+			ExecutorService messagingExecutor) throws InvalidConfigurationException {
+
+		if (platformConfig.getBoolean(Platform.Property.CLEAN_TEMP_FOLDER_ON_STARTUP, true)) {
+			File tempDir = new File(System.getProperty("java.io.tmpdir"));
+			if (tempDir.exists()) {
+				LOGGER.info("Cleaning temp folder {}", tempDir);
+				try {
+					FileUtils.cleanDirectory(tempDir);
+				} catch (IOException e) {
+					LOGGER.error(String.format("error while cleaning %s", tempDir), e);
+				}
+			}
+		}
 
 		RepositoryCacheFactory.init(platformConfig);
 
-		String ehcacheConfig = platformConfig.getString(Platform.Property.EHCACHE_CONFIG);
-		CacheManager cacheManager = CacheManager.create(rootPath + "/" + ehcacheConfig);
+		HazelcastInstance hazelcast = HazelcastConfigurer.getInstance(platformConfig, Messaging.getNodeId(), env);
+		CacheService.createCacheManager(hazelcast, HazelcastConfigurer.isClient());
+		HazelcastInstance hazelcastInstance = ((HazelcastCacheManager) CacheService.getCacheManager())
+				.getHazelcastInstance();
+		LOGGER.info("Caching uses {}", hazelcastInstance);
 
-		String uploadDir = platformConfig.getString(Platform.Property.UPLOAD_DIR);
-		String realPath = ((DefaultEnvironment) env).getServletContext().getRealPath(appendSlash(uploadDir));
-		File tempDir = new File(realPath);
-		if (!tempDir.exists()) {
+		File uploadDir = platformConfig.getUploadDir();
+		if (!uploadDir.exists()) {
 			try {
-				FileUtils.forceMkdir(tempDir);
+				FileUtils.forceMkdir(uploadDir);
 			} catch (IOException e) {
-				LOGGER.error("unable to create upload dir " + tempDir, e);
+				LOGGER.error(String.format("unable to create upload dir %s", uploadDir), e);
 			}
 		}
 
-		env.setAttribute(Scope.PLATFORM, Platform.Environment.PLATFORM_CONFIG, platformConfig);
-		Messaging.createMessageSender(env, executor);
+		Sender sender = Messaging.createMessageSender(env, messagingExecutor);
 
-		String applicationDir = platformConfig.getString(Platform.Property.APPLICATION_DIR);
-		String applicationRealDir = servletContext.getRealPath(appendSlash(applicationDir));
-		File applicationRootFolder = new File(applicationRealDir).getAbsoluteFile();
+		File applicationRootFolder = platformConfig.getApplicationDir();
 		if (!applicationRootFolder.exists()) {
-			LOGGER.error("could not find applicationfolder " + applicationRootFolder.getAbsolutePath(),
-					" platform will exit");
+			LOGGER.error("could not find applicationfolder {} platform will exit!",
+					applicationRootFolder.getAbsolutePath());
 			return;
 		}
-		LOGGER.info("applications are located at " + applicationRootFolder + " or in the database");
-		List<Integer> sites = getCoreService().getSiteIds();
-		ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
-		Map<String, Site> siteMap = env.getAttribute(Scope.PLATFORM, Platform.Environment.SITES);
-		if (null == siteMap) {
-			siteMap = new ConcurrentHashMap<>();
-			env.setAttribute(Scope.PLATFORM, Platform.Environment.SITES, siteMap);
+		LOGGER.info("applications are located at {} or in the database", applicationRootFolder);
+		Map<String, Site> siteMap = new ConcurrentHashMap<>();
+		env.setAttribute(Scope.PLATFORM, Platform.Environment.SITES, siteMap);
+
+		final int heartBeatSleepTime = platformConfig.getInteger(Platform.Property.HEART_BEAT_INTERVAL, 60) * 1000;
+		if (null != sender) {
+			new HeartBeat(heartBeatSleepTime).start();
 		}
+
 		int activeSites = 0;
+		FieldProcessor platformMessages = new FieldProcessorImpl("load-platform");
+		env.setAttribute(Scope.PLATFORM, GuiHandler.PLATFORM_MESSAGES, platformMessages.getMessages());
+		List<Integer> sites = getCoreService().getSiteIds();
+		Boolean parallelSiteStarts = platformConfig.getBoolean(Platform.Property.PARALLEL_SITE_STARTS, false);
 		for (Integer id : sites) {
-			SiteImpl site = getCoreService().getSite(id);
-			if (site.isActive()) {
-				LOGGER.info(StringUtils.leftPad("", 90, "="));
-				loadSite(site, env, false, new FieldProcessorImpl("load-platform"));
-				activeSites++;
-				LOGGER.info(StringUtils.leftPad("", 90, "="));
-			} else {
-				String runningSite = site.getName();
-				site.setState(SiteState.INACTIVE);
-				if (siteMap.containsKey(runningSite)) {
-					getCoreService().shutdownSite(env, runningSite);
+			try {
+				SiteImpl site = getCoreService().getSite(id);
+				if (site.isActive()) {
+					Runnable siteLoader = getSiteLoader(site, env, false, platformMessages);
+					if (parallelSiteStarts) {
+						startupExecutor.execute(siteLoader);
+					} else {
+						LOGGER.info(StringUtils.leftPad("", 90, "="));
+						siteLoader.run();
+						LOGGER.info(StringUtils.leftPad("", 90, "="));
+					}
+					activeSites++;
 				} else {
-					getCoreService().setSiteStartUpTime(site, null);
+					String inactiveSite = site.getName();
+					site.setState(SiteState.INACTIVE, env);
+					if (siteMap.containsKey(inactiveSite)) {
+						getCoreService().shutdownSite(env, inactiveSite, false);
+					} else {
+						siteMap.put(inactiveSite, site);
+						getCoreService().setSiteStartUpTime(site, null);
+					}
+					LOGGER.info("site {} is inactive and will not be loaded", site);
 				}
-				LOGGER.info("site {} is inactive and will not be loaded", site);
+			} catch (Throwable e) {
+				LOGGER.error("Failed loading site", e);
 			}
-			Thread.currentThread().setContextClassLoader(contextClassLoader);
 		}
 
 		if (0 == activeSites) {
-			LOGGER.error("none of " + sites.size() + " sites is active, instance will not work!");
+			LOGGER.error("none of {} sites is active, instance will not work!", sites.size());
 		}
-		LOGGER.info("Current Ehcache configuration:\n" + cacheManager.getActiveConfigurationText());
 
 		if (null != siteName && null != target) {
 			RequestUtil.getSiteByName(env, siteName).sendRedirect(env, target);
 		}
+	}
+
+	public PlatformProperties loadPlatformProperties(java.util.Properties defaultOverrides, Environment env) {
+		ServletContext servletContext = ((DefaultEnvironment) env).getServletContext();
+		String rootPath = servletContext.getRealPath("/");
+		PlatformProperties platformConfig = getCoreService().initPlatformConfig(defaultOverrides, rootPath, false, true,
+				false);
+		env.setAttribute(Scope.PLATFORM, Platform.Environment.PLATFORM_CONFIG, platformConfig);
+		return platformConfig;
+	}
+
+	public Properties loadNodeProperties(Environment env) {
+		Properties nodeConfig = getCoreService().initNodeConfig();
+		env.setAttribute(Scope.PLATFORM, Platform.Environment.NODE_CONFIG, nodeConfig);
+		return nodeConfig;
 	}
 
 	class SiteReloadWatcher implements Runnable {
@@ -315,64 +380,53 @@ public class InitializerService {
 
 		public void run() {
 			try {
-				WatchService watcher = FileSystems.getDefault().newWatchService();
+				try (WatchService watcher = FileSystems.getDefault().newWatchService()) {
 
-				File rootDir = new File(site.getProperties().getString(SiteProperties.SITE_ROOT_DIR));
-				rootDir.toPath().register(watcher, StandardWatchEventKinds.ENTRY_CREATE,
-						StandardWatchEventKinds.ENTRY_MODIFY);
-				LOGGER.debug("watching for {}", new File(rootDir, RELOAD_FILE).getAbsolutePath());
+					File rootDir = new File(site.getProperties().getString(SiteProperties.SITE_ROOT_DIR));
+					rootDir.toPath().register(watcher, StandardWatchEventKinds.ENTRY_CREATE,
+							StandardWatchEventKinds.ENTRY_MODIFY);
+					LOGGER.debug("watching for {}", new File(rootDir, RELOAD_FILE).getAbsolutePath());
 
-				for (;;) {
-					WatchKey key;
-					try {
-						key = watcher.take();
-					} catch (InterruptedException x) {
-						return;
-					}
-					for (WatchEvent<?> event : key.pollEvents()) {
-						if (event.kind() == StandardWatchEventKinds.OVERFLOW) {
-							continue;
+					File absoluteFile = null;
+					do {
+						WatchKey key;
+						try {
+							key = watcher.take();
+						} catch (InterruptedException x) {
+							Thread.currentThread().interrupt();
+							return;
 						}
-						java.nio.file.Path eventPath = (java.nio.file.Path) key.watchable();
-						File absoluteFile = new File(eventPath.toFile(),
-								((java.nio.file.Path) event.context()).toString());
-						if (RELOAD_FILE.equals(absoluteFile.getName())) {
-							LOGGER.info("found {}, restarting site {}", absoluteFile.getAbsolutePath(), site.getName());
-							try {
-								loadSite(env, getCoreService().getSiteByName(site.getName()), false,
-										new FieldProcessorImpl("auto-reload"));
-							} catch (InvalidConfigurationException e) {
-								LOGGER.error("error while reloading site " + site.getName(), e);
-							} finally {
-								File targetFile = new File(absoluteFile.getParentFile(),
-										RELOAD_FILE + "-" + System.currentTimeMillis() / 1000);
-								FileUtils.moveFile(absoluteFile, targetFile);
-								LOGGER.info("moved {} to {}", absoluteFile.getAbsolutePath(),
-										targetFile.getAbsolutePath());
+						for (WatchEvent<?> event : key.pollEvents()) {
+							if (event.kind() == StandardWatchEventKinds.OVERFLOW) {
+								continue;
+							}
+							java.nio.file.Path eventPath = (java.nio.file.Path) key.watchable();
+							String fileName = ((java.nio.file.Path) event.context()).toString();
+							if (RELOAD_FILE.equals(fileName)) {
+								absoluteFile = new File(eventPath.toFile(), fileName);
+								LOGGER.info("found {}", absoluteFile.getAbsolutePath());
 							}
 						}
-					}
-					boolean valid = key.reset();
-					if (!valid) {
-						break;
+					} while (null == absoluteFile);
+
+					FileUtils.deleteQuietly(absoluteFile);
+					LOGGER.info("deleted {}", absoluteFile.getAbsolutePath());
+					LOGGER.info("restarting site {}", site.getName());
+					try {
+						FieldProcessor reloadMessages = new FieldProcessorImpl("auto-reload");
+						loadSite(env, getCoreService().getSiteByName(site.getName()), false, reloadMessages);
+						Messages platformMessages = reloadMessages.getMessages();
+						env.setAttribute(Scope.PLATFORM, GuiHandler.PLATFORM_MESSAGES, platformMessages);
+					} catch (InvalidConfigurationException e) {
+						LOGGER.error(String.format("error while reloading site %s", site.getName()), e);
 					}
 				}
-
-			} catch (IOException e) {
+			} catch (Exception e) {
 				LOGGER.error("error in site reload watcher", e);
 			}
+			LOGGER.info("done watching for reload file.");
 		}
-	}
 
-	private void addPropertyIfExists(PropertyHolder platformConfig, java.util.Properties defaultOverrides,
-			String name) {
-		if (defaultOverrides.containsKey(name)) {
-			platformConfig.addProperty(name, defaultOverrides.getProperty(name), null);
-		}
-	}
-
-	private String appendSlash(String value) {
-		return value.startsWith(Path.SEPARATOR) ? value : Path.SEPARATOR + value;
 	}
 
 	private void logHeaderMessage(String message) {
@@ -398,34 +452,26 @@ public class InitializerService {
 		for (String key : keyList) {
 			Object value = map.get(key);
 			Object logValue = (value instanceof String)
-					? StringNormalizer.replaceNonPrintableCharacters((String) value, qm) : value;
+					? StringNormalizer.replaceNonPrintableCharacters((String) value, qm)
+					: value;
 			LOGGER.info("{}: {}", StringNormalizer.replaceNonPrintableCharacters(key, qm), logValue);
 		}
 	}
 
 	/**
-	 * Initialized and returns the platform configuration represented by a {@link Properties} object.
-	 * 
-	 * @param rootPath
-	 *            the root path of the platform (see {@link org.appng.api.Platform.Property#PLATFORM_ROOT_PATH})
-	 * @param devMode
-	 *            value for the {@link org.appng.api.Platform.Property#DEV_MODE} property to set
-	 * @return the platform configuration
-	 */
-	public Properties initPlatformConfig(java.util.Properties defaultOverrides, String rootPath, Boolean devMode) {
-		return getCoreService().initPlatformConfig(defaultOverrides, rootPath, devMode, false, true);
-	}
-
-	/**
 	 * Loads the given {@link Site}.
 	 * 
-	 * @param env
-	 *            the current {@link Environment}
-	 * @param siteToLoad
-	 *            the {@link Site} to load
+	 * @param  env
+	 *                                       the current {@link Environment}
+	 * @param  siteToLoad
+	 *                                       the {@link Site} to load
+	 * @param  fp
+	 *                                       a {@link FieldProcessor} to add messages to
+	 * 
 	 * @throws InvalidConfigurationException
-	 *             if an configuration error occurred
+	 *                                       if an configuration error occurred
 	 */
+	@Transactional
 	public synchronized void loadSite(Environment env, SiteImpl siteToLoad, FieldProcessor fp)
 			throws InvalidConfigurationException {
 		loadSite(env, siteToLoad, true, fp);
@@ -434,346 +480,525 @@ public class InitializerService {
 	/**
 	 * Loads the given {@link Site}.
 	 * 
-	 * @param env
-	 *            the current {@link Environment}
-	 * @param siteToLoad
-	 *            the {@link Site} to load
+	 * @param  env
+	 *                                       the current {@link Environment}
+	 * @param  siteToLoad
+	 *                                       the {@link Site} to load
+	 * @param  sendReloadEvent
+	 *                                       if a {@link ReloadSiteEvent} should be sent or not
+	 * @param  fp
+	 *                                       a {@link FieldProcessor} to add messages to
+	 * 
 	 * @throws InvalidConfigurationException
-	 *             if an configuration error occurred
+	 *                                       if an configuration error occurred
 	 */
+	@Transactional
 	public synchronized void loadSite(Environment env, SiteImpl siteToLoad, boolean sendReloadEvent, FieldProcessor fp)
 			throws InvalidConfigurationException {
-		loadSite(siteToLoad, env, sendReloadEvent, fp);
+		Boolean async = siteToLoad.getProperties().getBoolean("asyncSiteReloads", false);
+		loadSite(env, siteToLoad, sendReloadEvent, fp, async);
 	}
 
 	/**
 	 * Loads the given {@link Site}.
 	 * 
-	 * @param siteToLoad
-	 *            the {@link Site} to load
-	 * @param servletContext
-	 *            the current {@link ServletContext}
-	 * @throws InvalidConfigurationException
-	 *             if an configuration error occurred
-	 */
-	public synchronized void loadSite(SiteImpl siteToLoad, ServletContext servletContext, FieldProcessor fp)
-			throws InvalidConfigurationException {
-		loadSite(siteToLoad, new DefaultEnvironment(servletContext, siteToLoad.getHost()), true, fp);
-	}
-
-	/**
-	 * Loads the given {@link Site}.
+	 * @param  env
+	 *                                       the current {@link Environment}
+	 * @param  siteToLoad
+	 *                                       the {@link Site} to load
+	 * @param  sendReloadEvent
+	 *                                       if a {@link ReloadSiteEvent} should be sent or not
+	 * @param  fp
+	 *                                       a {@link FieldProcessor} to add messages to
+	 * @param  async
+	 *                                       if the reload should be performed asynchronously using an
+	 *                                       {@link ExecutorService}
 	 * 
-	 * @param siteToLoad
-	 *            the {@link Site} to load, freshly loaded with {@link CoreService#getSite(Integer)} or
-	 *            {@link CoreService#getSiteByName(String)}
-	 * @param env
-	 *            the current {@link Environment}
-	 * @param sendReloadEvent
-	 *            whether or not a {@link ReloadSiteEvent} should be sent
-	 * @param fp
-	 *            a {@link FieldProcessor} to attach messages to
 	 * @throws InvalidConfigurationException
-	 *             if an configuration error occurred
+	 *                                       if an configuration error occurred
 	 */
-	public synchronized void loadSite(SiteImpl siteToLoad, Environment env, boolean sendReloadEvent, FieldProcessor fp)
-			throws InvalidConfigurationException {
-		ServletContext servletContext = ((DefaultEnvironment) env).getServletContext();
-		Map<String, Site> siteMap = env.getAttribute(Scope.PLATFORM, Platform.Environment.SITES);
-
-		SiteImpl site = siteToLoad;
-		Site currentSite = siteMap.get(site.getName());
-		if (null != currentSite) {
-			LOGGER.info("prepare reload of site {}, shutting down first", currentSite);
-			shutDownSite(env, currentSite);
-		}
-
-		Sender sender = env.getAttribute(Scope.PLATFORM, Platform.Environment.MESSAGE_SENDER);
-		site.setSender(sender);
-		List<? extends Group> groups = getCoreService().getGroups();
-		site.setGroups(new HashSet<Named<Integer>>(groups));
-
-		site.setState(SiteState.STARTING);
-		siteMap.put(site.getName(), site);
-
-		Properties platformConfig = env.getAttribute(Scope.PLATFORM, Platform.Environment.PLATFORM_CONFIG);
-		String repositoryDir = platformConfig.getString(Platform.Property.REPOSITORY_PATH);
-		String repositoryRealDir = servletContext.getRealPath(repositoryDir);
-		File siteRootDirectory = new File(repositoryRealDir, site.getName());
-		site.setRootDirectory(siteRootDirectory);
-
-		String host = site.getHost();
-		org.springframework.context.ApplicationContext platformContext = env.getAttribute(Scope.PLATFORM,
-				Platform.Environment.CORE_PLATFORM_CONTEXT);
-
-		debugPlatformContext(platformContext);
-
-		LOGGER.info("loading site " + site.getName() + " (" + host + ")");
-		LOGGER.info("loading applications for site " + site.getName());
-		List<URL> classPath = new ArrayList<URL>();
-
-		Set<ApplicationProvider> applications = new HashSet<ApplicationProvider>();
-
-		// platform and application cache
-		CacheProvider cacheProvider = new CacheProvider(platformConfig, true);
-		cacheProvider.clearCache(site);
-
-		// ehcache
-		Integer ehcacheBlockingTimeout = site.getProperties().getInteger(SiteProperties.EHCACHE_BLOCKING_TIMEOUT);
-		BlockingCache cache = CacheService.getBlockingCache(site, ehcacheBlockingTimeout);
-		Boolean ehcacheEnabled = site.getProperties().getBoolean(SiteProperties.EHCACHE_ENABLED);
-		cache.setDisabled(!ehcacheEnabled);
-		Boolean ehcacheStatistics = site.getProperties().getBoolean(SiteProperties.EHCACHE_STATISTICS);
-		cache.setStatisticsEnabled(ehcacheStatistics);
-
-		Properties siteProps = site.getProperties();
-		String siteRoot = siteProps.getString(SiteProperties.SITE_ROOT_DIR);
-		String indexdir = siteProps.getString(SiteProperties.INDEX_DIR);
-		Integer indexQueueSize = siteProps.getInteger(SiteProperties.INDEX_QUEUE_SIZE);
-		Long indexTimeout = siteProps.getInteger(SiteProperties.INDEX_TIMEOUT).longValue();
-		DocumentIndexer documentIndexer = new DocumentIndexer(indexQueueSize, new File(siteRoot, indexdir),
-				indexTimeout);
-
-		Boolean devMode = platformConfig.getBoolean(Platform.Property.DEV_MODE);
-		Boolean monitorPerformance = platformConfig.getBoolean(Platform.Property.MONITOR_PERFORMANCE);
-		String applicationDir = platformConfig.getString(Platform.Property.APPLICATION_DIR);
-		String rootPath = platformConfig.getString(Platform.Property.PLATFORM_ROOT_PATH);
-
-		File applicationRootFolder = new File(rootPath, applicationDir).getAbsoluteFile();
-		File imageMagickPath = new File(platformConfig.getString(Platform.Property.IMAGEMAGICK_PATH));
-
-		String templateFolder = platformConfig.getString(Platform.Property.TEMPLATE_FOLDER);
-		Template template = templateService.getTemplateByDisplayName(siteProps.getString(SiteProperties.TEMPLATE));
-		if (null == template) {
-			String templateRealPath = servletContext.getRealPath(templateFolder);
-			TemplateService.copyTemplate(platformConfig, siteProps, templateRealPath);
+	@Transactional
+	public synchronized void loadSite(Environment env, SiteImpl siteToLoad, boolean sendReloadEvent, FieldProcessor fp,
+			boolean async) throws InvalidConfigurationException {
+		if (async) {
+			loadSiteAsync(env, siteToLoad, sendReloadEvent, fp);
+			LOGGER.info("Asynchronously loading site {}", siteToLoad.getName());
 		} else {
-			TemplateService.materializeTemplate(template, platformConfig, siteProps);
+			LOGGER.info("Synchronously loading site {}", siteToLoad.getName());
+			getSiteLoader(siteToLoad, env, sendReloadEvent, fp).run();
 		}
+	}
 
-		// Step 1: Load applications for the current site,
-		// prepare for further initialization
-		for (SiteApplication siteApplication : site.getSiteApplications()) {
-			if (siteApplication.isMarkedForDeletion()) {
-				coreService.unlinkApplicationFromSite(site.getId(), siteApplication.getApplication().getId());
-			} else if (!siteApplication.isActive()) {
-				String message = String.format("%s:  %s is inactive.", site.getName(),
-						siteApplication.getApplication().getName());
-				LOGGER.info(message);
-				fp.addNoticeMessage(message);
-			} else {
-				if (siteApplication.isReloadRequired()) {
-					coreService.unsetReloadRequired(siteApplication);
+	private synchronized void loadSiteAsync(Environment env, SiteImpl siteToLoad, boolean sendReloadEvent,
+			FieldProcessor fp) throws InvalidConfigurationException {
+		Integer suspendOnReload = siteToLoad.getProperties().getInteger(SiteProperties.SUSPEND_ON_RELOAD,
+				SITE_SUSPEND_DEFAULT);
+		String message;
+		if (suspendOnReload.intValue() == 0) {
+			message = String.format("Site %s will be loaded in the background.", siteToLoad.getName());
+		} else {
+			message = String.format("Site %s wil be suspended for %s seconds and then be loadded in the background.",
+					siteToLoad.getName(), suspendOnReload);
+		}
+		fp.addOkMessage(message);
+
+		FieldProcessorImpl asyncFp = new FieldProcessorImpl(fp.getReference());
+		Runnable siteLoader = getSiteLoader(siteToLoad, env, sendReloadEvent, asyncFp);
+
+		final Future<?> reloadTask = startupExecutor.submit(siteLoader);
+		startupExecutor.submit(() -> {
+			try {
+				reloadTask.get();
+			} catch (Throwable e) {
+				String error = String.format("Error while loading site %s", siteToLoad.getName());
+				asyncFp.addErrorMessage(error);
+				LOGGER.error(error, e);
+			} finally {
+				Messages messages = asyncFp.getMessages();
+				int messageCnt = messages.getMessageList().size();
+				LOGGER.info("Loading site {} finished with {} messages", siteToLoad.getName(), messageCnt);
+				if (0 == messageCnt) {
+					asyncFp.addOkMessage(
+							String.format("Site %s has been loaded in the background.", siteToLoad.getName()));
 				}
-				Application application = siteApplication.getApplication();
-				String errorMessage = String.format("Error while loading application %s.", application.getName());
-				try {
-					DatabaseConnection databaseConnection = siteApplication.getDatabaseConnection();
-					if (null != databaseConnection) {
-						databaseConnection.setActive(databaseConnection.testConnection(null));
-						databaseConnection.setValidationPeriod(
-								platformConfig.getInteger(Platform.Property.DATABASE_VALIDATION_PERIOD));
-						databaseService.save(databaseConnection);
-						if (!databaseConnection.isActive()) {
-							throw new InvalidConfigurationException(site, application.getName(),
-									String.format("Connection %s for application %s of site %s is not working!",
-											databaseConnection, application.getName(), site.getName()));
+				ElementHelper.addMessages(env, messages);
+			}
+		});
+	}
+
+	/**
+	 * Returns a {@link Runnable} that loads the given {@link Site}.
+	 * 
+	 * @param  siteToLoad
+	 *                         the {@link Site} to load, freshly loaded with {@link CoreService#getSite(Integer)} or
+	 *                         {@link CoreService#getSiteByName(String)}
+	 * @param  env
+	 *                         the current {@link Environment}
+	 * @param  sendReloadEvent
+	 *                         whether or not a {@link ReloadSiteEvent} should be sent
+	 * @param  fp
+	 *                         a {@link FieldProcessor} to attach messages to
+	 * 
+	 * @return                 the {@link Runnable}
+	 */
+	public Runnable getSiteLoader(SiteImpl siteToLoad, Environment env, boolean sendReloadEvent, FieldProcessor fp) {
+		return () -> {
+			StopWatch sw = new StopWatch("Loading site " + siteToLoad.getName());
+			sw.start("Setup");
+			Thread currentThread = Thread.currentThread();
+			final String originalThreadName = currentThread.getName();
+			currentThread.setName(getSiteLoaderThreadName(siteToLoad));
+			SiteImpl site = siteToLoad;
+			try {
+				ServletContext servletContext = ((DefaultEnvironment) env).getServletContext();
+				Map<String, Site> siteMap = env.getAttribute(Scope.PLATFORM, Platform.Environment.SITES);
+				PlatformProperties platformConfig = PlatformProperties.get(env);
+
+				SiteImpl currentSite = (SiteImpl) siteMap.get(site.getName());
+				boolean isReload = null != currentSite;
+				if (isReload) {
+					handleReload(env, sendReloadEvent, currentSite);
+					site.setReloadCount(site.getReloadCount() + 1);
+				}
+
+				boolean isClustered = Messaging.isEnabled(env);
+				if (isClustered) {
+					Sender sender = Messaging.getMessageSender(env);
+					if (null == sender) {
+						LOGGER.warn("Failed to retrieve {} although messaging is enabled!", Sender.class.getName());
+					} else {
+						site.setSender(sender);
+					}
+				}
+
+				List<? extends Group> groups = coreService.getGroups();
+				site.setGroups(new HashSet<>(groups));
+
+				((DefaultEnvironment) env).initSiteScope(site);
+				site.setState(SiteState.STARTING, env);
+				siteMap.put(site.getName(), site);
+
+				File siteRootDirectory = new File(site.getProperties().getString(SiteProperties.SITE_ROOT_DIR));
+				site.setRootDirectory(siteRootDirectory);
+
+				String host = site.getHost();
+				org.springframework.context.ApplicationContext platformContext = env.getAttribute(Scope.PLATFORM,
+						Platform.Environment.CORE_PLATFORM_CONTEXT);
+
+				debugPlatformContext(platformContext);
+
+				LOGGER.info("loading site {} ({})", site.getName(), host);
+				LOGGER.info("loading applications for site {}", site.getName());
+
+				SiteClassLoaderBuilder siteClassPath = new SiteClassLoaderBuilder();
+				Set<ApplicationProvider> applications = new HashSet<>();
+
+				// platform and application cache
+				CacheProvider cacheProvider = new CacheProvider(platformConfig, true);
+				cacheProvider.clearCache(site);
+
+				// cache
+				Boolean cacheEnabled = site.getProperties().getBoolean(SiteProperties.CACHE_ENABLED);
+				if (cacheEnabled) {
+					CacheService.createCache(site);
+				}
+
+				Properties siteProps = site.getProperties();
+				String siteRoot = siteProps.getString(SiteProperties.SITE_ROOT_DIR);
+				String indexdir = siteProps.getString(SiteProperties.INDEX_DIR);
+				Integer indexQueueSize = siteProps.getInteger(SiteProperties.INDEX_QUEUE_SIZE);
+				Long indexTimeout = siteProps.getInteger(SiteProperties.INDEX_TIMEOUT).longValue();
+				DocumentIndexer documentIndexer = new DocumentIndexer(indexQueueSize, new File(siteRoot, indexdir),
+						indexTimeout);
+
+				Boolean devMode = platformConfig.getBoolean(Platform.Property.DEV_MODE);
+				Boolean monitorPerformance = platformConfig.getBoolean(Platform.Property.MONITOR_PERFORMANCE);
+
+				File applicationRootFolder = platformConfig.getApplicationDir();
+				File imageMagickPath = new File(platformConfig.getString(Platform.Property.IMAGEMAGICK_PATH));
+
+				coreService.refreshTemplate(site, platformConfig, false);
+				Integer validationPeriod = platformConfig.getInteger(Platform.Property.DATABASE_VALIDATION_PERIOD);
+
+				// Step 1: Load applications for the current site,
+				// prepare for further initialization
+				for (SiteApplication siteApplication : site.getSiteApplications()) {
+					sw.stop();
+					sw.start("Phase 1: Initialize application " + siteApplication.getApplication().getName());
+					if (siteApplication.isMarkedForDeletion()) {
+						coreService.unlinkApplicationFromSite(site.getId(), siteApplication.getApplication().getId());
+					} else if (!siteApplication.isActive()) {
+						String message = String.format("[%s] Application '%s' is inactive.", site.getName(),
+								siteApplication.getApplication().getName());
+						LOGGER.info(message);
+						fp.addNoticeMessage(message);
+					} else {
+						if (siteApplication.isReloadRequired()) {
+							coreService.unsetReloadRequired(siteApplication);
+						}
+						Application application = siteApplication.getApplication();
+
+						try {
+							DatabaseConnection databaseConnection = siteApplication.getDatabaseConnection();
+							if (null != databaseConnection) {
+								boolean isActive = databaseConnection.isActive();
+								boolean isWorking = databaseConnection.testConnection(null);
+								if (isWorking ^ isActive) {
+									databaseConnection.setActive(isWorking);
+									databaseService.save(databaseConnection);
+									siteApplication = coreService.getSiteApplication(
+											siteApplication.getSite().getName(),
+											siteApplication.getApplication().getName());
+									databaseConnection = siteApplication.getDatabaseConnection();
+								}
+								if (isWorking) {
+									databaseConnection.setValidationPeriod(validationPeriod);
+								} else {
+									throw new InvalidConfigurationException(site, application.getName(),
+											String.format("Connection %s for application %s of site %s is not working!",
+													databaseConnection, application.getName(), site.getName()));
+								}
+							}
+
+							File applicationCacheFolder = cacheProvider.getPlatformCache(site, application);
+
+							Resources applicationResources = getCoreService().getResources(application,
+									applicationCacheFolder, applicationRootFolder);
+
+							Resource beanSource = applicationResources.getResource(ResourceType.BEANS_XML,
+									ResourceType.BEANS_XML_NAME);
+							if (null == beanSource) {
+								throw new InvalidConfigurationException(site, application.getName(),
+										String.format("application '%s' does not contain a resource named '%s'",
+												application.getName(), ResourceType.BEANS_XML_NAME));
+							}
+							ApplicationProvider applicationProvider = new ApplicationProvider(site, application,
+									monitorPerformance);
+							getCoreService().initApplicationProperties(site, applicationProvider);
+							applicationProvider.setResources(applicationResources);
+							applicationProvider.setDatabaseConnection(siteApplication.getDatabaseConnection());
+
+							List<ResourceType> resourceTypes = Arrays.asList(ResourceType.BEANS_XML, ResourceType.JAR,
+									ResourceType.SQL, ResourceType.DICTIONARY, ResourceType.RESOURCE, ResourceType.TPL);
+							if (devMode) {
+								resourceTypes = new ArrayList<>(resourceTypes);
+								resourceTypes.add(ResourceType.XSL);
+								resourceTypes.add(ResourceType.XML);
+							}
+							applicationResources.dumpToCache(resourceTypes.toArray(new ResourceType[0]));
+
+							ApplicationConfigProvider applicationConfig = new ApplicationConfigProviderImpl(
+									marshallService, application.getName(), applicationResources, devMode);
+							applicationProvider.setApplicationConfig(applicationConfig);
+
+							Collection<Resource> messageSources = applicationResources
+									.getResources(ResourceType.DICTIONARY);
+							if (messageSources.size() > 0) {
+								File cachedFile = messageSources.iterator().next().getCachedFile();
+								siteClassPath.addFolder(cachedFile.getParentFile().toPath(), application.getName());
+							}
+
+							Collection<Resource> jars = applicationResources.getResources(ResourceType.JAR);
+							for (Resource applicationResource : jars) {
+								File cachedFile = applicationResource.getCachedFile();
+								String origin = siteClassPath.addJar(cachedFile.toPath(), application.getName());
+								if (!application.getName().equals(origin)) {
+									LOGGER.warn(
+											"{} from application {} has not been added to the site's classpath, since this jar has already been added by application {}",
+											cachedFile.getName(), application.getName(), origin);
+								}
+							}
+
+							FeatureProviderImpl featureProvider = new FeatureProviderImpl(
+									applicationProvider.getProperties());
+							featureProvider.initImageProcessor(imageMagickPath,
+									cacheProvider.getImageCache(site, application));
+							featureProvider.setIndexer(documentIndexer);
+							applicationProvider.setFeatureProvider(featureProvider);
+
+							applications.add(applicationProvider);
+
+						} catch (InvalidConfigurationException ice) {
+							String errorMessage = String.format("[%s] Error while loading application '%s'.",
+									site.getName(), application.getName());
+							fp.addErrorMessage(errorMessage);
+							LOGGER.error(errorMessage, ice);
+							auditableListener.createEvent(Type.ERROR, errorMessage);
 						}
 					}
+				}
 
-					File applicationCacheFolder = cacheProvider.getPlatformCache(site, application);
+				site.getSiteApplications().clear();
 
-					Resources applicationResources = getCoreService().getResources(application, applicationCacheFolder,
-							applicationRootFolder);
+				SiteClassLoader siteClassLoader = siteClassPath.build(getClass().getClassLoader(), site.getName());
+				currentThread.setContextClassLoader(siteClassLoader);
 
-					Resource beanSource = applicationResources.getResource(ResourceType.BEANS_XML,
-							ResourceType.BEANS_XML_NAME);
-					if (null == beanSource) {
-						throw new InvalidConfigurationException(site, application.getName(),
-								String.format("application '%s' does not contain a resource named '%s'",
-										application.getName(), ResourceType.BEANS_XML_NAME));
+				LOGGER.info(siteClassLoader.toString());
+				site.setSiteClassLoader(siteClassLoader);
+				if (LOGGER.isDebugEnabled()) {
+					List<URL> urlList = Arrays.asList(siteClassLoader.getURLs());
+					urlList.sort((a, b) -> StringUtils.compare(a.toString(), b.toString()));
+					LOGGER.debug("Classloader for site {} contains the following URLs: {}", site.getName(),
+							StringUtils.join(urlList, ','));
+				}
+
+				startIndexThread(site, documentIndexer);
+				startRepositoryWatcher(site, cacheEnabled, platformConfig.getString(Platform.Property.JSP_FILE_TYPE));
+
+				String datasourceConfigurerName = siteProps.getString(SiteProperties.DATASOURCE_CONFIGURER);
+				siteClassLoader.loadClass(datasourceConfigurerName);
+
+				org.springframework.cache.CacheManager platformCacheManager = platformContext
+						.getBean(org.springframework.cache.CacheManager.class);
+
+				// Step 2: Build application context
+				String dataBasePrefix = platformConfig.getString(Platform.Property.DATABASE_PREFIX);
+				Set<ApplicationProvider> validApplications = new HashSet<>();
+				for (ApplicationProvider application : applications) {
+					sw.stop();
+					sw.start("Phase 2: Load application " + application.getName());
+					try {
+						File applicationCacheFolder = cacheProvider.getPlatformCache(site, application);
+						File sqlFolder = new File(applicationCacheFolder, ResourceType.SQL.getFolder());
+						SiteApplication siteApplication = coreService.getSiteApplication(site.getName(),
+								application.getName());
+						MigrationStatus migrationStatus = databaseService.migrateApplication(sqlFolder, application,
+								dataBasePrefix);
+						DatabaseConnection dbc = application.getDatabaseConnection();
+						siteApplication.setDatabaseConnection(dbc);
+
+						if (migrationStatus.isErroneous()) {
+							String errorMessage = String.format(
+									"[%s] Database '%s' for application '%s' is in an errorneous state, please check the connection and the migration state!",
+									site.getName(), dbc.getDatabaseName(), application.getName());
+							fp.addErrorMessage(errorMessage);
+						}
+
+						String beansXmlLocation = cacheProvider.getRelativePlatformCache(site, application)
+								+ File.separator + ResourceType.BEANS_XML_NAME;
+						// this is required to support testing of InitializerService
+						List<String> configLocations = new ArrayList<>(
+								siteProps.getList(CONFIG_LOCATIONS, ApplicationContext.CONTEXT_CLASSPATH, ","));
+						configLocations.add(beansXmlLocation);
+						ApplicationContext applicationContext = new ApplicationContext(application, platformContext,
+								site.getSiteClassLoader(), servletContext,
+								configLocations.toArray(new String[configLocations.size()]));
+
+						Set<Resource> resources = application.getResources().getResources(ResourceType.DICTIONARY);
+						List<String> dictionaryNames = new ArrayList<>();
+						for (Resource applicationResource : resources) {
+							String name = FilenameUtils.getBaseName(applicationResource.getName()).replaceAll("_(.)*",
+									"");
+							if (!dictionaryNames.contains(name)) {
+								dictionaryNames.add(name);
+							}
+						}
+
+						java.util.Properties props = PropertySupport.getProperties(platformConfig, site, application,
+								application.isPrivileged());
+
+						PropertySourcesPlaceholderConfigurer configurer = getPlaceholderConfigurer(props);
+						applicationContext.addBeanFactoryPostProcessor(configurer);
+						ConfigurableEnvironment environment = (ConfigurableEnvironment) applicationContext
+								.getEnvironment();
+						Properties appProps = application.getProperties();
+						List<String> profiles = appProps.getList(ApplicationProperties.PROP_ACTIVE_PROFILES, ",");
+						if (!profiles.isEmpty()) {
+							environment.setActiveProfiles(profiles.toArray(new String[profiles.size()]));
+						}
+						environment.getPropertySources()
+								.addFirst(new PropertiesPropertySource("appngEnvironment", props));
+
+						ApplicationPostProcessor applicationPostProcessor = new ApplicationPostProcessor(site,
+								application, dbc, platformCacheManager, dictionaryNames);
+						applicationContext.addBeanFactoryPostProcessor(applicationPostProcessor);
+
+						if (site.getProperties().getBoolean("enableLegacyRest", false)) {
+							applicationContext.addBeanFactoryPostProcessor(new RestPostProcessor());
+						}
+						applicationContext.addBeanFactoryPostProcessor(new OpenApiPostProcessor());
+
+						applicationContext.refresh();
+
+						application.setContext(applicationContext);
+						ConfigValidator configValidator = new ConfigValidator(application.getApplicationConfig());
+						configValidator.validateMetaData(siteClassLoader);
+						configValidator.validate(application.getName(), site.getSiteClassLoader());
+						configValidator.processErrors(application.getName());
+
+						Collection<ApplicationSubject> applicationSubjects = coreService
+								.getApplicationSubjects(application.getId(), site);
+						application.getApplicationSubjects().addAll(applicationSubjects);
+						validApplications.add(application);
+					} catch (Throwable e) {
+						String message = String.format("[%s] Error while loading application '%s'.", site.getName(),
+								application.getName());
+						fp.addErrorMessage(message);
+						LOGGER.error(message, e);
+						auditableListener.createEvent(Type.ERROR, message);
 					}
-					ApplicationProvider applicationProvider = new ApplicationProvider(site, application,
-							monitorPerformance);
-					getCoreService().initApplicationProperties(site, applicationProvider);
-					applicationProvider.setResources(applicationResources);
-					applicationProvider.setDatabaseConnection(siteApplication.getDatabaseConnection());
+				}
+				site.getSiteApplications().clear();
+				site.getSiteApplications().addAll(validApplications);
 
-					applicationResources.dumpToCache(ResourceType.BEANS_XML);
-					applicationResources.dumpToCache(ResourceType.JAR);
-					applicationResources.dumpToCache(ResourceType.SQL);
-					applicationResources.dumpToCache(ResourceType.DICTIONARY);
-					applicationResources.dumpToCache(ResourceType.RESOURCE);
-					applicationResources.dumpToCache(ResourceType.TPL);
-					if (devMode) {
-						applicationResources.dumpToCache(ResourceType.XSL, ResourceType.XML);
+				sw.stop();
+				sw.start("Phase 3: Initialize applications");
+
+				List<JarInfo> jarInfos = new ArrayList<>();
+
+				// Step 3: Execute application-specific initialization,
+				// read JAR info, cleanup on errors
+				for (ApplicationProvider application : validApplications) {
+					if (startApplication(env, site, application)) {
+						jarInfos.addAll(application.getJarInfos());
+						LOGGER.info("Initialized application: {}", application.getName());
+						for (JarInfo jarInfo : application.getJarInfos()) {
+							LOGGER.info(jarInfo.toString());
+						}
+					} else {
+						String message = String.format("[%s] Error while starting application '%s'.", site.getName(),
+								application.getName());
+						fp.addErrorMessage(message);
+						auditableListener.createEvent(Type.ERROR, message);
 					}
+				}
 
-					ApplicationConfigProvider applicationConfig = new ApplicationConfigProviderImpl(marshallService,
-							application.getName(), applicationResources, devMode);
-					applicationProvider.setApplicationConfig(applicationConfig);
+				env.setAttribute(Scope.PLATFORM, site.getName() + "." + EnvironmentKeys.JAR_INFO_MAP, jarInfos);
 
-					Collection<Resource> messageSources = applicationResources.getResources(ResourceType.DICTIONARY);
-					if (messageSources.size() > 0) {
-						File cachedFile = messageSources.iterator().next().getCachedFile();
-						URL messagesFolder = cachedFile.getParentFile().toURI().toURL();
-						classPath.add(messagesFolder);
+				PlatformTransformer.clearCache(site);
+				coreService.setSiteStartUpTime(site, new Date());
+
+				if (site.getProperties().getBoolean(SiteProperties.SUPPORT_RELOAD_FILE)) {
+					startSiteThread(site, "appng-sitereload-" + site.getName(), THREAD_PRIORITY_LOW,
+							new SiteReloadWatcher(env, site));
+				}
+				sw.stop();
+				LOGGER.info("loading site {} completed in {}ms", site.getName(), sw.getTotalTimeMillis());
+				if (LOGGER.isDebugEnabled()) {
+					LOGGER.debug(sw.prettyPrint());
+
+				}
+				site.setState(SiteState.STARTED, env);
+				siteMap.put(site.getName(), site);
+
+				debugPlatformContext(platformContext);
+				auditableListener.createEvent(Type.INFO, "Loaded site " + site.getName());
+
+				if (sendReloadEvent) {
+					site.sendEvent(new ReloadSiteEvent(site.getName()));
+					if (isReload) {
+						getCoreService().setSiteReloadCount(site);
 					}
+				}
+			} catch (Throwable t) {
+				((DefaultEnvironment) env).clearSiteScope(site);
+				site.setState(SiteState.INACTIVE, env);
+				throw new SiteLoadingException("Error while loading site " + siteToLoad.getName(), t);
+			} finally {
+				if (sw.isRunning()) {
+					sw.stop();
+				}
+				currentThread.setName(originalThreadName);
+			}
+		};
+	}
 
-					Collection<Resource> jars = applicationResources.getResources(ResourceType.JAR);
-					for (Resource applicationResource : jars) {
-						classPath.add(applicationResource.getCachedFile().toURI().toURL());
-					}
+	private void handleReload(Environment env, boolean sendReloadEvent, SiteImpl currentSite)
+			throws InterruptedException {
+		if (NodeEvent.clusterState(env, Messaging.getNodeId()).size() > 1) {
+			Properties siteProps = currentSite.getProperties();
+			int siteSuspendOffset = siteProps.getInteger(SiteProperties.SUSPEND_ON_RELOAD, SITE_SUSPEND_DEFAULT);
+			if (siteSuspendOffset > 0) {
+				((SiteImpl) currentSite).setState(SiteState.SUSPENDED, env);
+				LOGGER.info("Setting state to {} for site {}, waiting {}s before reloading.", currentSite.getState(),
+						currentSite.getName(), siteSuspendOffset);
+				TimeUnit.SECONDS.sleep(siteSuspendOffset);
 
-					FeatureProviderImpl featureProvider = new FeatureProviderImpl(applicationProvider.getProperties());
-					featureProvider.initImageProcessor(imageMagickPath, cacheProvider.getImageCache(site, application));
-					featureProvider.setIndexer(documentIndexer);
-					applicationProvider.setFeatureProvider(featureProvider);
-
-					applications.add(applicationProvider);
-
-					File sqlFolder = new File(applicationCacheFolder, ResourceType.SQL.getFolder());
-					databaseService.migrateApplication(sqlFolder, siteApplication.getDatabaseConnection());
-
-				} catch (MalformedURLException mfu) {
-					fp.addErrorMessage(errorMessage);
-					LOGGER.error(errorMessage, mfu);
-				} catch (InvalidConfigurationException ice) {
-					fp.addErrorMessage(errorMessage);
-					LOGGER.error(errorMessage, ice);
+				int suspendMaxWait = siteProps.getInteger(SiteProperties.SUSPEND_MAX_WAIT, SITE_SUSPEND_MAXWAIT);
+				int waited = 0;
+				int requests = 0;
+				int maxRequest = sendReloadEvent ? 1 : 0;
+				while ((requests = currentSite.getRequests()) > maxRequest && waited < suspendMaxWait) {
+					LOGGER.info("Site {} is still processing {} requests, waiting 1s.", currentSite.getName(),
+							requests);
+					TimeUnit.SECONDS.sleep(1);
+					waited += 1;
+				}
+				if (waited >= suspendMaxWait) {
+					LOGGER.warn(
+							"Waited {}s for {} site {} to finish request processing, but there are {} requests remaining.",
+							suspendMaxWait, currentSite.getState(), currentSite.getName(), requests);
 				}
 			}
 		}
 
-		site.getSiteApplications().clear();
+		LOGGER.info("Preparing reload of site {}, shutting down first.", currentSite);
+		shutDownSite(env, currentSite, false);
+	}
 
-		URL[] urls = classPath.toArray(new URL[classPath.size()]);
-		ClassLoader classLoader = getClass().getClassLoader();
-		SiteClassLoader siteClassLoader = new SiteClassLoader(urls, classLoader, site.getName());
-
-		Thread.currentThread().setContextClassLoader(siteClassLoader);
-
-		LOGGER.info(siteClassLoader.toString());
-		site.setSiteClassLoader(siteClassLoader);
-
-		startIndexThread(site, documentIndexer);
-		startRepositoryWatcher(site, ehcacheEnabled, platformConfig.getString(Platform.Property.JSP_FILE_TYPE));
-
-		String datasourceConfigurerName = siteProps.getString(SiteProperties.DATASOURCE_CONFIGURER);
-		try {
-			siteClassLoader.loadClass(datasourceConfigurerName);
-		} catch (ClassNotFoundException e) {
-			throw new InvalidConfigurationException(site, null,
-					"error while loading class " + datasourceConfigurerName);
-		}
-
-		// Step 2: Build application context
-		Set<ApplicationProvider> validApplications = new HashSet<ApplicationProvider>();
-		for (ApplicationProvider application : applications) {
-			try {
-				String beansXmlLocation = cacheProvider.getRelativePlatformCache(site, application) + File.separator
-						+ ResourceType.BEANS_XML_NAME;
-				// this is required to support testing of InitialiterService
-				List<String> configLocations = new ArrayList<String>(
-						siteProps.getList(CONFIG_LOCATIONS, ApplicationContext.CONTEXT_CLASSPATH, ","));
-				configLocations.add(beansXmlLocation);
-				ApplicationContext applicationContext = new ApplicationContext(application, platformContext,
-						site.getSiteClassLoader(), servletContext,
-						configLocations.toArray(new String[configLocations.size()]));
-
-				Set<Resource> resources = application.getResources().getResources(ResourceType.DICTIONARY);
-				List<String> dictionaryNames = new ArrayList<String>();
-				for (Resource applicationResource : resources) {
-					String name = FilenameUtils.getBaseName(applicationResource.getName()).replaceAll("_(.)*", "");
-					if (!dictionaryNames.contains(name)) {
-						dictionaryNames.add(name);
-					}
-				}
-
-				java.util.Properties props = PropertySupport.getProperties(platformConfig, site, application,
-						application.isPrivileged());
-
-				PropertySourcesPlaceholderConfigurer configurer = getPlaceholderConfigurer(props);
-				applicationContext.addBeanFactoryPostProcessor(configurer);
-				ConfigurableEnvironment environment = (ConfigurableEnvironment) applicationContext.getEnvironment();
-				Properties appProps = application.getProperties();
-				List<String> profiles = appProps.getList(ApplicationProperties.PROP_ACTIVE_PROFILES, ",");
-				if (!profiles.isEmpty()) {
-					environment.setActiveProfiles(profiles.toArray(new String[profiles.size()]));
-				}
-				environment.getPropertySources().addFirst(new PropertiesPropertySource("appngEnvironment", props));
-
-				ApplicationPostProcessor applicationPostProcessor = new ApplicationPostProcessor(
-						application.getDatabaseConnection(), dictionaryNames);
-				applicationContext.addBeanFactoryPostProcessor(applicationPostProcessor);
-
-				applicationContext.refresh();
-
-				application.setContext(applicationContext);
-				ConfigValidator configValidator = new ConfigValidator(application.getApplicationConfig());
-				configValidator.validateMetaData(siteClassLoader);
-				configValidator.validate(application.getName(), site.getSiteClassLoader());
-				configValidator.processErrors(application.getName());
-
-				Collection<ApplicationSubject> applicationSubjects = coreService
-						.getApplicationSubjects(application.getId(), site);
-				application.getApplicationSubjects().addAll(applicationSubjects);
-				validApplications.add(application);
-			} catch (Exception e) {
-				String message = String.format("Error while loading application %s.", application.getName());
-				fp.addErrorMessage(message);
-				LOGGER.error(message, e);
-			}
-		}
-		site.getSiteApplications().clear();
-		site.getSiteApplications().addAll(validApplications);
-
-		List<JarInfo> jarInfos = new ArrayList<JarInfo>();
-
-		// Step 3: Execute application-specific initialization,
-		// read JAR info, cleanup on errors
-		for (ApplicationProvider application : validApplications) {
-			if (startApplication(env, site, application)) {
-				jarInfos.addAll(application.getJarInfos());
-				LOGGER.info("Initialized application: " + application.getName());
-				for (JarInfo jarInfo : application.getJarInfos()) {
-					LOGGER.info(jarInfo.toString());
-				}
-			}
-		}
-
-		env.setAttribute(Scope.PLATFORM, site.getName() + "." + EnvironmentKeys.JAR_INFO_MAP, jarInfos);
-
-		PlatformTransformer.clearCache();
-		coreService.setSiteStartUpTime(site, new Date());
-		if (sendReloadEvent) {
-			site.sendEvent(new ReloadSiteEvent(site.getName()));
-		}
-
-		if (site.getProperties().getBoolean(SiteProperties.SUPPORT_RELOAD_FILE, false)) {
-			startSiteThread(site, "appng-sitereload-" + site.getName(), THREAD_PRIORITY_LOW,
-					new SiteReloadWatcher(env, site));
-		}
-
-		LOGGER.info("loading site " + site.getName() + " completed");
-		site.setState(SiteState.STARTED);
-		siteMap.put(site.getName(), site);
-		debugPlatformContext(platformContext);
+	private String getSiteLoaderThreadName(SiteImpl siteToLoad) {
+		return "siteloader-" + siteToLoad.getName();
 	}
 
 	protected boolean startApplication(Environment env, SiteImpl site, ApplicationProvider application) {
 		boolean started = true;
 		ApplicationController controller = application.getBean(ApplicationController.class);
+		Throwable startError = null;
 		if (null != controller) {
 			try {
 				started = controller.start(site, application, env);
-			} catch (RuntimeException e) {
-				LOGGER.error("error during " + controller.getClass().getName() + ".start()", e);
+			} catch (Throwable e) {
 				started = false;
+				startError = e;
 			}
 			if (!started) {
-				LOGGER.error(
-						"Failed to initialize application: " + application.getName() + ", so it will be shut down.");
+				String message = String.format("Application %s for site %s failed to start, so it will be shut down.",
+						site.getName(), application.getName());
+				if (null == startError) {
+					LOGGER.error(message);
+				} else {
+					LOGGER.error(message, startError);
+				}
 				controller.shutdown(site, application, env);
 				site.getSiteApplications().remove(application);
 				application.closeContext();
@@ -816,40 +1041,44 @@ public class InitializerService {
 	 * 
 	 * @param ctx
 	 *            the current {@link ServletContext}
-	 * @see #shutDownSite(Environment, Site)
+	 * 
+	 * @see       #shutDownSite(Environment, Site, boolean)
 	 */
 	public void shutdownPlatform(ServletContext ctx) {
-		Environment env = DefaultEnvironment.get(ctx);
+		Environment env = DefaultEnvironment.getGlobal();
 		Map<String, Site> siteMap = env.getAttribute(Scope.PLATFORM, Platform.Environment.SITES);
 		if (null == siteMap) {
 			LOGGER.info("no sites found, must be boot sequence");
 		} else {
 			LOGGER.debug("destroying platform");
-			Set<String> siteNames = new HashSet<String>(siteMap.keySet());
+			Set<String> siteNames = new HashSet<>(siteMap.keySet());
 			for (String siteName : siteNames) {
 				Site site = siteMap.get(siteName);
-				shutDownSite(env, site);
+				shutDownSite(env, site, true);
 			}
 		}
-		CacheManager.getInstance().shutdown();
+		CacheService.shutdown();
 		env.removeAttribute(Scope.PLATFORM, Platform.Environment.SITES);
+		coreService.createEvent(Type.INFO, "Stopped platform");
 	}
 
 	/**
 	 * Shuts down the given {@link Site}.
 	 * 
 	 * @param env
-	 *            the current {@link Environment}.
+	 *             the current {@link Environment}.
 	 * @param site
-	 *            the {@link Site} to shut down
+	 *             the {@link Site} to shut down
 	 */
-	public void shutDownSite(Environment env, Site site) {
+	public void shutDownSite(Environment env, Site site, boolean removeFromSiteMap) {
 		List<ExecutorService> executors = siteThreads.get(site.getName());
-		LOGGER.info("shutting down site threads for {}", site);
-		for (ExecutorService executorService : executors) {
-			executorService.shutdownNow();
+		if (null != executors) {
+			LOGGER.info("shutting down site threads for {}", site);
+			for (ExecutorService executorService : executors) {
+				executorService.shutdownNow();
+			}
 		}
-		coreService.shutdownSite(env, site.getName());
+		coreService.shutdownSite(env, site.getName(), removeFromSiteMap);
 	}
 
 	public CoreService getCoreService() {
@@ -874,7 +1103,7 @@ public class InitializerService {
 			List<File> jarFiles = Arrays.asList(listFiles);
 			Collections.sort(jarFiles);
 
-			List<JarInfo> jarInfos = new ArrayList<JarInfo>();
+			List<JarInfo> jarInfos = new ArrayList<>();
 			logHeaderMessage("JAR Libraries");
 			for (File jarFile : jarFiles) {
 				final JarInfo jarInfo = JarInfoBuilder.getJarInfo(jarFile);
@@ -886,6 +1115,36 @@ public class InitializerService {
 				}
 			}
 			env.setAttribute(Scope.PLATFORM, Platform.Environment.PLATFORM_CONFIG + "." + JAR_INFO_MAP, jarInfos);
+		}
+	}
+
+	static class SiteClassLoaderBuilder {
+		private Map<java.nio.file.Path, String> paths = new HashMap<>();
+
+		String addJar(java.nio.file.Path jarfile, String origin) {
+			Optional<java.nio.file.Path> exisiting = paths.keySet().parallelStream()
+					.filter(p -> p.getFileName().equals(jarfile.getFileName())).findFirst();
+			if (exisiting.isPresent()) {
+				return paths.get(exisiting.get());
+			}
+			paths.put(jarfile, origin);
+			return origin;
+		}
+
+		void addFolder(java.nio.file.Path folder, String origin) {
+			paths.put(folder, origin);
+		}
+
+		SiteClassLoader build(ClassLoader parent, String site) {
+			List<URL> urls = paths.keySet().parallelStream().map(p -> {
+				try {
+					return p.toUri().toURL();
+				} catch (MalformedURLException e) {
+					LOGGER.warn(String.format("Error building SiteClassLoader for site %s", site), e);
+				}
+				return null;
+			}).filter(u -> u != null).collect(Collectors.toList());
+			return new SiteClassLoader(urls.toArray(new URL[0]), parent, site);
 		}
 	}
 

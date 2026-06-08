@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import org.appng.api.model.Application;
 import org.appng.api.model.Site;
 import org.appng.xml.platform.Link;
 import org.appng.xml.platform.Linkmode;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 
 /**
@@ -41,10 +42,13 @@ import org.springframework.http.HttpStatus;
  * </pre>
  * 
  * For providing files to download, see {@link AttachmentWebservice}.<br/>
- * For 'real' SOAP-Webservices, use {@link SoapService} instead.
+ * For 'real' SOAP-Webservices, use {@link SoapService} instead. <br/>
+ * Consider using a {@link RequestDataBinder} for binding {@link Request} parameters to a target object.
  * 
  * @author Matthias Müller
+ * 
  * @see AttachmentWebservice
+ * @see RequestDataBinder
  * @see SoapService
  */
 public interface Webservice {
@@ -53,16 +57,18 @@ public interface Webservice {
 	 * Processes the current {@link Request} and return some data.
 	 * 
 	 * @param site
-	 *            the current {@link Site}
+	 *                    the current {@link Site}
 	 * @param application
-	 *            the current {@link Application}
+	 *                    the current {@link Application}
 	 * @param environment
-	 *            the current {@link Environment}
+	 *                    the current {@link Environment}
 	 * @param request
-	 *            the current {@link Request}
+	 *                    the current {@link Request}
+	 * 
 	 * @return some bytes
+	 * 
 	 * @throws BusinessException
-	 *             if an error occures during retrieving the data
+	 *                           if an error occures during retrieving the data
 	 */
 	byte[] processRequest(Site site, Application application, Environment environment, Request request)
 			throws BusinessException;
@@ -76,12 +82,21 @@ public interface Webservice {
 	String getContentType();
 
 	/**
-	 * returns the HTTP status code for this service
+	 * Returns the HTTP status code for this service
 	 * 
 	 * @return the HTTP status code
 	 */
 	default int getStatus() {
 		return HttpStatus.OK.value();
+	}
+
+	/**
+	 * Returns the response headers for this service
+	 * 
+	 * @return the response headers
+	 */
+	default HttpHeaders getHeaders() {
+		return null;
 	}
 
 }

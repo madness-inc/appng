@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,14 +27,15 @@ import org.appng.api.model.Site;
  * 
  * @author Matthias Müller
  * 
- * @see Sender
- * @see Receiver
- * @see Site#sendEvent(Event)
+ * @see    Sender
+ * @see    Receiver
+ * @see    Site#sendEvent(Event)
  */
 public abstract class Event implements Serializable {
 
 	private final String siteName;
 	private String nodeId;
+	private final boolean async;
 
 	protected Event() {
 		this(null);
@@ -44,10 +45,32 @@ public abstract class Event implements Serializable {
 	 * Creates a new event
 	 * 
 	 * @param siteName
-	 *            the name of the {@link Site} this event is for
+	 *                 the name of the {@link Site} this event is for
 	 */
 	protected Event(String siteName) {
+		this(siteName, false);
+	}
+
+	/**
+	 * Creates a new event
+	 * 
+	 * @param siteName
+	 *                 the name of the {@link Site} this event is for
+	 * @param async
+	 *                 should the event be processed asynchronously?
+	 */
+	protected Event(String siteName, boolean async) {
 		this.siteName = siteName;
+		this.async = async;
+	}
+
+	/**
+	 * Should the event be processed asynchronously?
+	 * 
+	 * @return {@code true} for async processing, {@code false} otherwise
+	 */
+	public boolean isAsync() {
+		return async;
 	}
 
 	/**
@@ -76,21 +99,23 @@ public abstract class Event implements Serializable {
 	/**
 	 * Performs the event
 	 * 
-	 * @param environment
-	 *            then {@link Environment} to use
-	 * @param site
-	 *            the {@link Site} where the event occurred
+	 * @param  environment
+	 *                                       then {@link Environment} to use
+	 * @param  site
+	 *                                       the {@link Site} where the event occurred
+	 * 
 	 * @throws InvalidConfigurationException
-	 *             if there's a configuration error
+	 *                                       if there's a configuration error
 	 * @throws BusinessException
-	 *             if an error occurs while performing the event
+	 *                                       if an error occurs while performing the event
 	 */
 	public abstract void perform(Environment environment, Site site)
 			throws InvalidConfigurationException, BusinessException;
 
 	@Override
 	public String toString() {
-		return getClass().getName() + " - Origin: " + getNodeId() + " - Site: " + getSiteName();
+		return getClass().getName() + " - Origin: " + getNodeId() + " - Site: " + getSiteName() + " - Async: "
+				+ isAsync();
 	}
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,6 @@ import javax.servlet.http.HttpServletRequestWrapper;
 import org.apache.commons.lang3.StringUtils;
 import org.appng.api.Environment;
 import org.appng.api.Platform;
-import org.appng.api.RequestUtil;
 import org.appng.api.Scope;
 import org.appng.api.SiteProperties;
 import org.appng.api.model.Properties;
@@ -37,28 +36,28 @@ import org.appng.api.model.Site;
 import org.appng.api.support.XSSHelper;
 import org.appng.api.support.environment.DefaultEnvironment;
 import org.appng.forms.XSSUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * A servlet filter to prevent XSS attacks.<br/>
  * Inspired by
  * <ul>
  * <li>https://dzone.com/articles/stronger-anti-cross-site
- * <li>https://jsoup.org/cookbook/cleaning-html/whitelist-sanitizer
+ * <li>https://jsoup.org/cookbook/cleaning-html/safelist-sanitizer
  * </ul>
  * 
  * @author Matthias Müller
- *
  */
+@Slf4j
 public class XSSFilter implements Filter {
 
-	private static final Logger log = LoggerFactory.getLogger(XSSFilter.class);
 	private XSSUtil xssUtil;
 
 	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
 			throws IOException, ServletException {
-		Site site = RequestUtil.getSite(DefaultEnvironment.get(request, response), request);
+		DefaultEnvironment environment = EnvironmentFilter.environment();
+		Site site = environment.getSite();
 		HttpServletRequest servletRequest = (HttpServletRequest) request;
 		boolean processXss = null != site && null != xssUtil;
 		if (processXss) {
@@ -77,8 +76,8 @@ public class XSSFilter implements Filter {
 					}
 
 				};
-				if (log.isDebugEnabled()) {
-					log.debug("XSS protection enabled for {} {}", servletRequest.getMethod(),
+				if (LOGGER.isDebugEnabled()) {
+					LOGGER.debug("XSS protection enabled for {} {}", servletRequest.getMethod(),
 							servletRequest.getServletPath());
 				}
 			}
@@ -90,7 +89,7 @@ public class XSSFilter implements Filter {
 	}
 
 	public void init(FilterConfig filterConfig) throws ServletException {
-		Environment env = DefaultEnvironment.get(filterConfig.getServletContext());
+		Environment env = DefaultEnvironment.getGlobal();
 		Properties platformProps = env.getAttribute(Scope.PLATFORM, Platform.Environment.PLATFORM_CONFIG);
 		if (platformProps.getBoolean(Platform.Property.XSS_PROTECT)) {
 			xssUtil = XSSHelper.getXssUtil(platformProps);

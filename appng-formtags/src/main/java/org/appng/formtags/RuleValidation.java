@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,6 @@ import org.appng.forms.FormUpload;
 import org.appng.forms.Request;
 
 /**
- * 
  * <table border="1">
  * <tr>
  * <th>rule</th>
@@ -48,7 +47,6 @@ import org.appng.forms.Request;
  * XXX TODO MM
  * 
  * @author Matthias Müller
- * 
  */
 public class RuleValidation {
 
@@ -83,7 +81,7 @@ public class RuleValidation {
 	public static final List<String> SHORT_RULES = Arrays.asList(STRING, EMAIL, NUMBER);
 
 	public RuleValidation(Request container) {
-		Map<String, Object> sessionParams = new HashMap<String, Object>();
+		Map<String, Object> sessionParams = new HashMap<>();
 		HttpSession session = container.getHttpServletRequest().getSession();
 		Enumeration<String> attributeNames = session.getAttributeNames();
 		while (attributeNames.hasMoreElements()) {
@@ -92,7 +90,7 @@ public class RuleValidation {
 			sessionParams.put(attribute, value);
 		}
 
-		Map<String, Object> parameters = new HashMap<String, Object>(container.getParameters());
+		Map<String, Object> parameters = new HashMap<>(container.getParameters());
 		Map<String, List<String>> multivaluedParameters = container.getParametersList();
 		for (String key : parameters.keySet()) {
 			if (multivaluedParameters.get(key).size() > 1) {
@@ -128,11 +126,11 @@ public class RuleValidation {
 	}
 
 	public Map<String, List<FormUpload>> getFileParams(Map<String, List<FormUpload>> formUploads) {
-		Map<String, List<FormUpload>> fileParams = new HashMap<String, List<FormUpload>>();
+		Map<String, List<FormUpload>> fileParams = new HashMap<>();
 		Set<String> keySet = formUploads.keySet();
 		for (String key : keySet) {
 			List<FormUpload> list = formUploads.get(key);
-			if (list != null & !list.isEmpty()) {
+			if (list != null && !list.isEmpty()) {
 				fileParams.put(key, list);
 			}
 		}
@@ -212,8 +210,8 @@ public class RuleValidation {
 		if (CharSequence.class.isAssignableFrom(item.getClass())) {
 			return ((CharSequence) item).length();
 		}
-		throw new UnsupportedOperationException("can not invoke size() on object of type" + item.getClass().getName()
-				+ "!");
+		throw new UnsupportedOperationException(
+				"can not invoke size() on object of type" + item.getClass().getName() + "!");
 	}
 
 	public static boolean size(Object item, int size) {

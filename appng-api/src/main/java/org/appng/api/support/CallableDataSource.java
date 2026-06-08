@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,28 +38,27 @@ import org.appng.xml.platform.Data;
 import org.appng.xml.platform.DataConfig;
 import org.appng.xml.platform.Datasource;
 import org.appng.xml.platform.DatasourceRef;
+import org.appng.xml.platform.Messages;
 import org.appng.xml.platform.MetaData;
 import org.appng.xml.platform.PageDefinition;
 import org.appng.xml.platform.PageReference;
 import org.appng.xml.platform.Permissions;
 import org.appng.xml.platform.SectionelementDef;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
- * 
  * A {@code CallableDataSource} is responsible for preparing and performing an {@link Datasource}, based on a
  * {@link DatasourceRef}. This {@link DatasourceRef} is provided either by a {@link PageDefinition}'s
  * {@link SectionelementDef} or by an {@link Action}.
  * 
  * @author Matthias Müller
- * 
  */
+@Slf4j
 public class CallableDataSource {
 
-	private static final Logger log = LoggerFactory.getLogger(CallableDataSource.class);
 	private ApplicationRequest applicationRequest;
 	private Site site;
 	private Application application;
@@ -74,18 +73,19 @@ public class CallableDataSource {
 	 * {@link Permissions} and {@link Condition}s.
 	 * 
 	 * @param site
-	 *            the current {@link Site}
+	 *                           the current {@link Site}
 	 * @param application
-	 *            the current {@link Application}
+	 *                           the current {@link Application}
 	 * @param applicationRequest
-	 *            the current {@link ApplicationRequest}
+	 *                           the current {@link ApplicationRequest}
 	 * @param parameterSupport
-	 *            the {@link ParameterSupport} holding the parameters for the {@link Datasource}
+	 *                           the {@link ParameterSupport} holding the parameters for the {@link Datasource}
 	 * @param datasourceRef
-	 *            the {@link DatasourceRef} as given in the {@link SectionelementDef} of a {@link PageDefinition} or by
-	 *            an {@link Action}.
+	 *                           the {@link DatasourceRef} as given in the {@link SectionelementDef} of a
+	 *                           {@link PageDefinition} or by an {@link Action}.
+	 * 
 	 * @throws ProcessingException
-	 *             if an error occurs while assembling the {@code CallableDataSource}
+	 *                             if an error occurs while assembling the {@code CallableDataSource}
 	 */
 	public CallableDataSource(Site site, Application application, ApplicationRequest applicationRequest,
 			ParameterSupport parameterSupport, DatasourceRef datasourceRef) throws ProcessingException {
@@ -102,9 +102,10 @@ public class CallableDataSource {
 
 		if (permissionProcessor.hasPermissions(new PermissionOwner(datasourceRef))) {
 			ExpressionEvaluator includeEvaluator = new ExpressionEvaluator(parameterSupport.getParameters());
-			this.elementHelper = new ElementHelper(site, application, includeEvaluator);
+			this.elementHelper = new ElementHelper(applicationRequest.getEnvironment(), site,
+					application, includeEvaluator);
 			Condition includeCondition = datasourceRef.getCondition();
-			if (elementHelper.conditionMatches(includeEvaluator, includeCondition)) {
+			if (elementHelper.conditionMatches(includeCondition)) {
 				this.datasource = applicationRequest.getApplicationConfig().getDatasource(datasourceRef.getId());
 				if (null == datasource) {
 					throw new ProcessingException("no such datasource: " + datasourceRef.getId(),
@@ -114,11 +115,11 @@ public class CallableDataSource {
 					this.include = true;
 					datasource.setMode(datasourceRef.getMode());
 					DataConfig config = getDatasource().getConfig();
-					Map<String, String> dataSourceParameters = elementHelper.initializeParameters("datasource '"
-							+ datasourceRef.getId() + "'", applicationRequest, parameterSupport,
+					Map<String, String> dataSourceParameters = elementHelper.initializeParameters(
+							"datasource '" + datasourceRef.getId() + "'", applicationRequest, parameterSupport,
 							datasourceRef.getParams(), config.getParams());
 
-					log.trace("parameters for datasource '{}': {}", datasourceRef.getId(), dataSourceParameters);
+					LOGGER.trace("parameters for datasource '{}': {}", datasourceRef.getId(), dataSourceParameters);
 
 					elementHelper.processConfig(applicationRequest.getApplicationConfig(), applicationRequest,
 							datasource.getConfig(), dataSourceParameters);
@@ -127,16 +128,16 @@ public class CallableDataSource {
 						elementHelper.initOptions(bean.getOptions());
 					}
 					applicationRequest.setLabels(datasource.getConfig());
-					log.debug("including datasource '{}'", datasource.getId());
+					LOGGER.debug("including datasource '{}'", datasource.getId());
 				} else {
-					log.debug("no permission for datasource '{}'", datasource.getId());
+					LOGGER.debug("no permission for datasource '{}'", datasource.getId());
 				}
 			} else {
-				log.debug("include condition for datasource '{}' did not match - {}", datasourceRef.getId(),
+				LOGGER.debug("include condition for datasource '{}' did not match - {}", datasourceRef.getId(),
 						includeCondition.getExpression());
 			}
 		} else {
-			log.debug("no permission(s) for datasourceRef '{}'", datasourceRef.getId());
+			LOGGER.debug("no permission(s) for datasourceRef '{}'", datasourceRef.getId());
 		}
 	}
 
@@ -147,10 +148,26 @@ public class CallableDataSource {
 	/**
 	 * Performs this {@link CallableDataSource}, setting the {@link Bean} {@code null} afterwards.
 	 * 
-	 * @see #perform(String, boolean, boolean)
+	  * @see #perform(String, boolean, boolean, boolean)
 	 */
 	public Data perform(String pageId) throws ProcessingException {
-		return perform(pageId, true, false);
+		return perform(pageId, true, false, false);
+	}
+
+	/**
+	 * Performs this {@link CallableDataSource}, setting the {@link Bean} {@code null} afterwards.
+	 * 
+	 * @see #perform(String, boolean, boolean, boolean)
+	 */
+	public Data perform(String pageId, boolean addMessagesToSession) throws ProcessingException {
+		return perform(pageId, true, false, addMessagesToSession);
+	}
+
+	/***
+	 * @see #perform(String, boolean, boolean, boolean)
+	 */
+	public Data perform(String pageId, boolean setBeanNull, boolean addValidation) throws ProcessingException {
+		return perform(pageId, setBeanNull, addValidation, false);
 	}
 
 	/**
@@ -159,25 +176,31 @@ public class CallableDataSource {
 	 * {@link #doInclude()}), as this method doesn't check that condition.
 	 * 
 	 * @param pageId
-	 *            the ID of the current page
+	 *                             the ID of the current page
 	 * @param setBeanNull
-	 *            whether or not to set the {@link Bean} of the {@link Datasource} to {@code null} after performing
+	 *                             whether or not to set the {@link Bean} of the {@link Datasource} to {@code null}
+	 *                             after performing
 	 * @param addValidation
-	 *            whether or not to add validation metadata
+	 *                             whether or not to add validation metadata
+	 * @param addMessagesToSession
+	 *                             if {@link Messages} should be added to the session or kept on the {@link Datasource}
+	 * 
 	 * @return the {@link Data} retrieved from the {@link Datasource} by calling
 	 *         {@link DataProvider#getData(Site, Application, org.appng.api.Environment, Options, org.appng.api.Request, org.appng.api.FieldProcessor)}
+	 * 
 	 * @throws ProcessingException
-	 *             if an error occurs while retrieving the {@code Data}
+	 *                             if an error occurs while retrieving the {@code Data}
 	 */
-	public Data perform(String pageId, boolean setBeanNull, boolean addValidation) throws ProcessingException {
+	public Data perform(String pageId, boolean setBeanNull, boolean addValidation, boolean addMessagesToSession)
+			throws ProcessingException {
 		Bean bean = datasource.getBean();
 		if (null != bean) {
 			FieldProcessorImpl fieldProcessor = null;
 			try {
 				String beanId = bean.getId();
-				log.trace("retrieving datasource '{}'", beanId);
+				LOGGER.trace("retrieving datasource '{}'", beanId);
 				DataProvider dataProvider = this.application.getBean(beanId, DataProvider.class);
-				log.trace("datasource '{}' is of Type '{}'", beanId, dataProvider.getClass().getName());
+				LOGGER.trace("datasource '{}' is of Type '{}'", beanId, dataProvider.getClass().getName());
 				String id = datasource.getId();
 				// datasource.setSource(dataProvider.getClass().getName());
 
@@ -194,7 +217,7 @@ public class CallableDataSource {
 					fieldProcessor.setPageable(null);
 				}
 
-				log.trace("options for datasource '{}': {}", datasourceRef.getId(), options);
+				LOGGER.trace("options for datasource '{}': {}", datasourceRef.getId(), options);
 
 				DataContainer container = dataProvider.getData(site, application, applicationRequest.getEnvironment(),
 						options, applicationRequest, fieldProcessor);
@@ -211,7 +234,7 @@ public class CallableDataSource {
 						String sortString = sortParamSupport.getSortString(pageable);
 						String servletPath = applicationRequest.getHttpServletRequest().getServletPath();
 						String target = servletPath + "?" + requestKey + "=" + sortString;
-						log.debug("invalid page for datasource {} requested, redirecting to {}", id, target);
+						LOGGER.debug("invalid page for datasource {} requested, redirecting to {}", id, target);
 						site.sendRedirect(applicationRequest.getEnvironment(), target, HttpServletResponse.SC_FOUND);
 					}
 				} else if (addValidation && null != container.getItem()) {
@@ -219,7 +242,12 @@ public class CallableDataSource {
 							elementHelper.getValidationGroups(metaData, container.getItem()));
 				}
 
-				ElementHelper.addMessages(applicationRequest.getEnvironment(), fieldProcessor.getMessages());
+				Messages messages = fieldProcessor.getMessages();
+				if (addMessagesToSession) {
+					ElementHelper.addMessages(applicationRequest.getEnvironment(), messages);
+				} else if (!messages.getMessageList().isEmpty()) {
+					getDatasource().setMessages(messages);
+				}
 
 				Data data = container.getWrappedData();
 				getDatasource().setData(data);
@@ -239,7 +267,7 @@ public class CallableDataSource {
 						fieldProcessor);
 			}
 		} else {
-			log.info(getDatasource().getId() + " is static!");
+			LOGGER.debug("{} is static!", getDatasource().getId());
 		}
 		return getDatasource().getData();
 	}

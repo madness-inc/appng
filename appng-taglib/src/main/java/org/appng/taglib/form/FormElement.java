@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,7 @@ import javax.servlet.jsp.JspException;
 import javax.servlet.jsp.JspTagException;
 import javax.servlet.jsp.tagext.BodyTagSupport;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * This class defines a Form element.
@@ -92,7 +91,8 @@ import org.slf4j.LoggerFactory;
  * <tr>
  * <td>equals</td>
  * <td>must be equal to another field or value</td>
- * <td>{@code rule="equals('foo')}<br/>{@code rule="equals(anotherfield)}"</td>
+ * <td>{@code rule="equals('foo')}<br/>
+ * {@code rule="equals(anotherfield)}"</td>
  * </tr>
  * <tr>
  * <td>regExp</td>
@@ -185,9 +185,9 @@ import org.slf4j.LoggerFactory;
  * @author Matthias Herlitzius
  * @author Matthias Müller
  */
+@Slf4j
 public class FormElement extends BodyTagSupport {
 
-	private static Logger log = LoggerFactory.getLogger(FormElement.class);
 	protected org.appng.formtags.FormElement wrappedFormElement;
 
 	private String desc;
@@ -219,7 +219,7 @@ public class FormElement extends BodyTagSupport {
 			String content = processContent();
 			getBodyContent().getEnclosingWriter().print(content);
 		} catch (IOException ioe) {
-			log.error("error while writing to JspWriter", ioe);
+			LOGGER.error("error while writing to JspWriter", ioe);
 		}
 		return SKIP_BODY;
 	}

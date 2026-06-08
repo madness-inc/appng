@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,6 @@ public class FormData extends FormElementOwner {
 
 	/**
 	 * Defines when to display the {@link FormData}.
-	 * 
 	 */
 	public enum FormDataMode {
 		/**
@@ -53,11 +52,11 @@ public class FormData extends FormElementOwner {
 	 * Creates a new {@link FormData} for the given {@link Form}
 	 * 
 	 * @param form
-	 *            the {@link Form}
+	 *             the {@link Form}
 	 */
 	FormData(Form form) {
 		super(form);
-		this.elementOwner = new ArrayList<FormElementOwner>();
+		this.elementOwner = new ArrayList<>();
 	}
 
 	/**
@@ -73,7 +72,7 @@ public class FormData extends FormElementOwner {
 	 * Sets the {@link FormDataMode} for this {@link FormData}.
 	 * 
 	 * @param mode
-	 *            the {@link FormDataMode}
+	 *             the {@link FormDataMode}
 	 */
 	public void setMode(FormDataMode mode) {
 		this.mode = mode;
@@ -83,9 +82,10 @@ public class FormData extends FormElementOwner {
 	 * Sets the {@link FormDataMode} for this {@link FormData} from a given {@link String}.
 	 * 
 	 * @param mode
-	 *            a {@link String}
+	 *             a {@link String}
+	 * 
 	 * @throws IllegalArgumentException
-	 *             if the {@link String} does not represent a valid {@link FormDataMode}
+	 *                                  if the {@link String} does not represent a valid {@link FormDataMode}
 	 */
 	public void setMode(String mode) {
 		try {
@@ -131,7 +131,7 @@ public class FormData extends FormElementOwner {
 	 */
 	@Override
 	public List<FormElement> getElements() {
-		List<FormElement> allElements = new ArrayList<FormElement>();
+		List<FormElement> allElements = new ArrayList<>();
 		for (FormElementOwner formElementOwner : elementOwner) {
 			allElements.addAll(formElementOwner.getElements());
 		}

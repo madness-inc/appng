@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,20 +37,18 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.Set;
 
-import org.apache.commons.io.IOUtils;
 import org.appng.core.security.signing.SigningException.ErrorType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Validates a certificate chain against a truststore.
  * 
  * @author Matthias Müller
- *
  */
+@Slf4j
 public class CertChainValidator {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(CertChainValidator.class);
 	private static final String DEFAULT_PASS = "changeit";
 
 	private List<X509Certificate> trustedCerts;
@@ -63,9 +61,9 @@ public class CertChainValidator {
 	 * Creates a new validator using the default truststore located at {@code $java.home/lib/security/cacerts}
 	 * 
 	 * @throws SigningException
-	 *             if an error occurred while reading from the truststore
+	 *                               if an error occurred while reading from the truststore
 	 * @throws FileNotFoundException
-	 *             if the truststore does not exist
+	 *                               if the truststore does not exist
 	 */
 	CertChainValidator() throws SigningException, FileNotFoundException {
 		File dir = new File(
@@ -84,14 +82,12 @@ public class CertChainValidator {
 	}
 
 	protected void init(InputStream is, char[] storepass) throws SigningException {
-		try {
+		try (InputStream inner = is) {
 			KeyStore keyStore = KeyStore.getInstance("JKS");
-			keyStore.load(is, storepass);
+			keyStore.load(inner, storepass);
 			init(keyStore);
 		} catch (GeneralSecurityException | IOException e) {
 			throw new SigningException(ErrorType.VERIFY, "error while loading keystore", e);
-		} finally {
-			IOUtils.closeQuietly(is);
 		}
 	}
 

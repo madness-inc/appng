@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import org.appng.cli.ExecutableCliCommand;
 import org.appng.cli.commands.AbstractCommandTest.CommandTestInitializer;
 import org.appng.cli.prettytable.PrettyTable;
 import org.appng.cli.prettytable.TableRow;
-import org.appng.testsupport.persistence.ConnectionHelper;
+import org.appng.core.controller.PlatformStartup;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -34,6 +34,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.PropertyResourceConfigurer;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.support.AbstractApplicationContext;
 import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.annotation.Rollback;
@@ -55,25 +56,23 @@ public abstract class AbstractCommandTest {
 	@Autowired
 	protected ConfigurableApplicationContext context;
 
-	public static class CommandTestInitializer
-			implements ApplicationContextInitializer<ConfigurableApplicationContext> {
+	public static class CommandTestInitializer implements ApplicationContextInitializer<AbstractApplicationContext> {
 
 		public CommandTestInitializer() {
 
 		}
 
-		public void initialize(ConfigurableApplicationContext platformContext) {
-			Properties config = getProperties();
+		public void initialize(AbstractApplicationContext platformContext) {
+			Properties config = getProperties(getClass());
 			PropertyResourceConfigurer configurer = new PropertySourcesPlaceholderConfigurer();
 			configurer.setProperties(config);
 			platformContext.addBeanFactoryPostProcessor(configurer);
+			platformContext.setDisplayName(PlatformStartup.APPNG_CONTEXT);
 		}
 
-		public static Properties getProperties() {
+		public static Properties getProperties(Class<?> caller) {
 			Properties config = new Properties();
-			int hsqlPort = ConnectionHelper.getHsqlPort();
-			config.put("hsqlPort", hsqlPort);
-			config.put("hibernate.connection.url", "jdbc:hsqldb:hsql://localhost:" + hsqlPort + "/hsql-testdb");
+			config.put("hibernate.connection.url", "jdbc:hsqldb:mem://" + caller.getSimpleName());
 			config.put("hibernate.dialect", "org.hibernate.dialect.HSQLDialect");
 			config.put("hibernate.connection.driver_class", "org.hsqldb.jdbc.JDBCDriver");
 			config.put("hibernate.connection.username", "sa");

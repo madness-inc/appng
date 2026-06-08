@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,23 +17,28 @@ package org.appng.core.repository.config;
 
 import javax.sql.DataSource;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.tomcat.jdbc.pool.ConnectionPool;
 import org.appng.core.JMXUtils;
 import org.appng.core.domain.DatabaseConnection;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 
 /**
- * A {@link DatasourceConfigurer} based on the <a href="http://tomcat.apache.org/tomcat-7.0-doc/jdbc-pool.html">Tomcat
+ * A {@link DatasourceConfigurer} based on the <a href="http://tomcat.apache.org/tomcat-8.5-doc/jdbc-pool.html">Tomcat
  * JDBC Connection Pool</a>.
  * 
  * @author Matthias Müller
- * 
  */
+@Slf4j
 public class TomcatJdbcConfigurer implements DatasourceConfigurer {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(TomcatJdbcConfigurer.class);
 	private org.apache.tomcat.jdbc.pool.DataSource tomcatDatasource;
+	private @Setter long connectionTimeout = DEFAULT_TIMEOUT;
+	private @Setter long validationTimeout = DEFAULT_TIMEOUT;
+	private @Setter long maxLifetime = DEFAULT_LIFE_TIME;
+	private @Setter String connectionInitSql;
 
 	public TomcatJdbcConfigurer() {
 
@@ -54,22 +59,31 @@ public class TomcatJdbcConfigurer implements DatasourceConfigurer {
 		tomcatDatasource.setName(connection.getName());
 		tomcatDatasource.setInitialSize(connection.getMinConnections());
 		tomcatDatasource.setMaxActive(connection.getMaxConnections());
+		tomcatDatasource.setMaxAge(maxLifetime);
 		tomcatDatasource.setValidationInterval(connection.getValidationPeriod() * 60 * 1000);
 		tomcatDatasource.setValidationQuery(connection.getValidationQuery());
+		if (StringUtils.isNotBlank(connectionInitSql)) {
+			tomcatDatasource.setInitSQL(connectionInitSql);
+		}
+		if (StringUtils.isNotBlank(connection.getValidationQuery())) {
+			tomcatDatasource.setValidationQuery(connectionInitSql);
+		}
+		tomcatDatasource.setValidationQueryTimeout((int) validationTimeout);
 		if (tomcatDatasource.getMaxIdle() > tomcatDatasource.getMaxActive()) {
 			tomcatDatasource.setMaxIdle(tomcatDatasource.getMaxActive());
 		}
+		tomcatDatasource.setMaxWait((int) connectionTimeout);
 		try {
 			ConnectionPool pool = tomcatDatasource.createPool();
 			JMXUtils.register(pool.getJmxPool(), JMX_DOMAIN + ":type=" + tomcatDatasource.getName());
 		} catch (Exception e) {
-			LOGGER.error("error while creating pool " + this, e);
+			LOGGER.error(String.format("error while creating pool %s", this), e);
 		}
 	}
 
 	public void destroy() {
 		tomcatDatasource.close();
-		LOGGER.info("TomcatJdbcConfigurer#" + hashCode() + " about to destroy " + tomcatDatasource);
+		LOGGER.info("TomcatJdbcConfigurer#{} about to destroy {}", hashCode(), tomcatDatasource);
 		JMXUtils.unregister(JMX_DOMAIN + ":type=" + tomcatDatasource.getName());
 	}
 

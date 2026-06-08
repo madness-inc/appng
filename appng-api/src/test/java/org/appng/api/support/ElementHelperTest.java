@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,10 @@
  */
 package org.appng.api.support;
 
+import java.io.Closeable;
+import java.io.Serializable;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -70,6 +74,7 @@ import org.appng.xml.platform.Permissions;
 import org.appng.xml.platform.Selection;
 import org.appng.xml.platform.SelectionGroup;
 import org.appng.xml.platform.Template;
+import org.appng.xml.platform.ValidationGroups;
 import org.custommonkey.xmlunit.XMLUnit;
 import org.junit.Assert;
 import org.junit.Before;
@@ -109,6 +114,9 @@ public class ElementHelperTest {
 	@Mock
 	private Path path;
 
+	@Mock
+	private Environment env;
+
 	private MetaData metaData;
 
 	private ElementHelper elementHelper;
@@ -126,39 +134,48 @@ public class ElementHelperTest {
 		metaData = new MetaData();
 		config.setMetaData(metaData);
 
+		java.util.Properties props = new java.util.Properties();
+		props.put("foo", "42");
+		props.put("bar", 12);
+		Mockito.when(properties.getPlainProperties()).thenReturn(props);
+		Mockito.when(application.getProperties()).thenReturn(properties);
 		Mockito.when(site.getProperties()).thenReturn(properties);
+
 		Mockito.when(site.getName()).thenReturn("localhost");
+		Mockito.when(site.getSiteClassLoader()).thenReturn(new URLClassLoader(new URL[0], getClass().getClassLoader()));
 		Mockito.when(application.getName()).thenReturn("application");
 		Mockito.when(properties.getString(SiteProperties.SERVICE_PATH)).thenReturn("/services");
 		Mockito.when(properties.getString(SiteProperties.MANAGER_PATH)).thenReturn("/manager");
 		Mockito.when(applicationRequest.getApplicationConfig()).thenReturn(configProvider);
 		Mockito.when(applicationRequest.getLocale()).thenReturn(Locale.getDefault());
 
-		Mockito.doAnswer(new Answer<Void>() {
-			public Void answer(InvocationOnMock invocation) throws Throwable {
-				Object arg0 = invocation.getArguments()[0];
-				if (arg0 instanceof Label) {
-					Label label = (Label) arg0;
-					if (null == label.getValue()) {
-						label.setValue(label.getId());
-					}
-				}
-				return null;
+		Mockito.doAnswer(i -> {
+			Label label = i.getArgumentAt(0, Label.class);
+			if (null != label) {
+				label.setValue(label.getId() + ".translated");
 			}
-		}).when(applicationRequest).setLabel(Mockito.any(Label.class));
+			return null;
+		}).when(applicationRequest).setLabel(Mockito.any());
 
 		rootCfg = new ApplicationRootConfig();
 		Mockito.when(configProvider.getApplicationRootConfig()).thenReturn(rootCfg);
 
 		Mockito.when(pcp.getDatasource("dsId")).thenReturn(ds);
 		Mockito.when(applicationRequest.getPermissionProcessor()).thenReturn(permissionProcessor);
-		parameterSupport = new DollarParameterSupport(new HashMap<String, String>());
+		parameterSupport = new DollarParameterSupport(new HashMap<>());
 		Mockito.when(applicationRequest.getParameterSupportDollar()).thenReturn(parameterSupport);
-		elementHelper = new ElementHelper(site, application);
+		elementHelper = new ElementHelper(env, site, application, null);
 		elementHelper.initializeParameters(DATASOURCE_TEST, applicationRequest, parameterSupport, new Params(),
 				new Params());
 
 		XMLUnit.setIgnoreWhitespace(true);
+	}
+
+	@Test
+	public void testConditionWithSiteAndApp() {
+		Condition condition = new Condition();
+		condition.setExpression("${not empty SITE.foo and APP.bar eq 12}");
+		Assert.assertTrue(elementHelper.conditionMatches(condition));
 	}
 
 	@Test
@@ -182,6 +199,32 @@ public class ElementHelperTest {
 		Mockito.when(permissionProcessor.hasPermissions(Mockito.any(PermissionOwner.class))).thenReturn(true);
 		elementHelper.initNavigation(applicationRequest, path, pageConfig);
 		XmlValidator.validate(pageConfig.getLinkpanel());
+	}
+
+	@Test
+	public void testInitNavigationNoPermission() {
+		Linkpanel linkpanel = new Linkpanel();
+		Permissions permissions = new Permissions();
+		Permission p1 = new Permission();
+		p1.setRef("foo");
+		permissions.getPermissionList().add(p1);
+		linkpanel.setPermissions(permissions);
+		linkpanel.setId("panel");
+		linkpanel.setLocation(PanelLocation.TOP);
+		addLink(linkpanel, "link1", "target", "${1 eq 1}");
+		addLink(linkpanel, "link2", "target", "${1 eq 2}");
+		rootCfg.setNavigation(linkpanel);
+		PageConfig pageConfig = new PageConfig();
+		Linkpanel pageLinks = new Linkpanel();
+		pageLinks.setPermissions(new Permissions());
+		Link page = new Link();
+		page.setMode(Linkmode.INTERN);
+		page.setLabel(new Label());
+		pageLinks.getLinks().add(page);
+		pageConfig.setLinkpanel(pageLinks);
+		Mockito.when(permissionProcessor.hasPermissions(Mockito.any(PermissionOwner.class))).thenReturn(true, false);
+		elementHelper.initNavigation(applicationRequest, path, pageConfig);
+		Assert.assertNull(pageConfig.getLinkpanel());
 	}
 
 	@Test
@@ -219,13 +262,13 @@ public class ElementHelperTest {
 
 		Mockito.when(path.isPathSelected("/ws/localhost/applicationfoo")).thenReturn(true);
 
-		Mockito.when(permissionProcessor.hasPermissions(Mockito.any(PermissionOwner.class))).thenAnswer(
-				new Answer<Boolean>() {
+		Mockito.when(permissionProcessor.hasPermissions(Mockito.any(PermissionOwner.class)))
+				.thenAnswer(new Answer<Boolean>() {
 					public Boolean answer(InvocationOnMock invocation) throws Throwable {
 						PermissionOwner owner = (PermissionOwner) invocation.getArguments()[0];
 						String name = owner.getName();
-						if ("linkpanel:linkpanel2".equals(name) || "link:link3".equals(name)
-								|| "link:withCurrentCondition".equals(name)) {
+						if ("linkpanel:linkpanel2".equals(name) || "link:link3.translated".equals(name)
+								|| "link:withCurrentCondition.translated".equals(name)) {
 							return false;
 						}
 						return true;
@@ -242,7 +285,8 @@ public class ElementHelperTest {
 	private Link addLink(Linkpanel linkpanel, String labelText, String target, String condition) {
 		Link link = new Link();
 		Label label = new Label();
-		label.setValue(labelText);
+		label.setId(labelText);
+		applicationRequest.setLabel(label);
 		link.setLabel(label);
 		link.setMode(Linkmode.EXTERN);
 		link.setTarget(target);
@@ -263,6 +307,9 @@ public class ElementHelperTest {
 		Mockito.when(applicationRequest.getMessage("dateFormat")).thenReturn("yyyy-MM-dd");
 
 		FieldDef field = addField(metaData, "readableField");
+		Label tooltip = new Label();
+		tooltip.setId("tooltip");
+		field.setTooltip(tooltip);
 		FieldDef fieldNoPermission = addField(metaData, "fieldNoRead");
 		FieldDef conditionFalse = addField(metaData, "conditionFalse", "${1 eq 2}");
 		FieldDef conditionTrue = addField(metaData, "conditionTrue", "${1 eq 1}");
@@ -355,7 +402,7 @@ public class ElementHelperTest {
 	}
 
 	private List<BeanOption> getOptions() {
-		List<BeanOption> beanOptions = new ArrayList<BeanOption>();
+		List<BeanOption> beanOptions = new ArrayList<>();
 		BeanOption option = new BeanOption();
 		option.setName("action");
 		option.getOtherAttributes().put(new QName("id"), "foobar");
@@ -372,7 +419,7 @@ public class ElementHelperTest {
 		FieldDef field = new FieldDef();
 		field.setName(name);
 		Label label = new Label();
-		label.setValue(name);
+		label.setId(name);
 		field.setLabel(label);
 		metaData.getFields().add(field);
 		if (null != condition) {
@@ -396,6 +443,9 @@ public class ElementHelperTest {
 		l3.setId("id3");
 		l2.setId("id2");
 		selection1.setTitle(l1);
+		Label tooltip = new Label();
+		tooltip.setId("tooltip");
+		selection1.setTooltip(tooltip);
 		selection2.setTitle(l2);
 		OptionGroup optionGroup = new OptionGroup();
 		optionGroup.setLabel(l3);
@@ -404,9 +454,10 @@ public class ElementHelperTest {
 		selectionGroup.getSelections().add(selection2);
 		data.getSelectionGroups().add(selectionGroup);
 		elementHelper.setSelectionTitles(data, applicationRequest);
-		Assert.assertEquals("id1", l1.getValue());
-		Assert.assertEquals("id2", l2.getValue());
-		Assert.assertEquals("id3", l3.getValue());
+		Assert.assertEquals("id1.translated", l1.getValue());
+		Assert.assertEquals("id2.translated", l2.getValue());
+		Assert.assertEquals("id3.translated", l3.getValue());
+		Assert.assertEquals("tooltip.translated", tooltip.getValue());
 	}
 
 	@Test
@@ -450,7 +501,7 @@ public class ElementHelperTest {
 		addParam(executionParams, "p8", "jin", null);
 		addParam(executionParams, "p9", null, "fizz");
 
-		DollarParameterSupport parameterSupport = new DollarParameterSupport(new HashMap<String, String>());
+		DollarParameterSupport parameterSupport = new DollarParameterSupport(new HashMap<>());
 		Map<String, String> actual = elementHelper.initializeParameters(DATASOURCE_TEST, applicationRequest,
 				parameterSupport, referenceParams, executionParams);
 
@@ -468,7 +519,7 @@ public class ElementHelperTest {
 	@Test
 	@Ignore("APPNG-442")
 	public void testOverlappingParams() {
-		Map<String, List<String>> postParameters = new HashMap<String, List<String>>();
+		Map<String, List<String>> postParameters = new HashMap<>();
 		postParameters.put("p5", Arrays.asList("a"));
 
 		Mockito.when(applicationRequest.getParametersList()).thenReturn(postParameters);
@@ -480,7 +531,7 @@ public class ElementHelperTest {
 		Params executionParams = new Params();
 		addParam(executionParams, "p5", null, "b");
 
-		DollarParameterSupport parameterSupport = new DollarParameterSupport(new HashMap<String, String>());
+		DollarParameterSupport parameterSupport = new DollarParameterSupport(new HashMap<>());
 		try {
 			elementHelper.initializeParameters(DATASOURCE_TEST, applicationRequest, parameterSupport, referenceParams,
 					executionParams);
@@ -488,13 +539,14 @@ public class ElementHelperTest {
 		} catch (ProcessingException e) {
 			Assert.assertEquals(
 					"the parameter 'p5' is ambiguous, since it's a execution parameter for datasource 'test' (value: 'b') and also"
-							+ " POST-parameter (value: 'a'). Avoid such overlapping parameters!", e.getMessage());
+							+ " POST-parameter (value: 'a'). Avoid such overlapping parameters!",
+					e.getMessage());
 		}
 	}
 
 	@Test
 	public void testInitializeParameters() throws ProcessingException {
-		Map<String, List<String>> postParameters = new HashMap<String, List<String>>();
+		Map<String, List<String>> postParameters = new HashMap<>();
 		postParameters.put("postParam1", Arrays.asList("a"));
 		postParameters.put("postParam2", Arrays.asList("b"));
 		postParameters.put("postParam3", Arrays.asList("x", "y", "z"));
@@ -514,7 +566,7 @@ public class ElementHelperTest {
 		addParam(executionParams, "p3", "9", "18");
 		addParam(executionParams, "p4", null, null);
 
-		Map<String, String> parameters = new HashMap<String, String>();
+		Map<String, String> parameters = new HashMap<>();
 		parameters.put("req_1", "42");
 
 		DollarParameterSupport parameterSupport = new DollarParameterSupport(parameters);
@@ -533,15 +585,35 @@ public class ElementHelperTest {
 
 	@Test
 	public void testGetOutputPrefix() {
-		Environment env = Mockito.mock(Environment.class);
 		Mockito.when(env.removeAttribute(Scope.REQUEST, EnvironmentKeys.EXPLICIT_FORMAT)).thenReturn(true);
 		Path pathMock = Mockito.mock(Path.class);
 		Mockito.when(pathMock.getGuiPath()).thenReturn("/manager");
 		Mockito.when(pathMock.getOutputPrefix()).thenReturn("/_html/_nonav");
 		Mockito.when(pathMock.getSiteName()).thenReturn("site");
 		Mockito.when(env.getAttribute(Scope.REQUEST, EnvironmentKeys.PATH_INFO)).thenReturn(pathMock);
-		String outputPrefix = elementHelper.getOutputPrefix(env);
+		String outputPrefix = elementHelper.getOutputPrefix();
 		Assert.assertEquals("/manager/_html/_nonav/site/", outputPrefix);
+	}
+
+	@Test
+	public void testGetValidationGroups() {
+		ValidationGroups groups = new ValidationGroups();
+
+		ValidationGroups.Group groupA = new ValidationGroups.Group();
+		groupA.setClazz(Serializable.class.getName());
+		groups.getGroups().add(groupA);
+
+		ValidationGroups.Group groupB = new ValidationGroups.Group();
+		groupB.setClazz(Closeable.class.getName());
+		String condition = "${current eq 'foo'}";
+		groupB.setCondition(condition);
+		groups.getGroups().add(groupB);
+
+		metaData.setValidation(groups);
+
+		Class<?>[] validationGroups = elementHelper.getValidationGroups(metaData, "foo");
+		Assert.assertArrayEquals(new Class[] { Serializable.class, Closeable.class }, validationGroups);
+		Assert.assertEquals(condition, groupB.getCondition());
 	}
 
 	private void addParam(Params params, String name, String defaultVal, String value) {

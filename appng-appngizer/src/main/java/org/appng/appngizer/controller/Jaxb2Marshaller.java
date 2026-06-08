@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,35 +19,33 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
 
+import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
 import javax.xml.bind.PropertyException;
 
 import org.apache.commons.lang3.StringUtils;
-import org.appng.appngizer.model.xml.Linkable;
-import org.springframework.oxm.UncategorizedMappingException;
+import org.springframework.oxm.MarshallingFailureException;
 
-@SuppressWarnings("restriction")
-public class Jaxb2Marshaller extends org.springframework.oxm.jaxb.Jaxb2Marshaller
-		implements com.sun.xml.internal.bind.marshaller.CharacterEscapeHandler {
+import com.sun.xml.bind.marshaller.CharacterEscapeHandler;
 
-	private static final String CHARACTER_ESCAPE_HANDLER = "com.sun.xml.internal.bind.marshaller.CharacterEscapeHandler";
+public class Jaxb2Marshaller extends org.springframework.oxm.jaxb.Jaxb2Marshaller implements CharacterEscapeHandler {
+
 	private final String[] searchList = new String[] { "<", ">", "&" };
 	private final String[] replacementList = new String[] { "&lt;", "&gt;", "&amp;" };
 
 	@Override
 	public boolean supports(Class<?> clazz) {
-		return Linkable.class.isAssignableFrom(clazz);
+		return clazz.getPackage().getName().startsWith("org.appng.appngizer.model");
 	}
 
 	@Override
-	protected Marshaller createMarshaller() {
-		javax.xml.bind.Marshaller marshaller = super.createMarshaller();
+	protected void initJaxbMarshaller(Marshaller marshaller) throws JAXBException {
+		super.initJaxbMarshaller(marshaller);
 		try {
-			marshaller.setProperty(CHARACTER_ESCAPE_HANDLER, this);
+			marshaller.setProperty(CharacterEscapeHandler.class.getName(), this);
 		} catch (PropertyException e) {
-			throw new UncategorizedMappingException("error setting " + CHARACTER_ESCAPE_HANDLER, e);
+			throw new MarshallingFailureException("error setting CharacterEscapeHandler", e);
 		}
-		return marshaller;
 	}
 
 	public void escape(char[] buf, int start, int len, boolean isAttValue, Writer out) throws IOException {

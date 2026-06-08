@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,9 +25,12 @@ import org.appng.formtags.Form;
 /**
  * When using the appNG-Taglibrary to define a HTLM-form inside a JSP, a {@link FormProcessProvider} is used to handle
  * the submitted data. It can write to a database, send an email or whatever else you want to do with the form data.
+ * <br/>
+ * Consider using a {@link FormDataBinder} for binding {@link Form} parameters to a target object.
  * 
  * @author Matthias Müller
  * 
+ * @see FormDataBinder
  */
 public interface FormProcessProvider {
 
@@ -35,17 +38,17 @@ public interface FormProcessProvider {
 	 * This method is being called after a Form has been successfully submitted.
 	 * 
 	 * @param environment
-	 *            the current {@link Environment}
+	 *                    the current {@link Environment}
 	 * @param site
-	 *            the current {@link Site}
+	 *                    the current {@link Site}
 	 * @param application
-	 *            the current {@link Application}
+	 *                    the current {@link Application}
 	 * @param writer
-	 *            the {@link Writer} of the calling JSP-page to write the response to
+	 *                    the {@link Writer} of the calling JSP-page to write the response to
 	 * @param form
-	 *            the {@link Form} that was submitted
+	 *                    the {@link Form} that was submitted
 	 * @param properties
-	 *            the properties which where used to configure the form
+	 *                    the properties which where used to configure the form
 	 */
 	void onFormSuccess(Environment environment, Site site, Application application, Writer writer, Form form,
 			Map<String, Object> properties);

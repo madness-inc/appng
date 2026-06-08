@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(locations = "classpath:platformContext.xml", initializers = TemplateServiceTest.class)
+@ContextConfiguration(classes = PlatformTestConfig.class, initializers = TemplateServiceTest.class)
 @DirtiesContext
 public class TemplateServiceTest extends TestSupport
 		implements ApplicationContextInitializer<GenericApplicationContext> {
@@ -77,20 +77,8 @@ public class TemplateServiceTest extends TestSupport
 		Assert.assertEquals(6, processed.getResources().size());
 	}
 
-	@Override
 	public void initialize(GenericApplicationContext applicationContext) {
-		new TestInitializer() {
-
-			@Override
-			protected java.util.Properties getProperties() {
-				java.util.Properties properties = super.getProperties();
-				properties.put("entityPackage", "org.appng.testapplication");
-				properties.put("hsqlPort", "9010");
-				properties.put("hsqlPath", "file:target/hsql/" + InitializerServiceTest.class.getSimpleName());
-				properties.put("repositoryBase", "org.appng.testapplication");
-				return properties;
-			}
-		}.initialize(applicationContext);
+		new TestInitializer().initialize(applicationContext);
 	}
 
 }

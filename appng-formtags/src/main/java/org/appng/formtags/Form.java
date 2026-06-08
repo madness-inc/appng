@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.appng.forms.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * This class represents a HTML form. A {@link Form} consists of two parts:
@@ -39,9 +39,8 @@ import org.slf4j.LoggerFactory;
  * @see FormConfirmation
  * @see FormProcessProvider
  */
+@Slf4j
 public class Form {
-
-	private static final Logger log = LoggerFactory.getLogger(Form.class);
 
 	private Request request;
 
@@ -61,21 +60,22 @@ public class Form {
 	public Form() {
 		this.formData = new FormData(this);
 		this.formConfirmation = new FormConfirmation(this);
-		this.formProcessProviders = new ArrayList<FormProcessProvider>();
+		this.formProcessProviders = new ArrayList<>();
 	}
 
 	/**
 	 * Enables logging for this {@link Form} by adding a {@link LogFormData} to the form's {@link FormProcessProvider}s.
 	 */
 	public void enableLogging() {
-		addFormProcessProvider(new LogFormData(log));
+		addFormProcessProvider(new LogFormData(LOGGER));
 	}
 
 	/**
 	 * Adds a {@link FormProcessProvider} to this {@link Form}.
 	 * 
 	 * @param formProcessProvider
-	 *            the {@link FormProcessProvider} to add
+	 *                            the {@link FormProcessProvider} to add
+	 * 
 	 * @return {@code true} if adding was successful, {@code false} otherwise
 	 */
 	public boolean addFormProcessProvider(FormProcessProvider formProcessProvider) {
@@ -86,7 +86,8 @@ public class Form {
 	 * Removes a {@link FormProcessProvider} to this {@link Form}.
 	 * 
 	 * @param formProcessProvider
-	 *            the {@link FormProcessProvider} to remove
+	 *                            the {@link FormProcessProvider} to remove
+	 * 
 	 * @return {@code true} if removing was successful, {@code false} otherwise
 	 */
 	public boolean removeFormProcessProvider(FormProcessProvider formProcessProvider) {
@@ -134,7 +135,7 @@ public class Form {
 	 * Sets the {@link Request} for this form.
 	 * 
 	 * @param request
-	 *            the {@link Request}
+	 *                the {@link Request}
 	 */
 	public void setRequest(Request request) {
 		this.request = request;
@@ -171,7 +172,7 @@ public class Form {
 	 * Sets the {@link FormData} for this {@link Form}.
 	 * 
 	 * @param formData
-	 *            the {@link FormData}
+	 *                 the {@link FormData}
 	 */
 	public void setFormData(FormData formData) {
 		this.formData = formData;
@@ -190,7 +191,7 @@ public class Form {
 	 * Sets the {@link FormConfirmation} for this {@link Form}.
 	 * 
 	 * @param formConfirmation
-	 *            the {@link FormConfirmation}
+	 *                         the {@link FormConfirmation}
 	 */
 	public void setFormConfirmation(FormConfirmation formConfirmation) {
 		this.formConfirmation = formConfirmation;
@@ -203,9 +204,9 @@ public class Form {
 	 * the given property {@link Map}.
 	 * 
 	 * @param writer
-	 *            a {@link Writer}
+	 *                   a {@link Writer}
 	 * @param properties
-	 *            the property {@link Map}
+	 *                   the property {@link Map}
 	 * 
 	 * @see FormProcessProvider#onFormSuccess(Writer, Form, Map)
 	 */

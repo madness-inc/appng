@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,11 @@ package org.appng.api;
 
 import java.util.Map;
 
+import org.appng.api.ScheduledJobResult.ExecutionResult;
 import org.appng.api.model.Application;
 import org.appng.api.model.Site;
 
 /**
- * 
  * A {@link ScheduledJob} is a (periodically or manually triggered) task that can be defined by an {@link Application}.
  * The job's {@code jobDataMap} can contain any information that the job needs to be executed. For periodical execution,
  * there are two pre-defined entries for the {@code jobDataMap}:
@@ -38,10 +38,11 @@ import org.appng.api.model.Site;
  * <li>{@code hardInterruptable}<br/>
  * If set to {@code true}, this job can safely be interrupted, e.g when a {@link Site} is being reloaded. This is
  * achieved by running the job in a separate thread and calling {@link Thread#interrupt()}.
+ * <li>{@code allowConcurrentExecutions}<br/>
+ * If set to {@code true}, multiple instances of this job can run concurrently (default is {@code false}).
  * </ul>
  * 
  * @author Matthias Müller
- * 
  */
 public interface ScheduledJob {
 
@@ -56,7 +57,7 @@ public interface ScheduledJob {
 	 * Sets the description for this job.
 	 * 
 	 * @param description
-	 *            the description
+	 *                    the description
 	 */
 	void setDescription(String description);
 
@@ -79,11 +80,24 @@ public interface ScheduledJob {
 	 * This method actually executes the job.
 	 * 
 	 * @param site
-	 *            the {@link Site} to run within
+	 *                    the {@link Site} to run within
 	 * @param application
-	 *            the {@link Application} to run within
+	 *                    the {@link Application} to run within
+	 * 
 	 * @throws Exception
-	 *             if any error occurs during job execution
+	 *                   if any error occurs during job execution
 	 */
 	void execute(Site site, Application application) throws Exception;
+
+	/**
+	 * This method is called after execution of the job. It has to provide the result and optionally some custom
+	 * information to be stored in the appNG database.
+	 * 
+	 * @return the {@code ScheduledJobResult}
+	 */
+	default ScheduledJobResult getResult() {
+		ScheduledJobResult scheduledJobResult = new ScheduledJobResult();
+		scheduledJobResult.setResult(ExecutionResult.SUCCESS);
+		return scheduledJobResult;
+	}
 }

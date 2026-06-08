@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,9 +28,8 @@ import org.appng.api.messaging.Receiver;
 import org.appng.api.messaging.Sender;
 import org.appng.api.messaging.Serializer;
 import org.appng.api.model.Site;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import lombok.extern.slf4j.Slf4j;
 import redis.clients.jedis.BinaryJedisPubSub;
 import redis.clients.jedis.Jedis;
 
@@ -47,11 +46,10 @@ import redis.clients.jedis.Jedis;
  * </ul>
  * 
  * @author Claus Stuemke, aiticon GmbH, 2015
- *
  */
+@Slf4j
 public class JedisReceiver extends JedisBase implements Receiver, Runnable {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(JedisReceiver.class);
 	private EventRegistry eventRegistry = new EventRegistry();
 	private Jedis jedis;
 
@@ -75,17 +73,7 @@ public class JedisReceiver extends JedisBase implements Receiver, Runnable {
 		BinaryJedisPubSub pubSub = new BinaryJedisPubSub() {
 
 			public void onMessage(byte[] channel, byte[] message) {
-				Event event = eventSerializer.deserialize(message);
-				if (null != event) {
-					try {
-						LOGGER.debug("Received event {}", event);
-						onEvent(eventSerializer.getSite(event.getSiteName()), event);
-					} catch (Exception e) {
-						LOGGER.error("error while performing event " + event, e);
-					}
-				} else {
-					LOGGER.debug("could not read event {}", message);
-				}
+				Messaging.handleEvent(LOGGER, eventRegistry, eventSerializer, message, false, null);
 			}
 		};
 		jedis.subscribe(pubSub, this.channel.getBytes());
@@ -123,7 +111,7 @@ public class JedisReceiver extends JedisBase implements Receiver, Runnable {
 
 	/**
 	 * @param host
-	 *            the host to set
+	 *             the host to set
 	 */
 	public void setHost(String host) {
 		this.host = host;
@@ -138,7 +126,7 @@ public class JedisReceiver extends JedisBase implements Receiver, Runnable {
 
 	/**
 	 * @param port
-	 *            the port to set
+	 *             the port to set
 	 */
 	public void setPort(int port) {
 		this.port = port;
@@ -153,7 +141,7 @@ public class JedisReceiver extends JedisBase implements Receiver, Runnable {
 
 	/**
 	 * @param timeout
-	 *            the timeout to set
+	 *                the timeout to set
 	 */
 	public void setTimeout(int timeout) {
 		this.timeout = timeout;

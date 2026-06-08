@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.text.StringEscapeUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -32,18 +31,17 @@ import org.jsoup.nodes.Element;
 import org.jsoup.nodes.Node;
 import org.jsoup.nodes.TextNode;
 import org.jsoup.select.Elements;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Utility-class used to parse {@code <appNG:searchable>}-tags from JSP-files.
  * 
  * @author Matthias Müller
- * 
  */
+@Slf4j
 public class ParseTags {
 
-	private static final Logger LOG = LoggerFactory.getLogger(ParseTags.class);
 	private static final char NBSP = (char) 160;
 	private static final char BLANK = (char) 32;
 	private static final String ATTR_FIELD = "field";
@@ -55,7 +53,7 @@ public class ParseTags {
 	 * Creates a new {@code ParseTags} using the given tag-prefix (usually {@code appNG}).
 	 * 
 	 * @param tagPrefix
-	 *            the tag prefix
+	 *                  the tag prefix
 	 */
 	public ParseTags(String tagPrefix) {
 		this.tagPrefix = tagPrefix;
@@ -66,17 +64,19 @@ public class ParseTags {
 	 * {@link StringBuilder} (the text content of the {@code <appNG:searchable>}-tag) as the value.
 	 * 
 	 * @param is
-	 *            the {@link InputStream}
+	 *           the {@link InputStream}
+	 * 
 	 * @return the {@link Map} of fields
+	 * 
 	 * @throws IOException
-	 *             if such an error occurred while reading/parsing the stream
+	 *                     if such an error occurred while reading/parsing the stream
 	 */
 	public Map<String, StringBuilder> parse(InputStream is) throws IOException {
-		try {
-			Map<String, StringBuilder> fieldMap = new HashMap<String, StringBuilder>();
-			Document doc = Jsoup.parse(is, null, "");
+		try (InputStream inner = is) {
+			Map<String, StringBuilder> fieldMap = new HashMap<>();
+			Document doc = Jsoup.parse(inner, null, "");
 			Elements searchables = doc.getElementsByTag(tagPrefix + ":" + SEARCHABLE);
-			List<Node> skipped = new ArrayList<Node>();
+			List<Node> skipped = new ArrayList<>();
 			for (Element node : searchables) {
 				StringBuilder content = new StringBuilder();
 				if (append(skipped, node, content)) {
@@ -92,8 +92,6 @@ public class ParseTags {
 			return fieldMap;
 		} catch (IOException e) {
 			throw e;
-		} finally {
-			IOUtils.closeQuietly(is);
 		}
 	}
 
@@ -106,7 +104,7 @@ public class ParseTags {
 			while (null != (parent = parent.parent())) {
 				if (skipped.contains(parent)) {
 					skip = true;
-					LOG.trace("skipping " + nodeName + " field = " + element.attr(ATTR_FIELD));
+					LOGGER.trace("skipping {} field = {}", nodeName, element.attr(ATTR_FIELD));
 					break;
 				}
 			}
@@ -136,7 +134,7 @@ public class ParseTags {
 				String tagName = tagPrefix + ":" + SEARCHABLE;
 				if (node.nodeName().equalsIgnoreCase(tagName)) {
 					String field = node.attr(ATTR_FIELD);
-					LOG.trace("adding " + tagName + " field = '" + field + "'");
+					LOGGER.trace("adding {} field = '{}'", tagName, field);
 				}
 			} else {
 				skipped.add(node);
@@ -146,7 +144,7 @@ public class ParseTags {
 	}
 
 	protected Map<String, StringBuilder> parse(File file) throws IOException {
-		LOG.debug("parsing " + file.getAbsolutePath());
+		LOGGER.debug("parsing {}", file.getAbsolutePath());
 		return parse(new FileInputStream(file));
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import java.util.Map;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.EntityListeners;
 import javax.persistence.EnumType;
 import javax.persistence.Enumerated;
 import javax.persistence.GeneratedValue;
@@ -72,11 +73,11 @@ import org.appng.xml.application.PackageInfo;
  * {@link Repository} implementation.
  * 
  * @author Matthias Herlitzius
- * 
  */
 @Entity
 @Table(name = "repository")
-public class RepositoryImpl implements Repository {
+@EntityListeners(PlatformEventListener.class)
+public class RepositoryImpl implements Repository, Auditable<Integer> {
 
 	private static final String UNDEFINED = "undefined";
 	private Integer id;
@@ -97,7 +98,7 @@ public class RepositoryImpl implements Repository {
 	}
 
 	@Id
-	@GeneratedValue(strategy = GenerationType.AUTO)
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	public Integer getId() {
 		return id;
 	}
@@ -212,16 +213,16 @@ public class RepositoryImpl implements Repository {
 		Map<String, Identifier> installedPackages = getInstalledPackagesMap(provisionedPackages);
 		RepositoryCache cache = getRepositoryCache();
 		List<PackageWrapper> publishedApplications = cache.getApplications();
-		List<InstallablePackage> provisionableApplications = new ArrayList<InstallablePackage>();
+		List<InstallablePackage> provisionableApplications = new ArrayList<>();
 		for (PackageWrapper publishedApplicationWrapper : publishedApplications) {
 			InstallablePackage provisionableApplication;
 			String packageName = publishedApplicationWrapper.getName();
 			if (installedPackages.containsKey(packageName)) {
 				String applicationVersion = installedPackages.get(packageName).getPackageVersion();
-				provisionableApplication = new InstallablePackage(cache.getPublishedApplicationWrapper(packageName),
+				provisionableApplication = new InstallablePackage(cache.getPackageWrapper(packageName),
 						applicationVersion);
 			} else {
-				provisionableApplication = new InstallablePackage(cache.getPublishedApplicationWrapper(packageName));
+				provisionableApplication = new InstallablePackage(cache.getPackageWrapper(packageName));
 			}
 			provisionableApplications.add(provisionableApplication);
 		}
@@ -230,7 +231,7 @@ public class RepositoryImpl implements Repository {
 
 	@Transient
 	private Map<String, Identifier> getInstalledPackagesMap(List<? extends Identifier> installedPackages) {
-		Map<String, Identifier> installedPackagesMap = new HashMap<String, Identifier>();
+		Map<String, Identifier> installedPackagesMap = new HashMap<>();
 		for (Identifier pckg : installedPackages) {
 			installedPackagesMap.put(pckg.getName(), pckg);
 		}
@@ -238,35 +239,40 @@ public class RepositoryImpl implements Repository {
 	}
 
 	@Transient
-	public List<PackageVersion> getPackageVersions(List<Identifier> provisionedApplicationsList, String name)
+	public List<PackageVersion> getPackageVersions(List<Identifier> provisionedPackagesList, String name)
 			throws BusinessException {
-		Map<String, Identifier> provisionedApplications = getInstalledPackagesMap(provisionedApplicationsList);
+		Map<String, Identifier> provisionedPackages = getInstalledPackagesMap(provisionedPackagesList);
 		RepositoryCache cache = getRepositoryCache();
-		List<PackageInfo> publishedApplicationVersions = cache.getVersions(name);
-		List<PackageVersion> provisionableApplicationVersions = new ArrayList<PackageVersion>();
-		for (PackageInfo applicationInfo : publishedApplicationVersions) {
+		List<PackageInfo> publishedPackageVersions = cache.getVersions(name);
+		List<PackageVersion> provisionablePackageVersions = new ArrayList<>();
+		for (PackageInfo applicationInfo : publishedPackageVersions) {
 			PackageVersion provisionableApplicationVersion;
-			String applicationName = applicationInfo.getName();
-			String applicationVersion = applicationInfo.getVersion();
-			String applicationTimestamp = applicationInfo.getTimestamp();
-			Identifier provisionedApplication = provisionedApplications.get(applicationName);
+			String pkgName = applicationInfo.getName();
+			String pkgVersion = applicationInfo.getVersion();
+			String pkgTimestamp = applicationInfo.getTimestamp();
+			Identifier provisionedPackage = provisionedPackages.get(pkgName);
 			boolean isDeletable = repositoryType.equals(RepositoryType.LOCAL);
-			boolean isProvisioned = (null != provisionedApplication)
-					&& provisionedApplication.getPackageVersion().equals(applicationVersion)
-					&& provisionedApplication.getTimestamp().equals(applicationTimestamp);
+			boolean isProvisioned = (null != provisionedPackage)
+					&& provisionedPackage.getPackageVersion().equals(pkgVersion)
+					&& provisionedPackage.getTimestamp().equals(pkgTimestamp);
 			provisionableApplicationVersion = new PackageVersion(applicationInfo, isProvisioned, isDeletable);
-			provisionableApplicationVersions.add(provisionableApplicationVersion);
+			provisionablePackageVersions.add(provisionableApplicationVersion);
 		}
-		Collections.sort(provisionableApplicationVersions);
-		return provisionableApplicationVersions;
+		Collections.sort(provisionablePackageVersions);
+		return provisionablePackageVersions;
 	}
 
 	@Transient
 	public Packages getPackages() throws BusinessException {
+		return getPackages(null);
+	}
+
+	@Transient
+	public Packages getPackages(String packageName) throws BusinessException {
 		RepositoryCache cache = getRepositoryCache();
 		Packages packages = new Packages();
 		packages.setCertification(cache.getCertification());
-		for (PackageWrapper packageWrapper : cache.getApplications()) {
+		for (PackageWrapper packageWrapper : cache.getApplications(packageName)) {
 			org.appng.core.xml.repository.Package publishedPackage = packageWrapper.getPackage();
 			packages.getPackage().add(publishedPackage);
 		}
@@ -293,7 +299,7 @@ public class RepositoryImpl implements Repository {
 			String applicationTimestamp) throws BusinessException {
 		if (isActive && StringUtils.isNotEmpty(applicationName)) {
 			RepositoryCache repositoryCache = getRepositoryCache();
-			return repositoryCache.getApplicationArchive(applicationName, applicationVersion, applicationTimestamp);
+			return repositoryCache.getPackageArchive(applicationName, applicationVersion, applicationTimestamp);
 		} else if (!isActive) {
 			throw new BusinessException("Repository is not active: " + name);
 		}
@@ -305,7 +311,7 @@ public class RepositoryImpl implements Repository {
 			throws Exception {
 		if (isActive && StringUtils.isNotEmpty(applicationName)) {
 			RepositoryCache repositoryCache = getRepositoryCache();
-			repositoryCache.deleteApplicationVersion(applicationName, applicationVersion, applicationTimestamp);
+			repositoryCache.deletePackageVersion(applicationName, applicationVersion, applicationTimestamp);
 		} else {
 			throw new Exception("Application repository is not active! ID: " + id);
 		}
@@ -366,10 +372,11 @@ public class RepositoryImpl implements Repository {
 	 * Returns the certificate chain, if this is a signed remote repository.
 	 * 
 	 * @return the immutable certificate chain
+	 * 
 	 * @throws SigningException
-	 *             if an error occurs while retrieving the certificate chain
+	 *                           if an error occurs while retrieving the certificate chain
 	 * @throws BusinessException
-	 *             if an the remote repository could not be reached
+	 *                           if an the remote repository could not be reached
 	 */
 	@Transient
 	public Collection<X509Certificate> getRemoteCerts() throws SigningException, BusinessException {
@@ -385,9 +392,11 @@ public class RepositoryImpl implements Repository {
 	 * Sets the certificate chain to trust for this repository
 	 * 
 	 * @param trustedCerts
-	 *            the certificate chain
+	 *                     the certificate chain
+	 * 
 	 * @throws SigningException
-	 *             if an error occurs while encoding the certificates to their binary form
+	 *                          if an error occurs while encoding the certificates to their binary form
+	 * 
 	 * @see #getTrustedCertChain()
 	 */
 	public void setTrustedCertChain(Collection<X509Certificate> trustedCerts) throws SigningException {

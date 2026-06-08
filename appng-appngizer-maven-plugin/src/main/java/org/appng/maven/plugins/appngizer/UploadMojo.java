@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package org.appng.maven.plugins.appngizer;
 
 import java.net.URISyntaxException;
+import java.util.concurrent.ExecutionException;
 
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -31,10 +32,12 @@ public class UploadMojo extends AppNGizerMojo {
 			login();
 			getRepository();
 			upload();
-		} catch (URISyntaxException e) {
+		} catch (URISyntaxException | ExecutionException e) {
 			throw new MojoExecutionException("error during upload", e);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new MojoExecutionException("upload was interrupted", e);
 		}
-
 	}
 
 }

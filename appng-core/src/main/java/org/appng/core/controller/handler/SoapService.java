@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,8 +36,6 @@ import org.appng.api.model.Site;
 import org.appng.api.support.environment.EnvironmentKeys;
 import org.appng.core.controller.HttpHeaders;
 import org.appng.core.model.AccessibleApplication;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.BeanFactoryUtils;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.config.PropertyResourceConfigurer;
@@ -59,6 +57,8 @@ import org.springframework.ws.wsdl.WsdlDefinition;
 import org.springframework.xml.xsd.SimpleXsdSchema;
 import org.springframework.xml.xsd.XsdSchema;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * This class makes it possible to provide a custom URL-Schema for Spring-WS backed {@link Endpoint}s. The functionality
  * is based upon the implementation of {@link MessageDispatcherServlet}.<br />
@@ -75,11 +75,9 @@ import org.springframework.xml.xsd.XsdSchema;
  * @see ServiceRequestHandler
  * 
  * @author Matthias Müller
- * 
  */
+@Slf4j
 public class SoapService {
-
-	private static final Logger LOGGER = LoggerFactory.getLogger(SoapService.class);
 
 	private static final String PROP_SCHEMA_LOCATION = "schemaLocation";
 	private static final String PROP_CONTEXT_PATH = "contextPath";
@@ -95,7 +93,7 @@ public class SoapService {
 	private static final String SLASH = "/";
 	private static final String HTTPS = "https";
 
-	private static final ConcurrentMap<String, Map<String, ConfigurableApplicationContext>> SOAP_CONTEXTS = new ConcurrentHashMap<String, Map<String, ConfigurableApplicationContext>>();
+	private static final ConcurrentMap<String, Map<String, ConfigurableApplicationContext>> SOAP_CONTEXTS = new ConcurrentHashMap<>();
 
 	private Site site;
 	private AccessibleApplication application;
@@ -155,7 +153,7 @@ public class SoapService {
 
 			Map<String, ConfigurableApplicationContext> servicesOfSite = SOAP_CONTEXTS.get(site.getName());
 			if (null == servicesOfSite) {
-				servicesOfSite = new HashMap<String, ConfigurableApplicationContext>();
+				servicesOfSite = new HashMap<>();
 				SOAP_CONTEXTS.put(site.getName(), servicesOfSite);
 			}
 			String serviceId = application.getName() + "#" + serviceName;
@@ -227,7 +225,7 @@ public class SoapService {
 		String servicePath = site.getProperties().getString(SiteProperties.SERVICE_PATH);
 		String domain = site.getDomain();
 		if (!domain.startsWith(HTTPS) && HttpHeaders.isRequestSecure(request)) {
-			domain = HTTPS + domain.substring(5, domain.length());
+			domain = HTTPS + domain.substring(4, domain.length());
 		}
 		return domain + servicePath + SLASH + site.getName() + SLASH + application.getName() + SLASH
 				+ Platform.SERVICE_TYPE_SOAP + SLASH + serviceName;

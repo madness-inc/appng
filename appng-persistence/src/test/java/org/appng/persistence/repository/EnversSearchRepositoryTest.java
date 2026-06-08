@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.appng.persistence.model.EnversTestEntity;
-import org.appng.testsupport.persistence.ConnectionHelper;
-import org.appng.testsupport.persistence.HsqlServer;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -30,17 +28,12 @@ import org.springframework.data.history.Revision;
 
 public class EnversSearchRepositoryTest {
 
-	private int hsqlPort;
-
 	private TestEntityEnversRepo repo;
 
 	private AnnotationConfigApplicationContext ctx;
 
 	@Before
 	public void setup() {
-		this.hsqlPort = ConnectionHelper.getHsqlPort();
-		HsqlServer.start(hsqlPort);
-
 		ctx = new AnnotationConfigApplicationContext();
 		ctx.register(EnversRepositoryConfiguration.class);
 		ctx.refresh();
@@ -61,7 +54,6 @@ public class EnversSearchRepositoryTest {
 	@After
 	public void tearDown() {
 		ctx.close();
-		HsqlServer.stop(hsqlPort);
 	}
 
 	@Test
@@ -78,13 +70,8 @@ public class EnversSearchRepositoryTest {
 		Assert.assertNotNull(entityRevisions.get(0).getMetadata());
 		Assert.assertNotNull(repo.findRevision(entityId, entityRevisions.get(0).getRevisionNumber()));
 		Assert.assertEquals(1, repo.findRevisions(all.get(1).getId()).getContent().size());
-		Assert.assertEquals(entityRevisions.get(entityRevisions.size() - 1).getRevisionNumber(), repo
-				.findLastChangeRevision(entityId).getRevisionNumber());
+		Assert.assertEquals(entityRevisions.get(entityRevisions.size() - 1).getRevisionNumber(),
+				repo.findLastChangeRevision(entityId).getRevisionNumber());
 	}
 
-	private void incrementVersion(Integer entityId) {
-		EnversTestEntity entity = repo.findOne(entityId);
-		entity.setIntegerValue(entity.getIntegerValue() + 1);
-		repo.save(entity);
-	}
 }

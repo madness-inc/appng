@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,6 +44,7 @@ import org.appng.api.PermissionProcessor;
 import org.appng.api.ProcessingException;
 import org.appng.api.model.Application;
 import org.appng.api.model.Site;
+import org.appng.api.support.ApplicationRequest.ApplicationPath;
 import org.appng.el.ExpressionEvaluator;
 import org.appng.xml.platform.Action;
 import org.appng.xml.platform.ActionRef;
@@ -64,25 +65,25 @@ import org.appng.xml.platform.OptionGroup;
 import org.appng.xml.platform.PageDefinition;
 import org.appng.xml.platform.PageReference;
 import org.appng.xml.platform.Permissions;
+import org.appng.xml.platform.Section;
 import org.appng.xml.platform.SectionelementDef;
 import org.appng.xml.platform.Selection;
 import org.appng.xml.platform.UserData;
 import org.appng.xml.platform.UserInputField;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanWrapper;
 import org.springframework.beans.BeanWrapperImpl;
+import org.springframework.http.HttpStatus;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
- * 
  * A {@code CallableAction} is responsible for preparing and performing an {@link Action}, based on a given
  * {@link ActionRef} which is part of a {@link PageDefinition}'s {@link SectionelementDef}.
  * 
  * @author Matthias Müller
  */
+@Slf4j
 public class CallableAction {
-
-	private static final Logger log = LoggerFactory.getLogger(CallableAction.class);
 
 	private ApplicationRequest applicationRequest;
 	private Site site;
@@ -106,18 +107,20 @@ public class CallableAction {
 	 * , based on {@link Permissions} and {@link Condition}s.
 	 * 
 	 * @param site
-	 *            the current {@link Site}
+	 *                           the current {@link Site}
 	 * @param application
-	 *            the current {@link Application}
+	 *                           the current {@link Application}
 	 * @param applicationRequest
-	 *            the current {@link ApplicationRequest}
+	 *                           the current {@link ApplicationRequest}
 	 * @param actionRef
-	 *            the {@link ActionRef} as given in the {@link SectionelementDef} of a {@link PageDefinition}.
+	 *                           the {@link ActionRef} as given in the {@link SectionelementDef} of a
+	 *                           {@link PageDefinition}.
+	 * 
 	 * @throws ProcessingException
-	 *             if an error occurs while assembling the {@code CallableAction}
+	 *                             if an error occurs while assembling the {@code CallableAction}
 	 */
-	public CallableAction(Site site, Application application, ApplicationRequest applicationRequest, ActionRef actionRef)
-			throws ProcessingException {
+	public CallableAction(Site site, Application application, ApplicationRequest applicationRequest,
+			ActionRef actionRef) throws ProcessingException {
 		this.site = site;
 		this.application = application;
 		this.applicationRequest = applicationRequest;
@@ -133,12 +136,19 @@ public class CallableAction {
 			if (permissionProcessor.hasPermissions(new PermissionOwner(actionRef))) {
 				initializeAction(event);
 			} else {
-				log.debug("no permission for actionRef '{}' of event '{}'", actionRef.getId(), event.getId());
+				LOGGER.debug("no permission for actionRef '{}' of event '{}'", actionRef.getId(), event.getId());
 			}
 		} else {
-			log.debug("no permission for event '{}'", eventId);
+			LOGGER.debug("no permission for event '{}'", eventId);
 
 		}
+	}
+
+	// for testing
+	protected CallableAction(Site site, ApplicationRequest applicationRequest, ElementHelper elementHelper) {
+		this.site = site;
+		this.applicationRequest = applicationRequest;
+		this.elementHelper = elementHelper;
 	}
 
 	private void initializeAction(Event event) throws ProcessingException {
@@ -154,33 +164,42 @@ public class CallableAction {
 				boolean clientValidation = pageExpressionEvaluator.getBoolean(actionRef.getClientValidation());
 				this.action.setClientValidation(String.valueOf(clientValidation));
 			}
-			this.elementHelper = new ElementHelper(site, application);
+			this.elementHelper = new ElementHelper(applicationRequest.getEnvironment(), site, application, null);
 			DataConfig config = getAction().getConfig();
 			getAction().setEventId(eventId);
-			Map<String, String> actionParameters = elementHelper.initializeParameters("action '" + actionRef.getId()
-					+ "' (" + actionRef.getEventId() + ")", applicationRequest,
+			getAction().setMode(actionRef.getMode());
+
+			Map<String, String> actionParameters = elementHelper.initializeParameters(
+					"action '" + actionRef.getId() + "' (" + actionRef.getEventId() + ")", applicationRequest,
 					applicationRequest.getParameterSupportDollar(), actionRef.getParams(), config.getParams());
-
-			log.trace("parameters for action '{}' of event '{}': {}", actionId, eventId, actionParameters);
-
+			LOGGER.trace("parameters for action '{}' of event '{}': {}", actionId, eventId, actionParameters);
 			actionParamSupport = new DollarParameterSupport(actionParameters);
+
 			Condition includeCondition = actionRef.getCondition();
-			this.include = elementHelper.conditionMatches(pageExpressionEvaluator, includeCondition);
+			if (null == includeCondition) {
+				this.include = true;
+			} else {
+				Map<String, Object> conditionParams = new HashMap<>(applicationRequest.getParameters());
+				conditionParams.put(ApplicationPath.PATH_VAR, applicationRequest.applicationPath());
+				ExpressionEvaluator conditionEvaluator = new ExpressionEvaluator(conditionParams);
+				this.include = new ElementHelper(applicationRequest.getEnvironment(), site, application,
+						conditionEvaluator).conditionMatches(includeCondition);
+			}
 			if (include) {
 				elementHelper.processConfig(applicationRequest.getApplicationConfig(), applicationRequest,
 						action.getConfig(), actionParameters);
 
 				elementHelper.addTemplates(applicationRequest.getApplicationConfig(), event.getConfig());
-				log.debug("including  action '{}' of event '{}'", actionId, eventId);
+				LOGGER.debug("including  action '{}' of event '{}'", actionId, eventId);
 			} else {
-				log.debug("include condition for action '{}' of event '{}' did not match - {}", actionId, eventId,
+				LOGGER.debug("include condition for action '{}' of event '{}' did not match - {}", actionId, eventId,
 						includeCondition.getExpression());
 			}
 
 			Condition executeCondition = action.getCondition();
 			this.execute = elementHelper.conditionMatches(executeCondition);
 			if (!execute) {
-				log.debug("execute condition for action '{}' of event '{}' did not match - {}", actionId, eventId,
+				LOGGER.debug("execute condition for action '{}' of event '{}' did not match - {}", actionId, eventId,
 						executeCondition.getExpression());
 			}
 			if (include || execute) {
@@ -191,7 +210,7 @@ public class CallableAction {
 				setOnSuccess();
 			}
 		} else {
-			log.debug("no permission(s) for action '{}' of event '{}'", actionId, eventId);
+			LOGGER.debug("no permission(s) for action '{}' of event '{}'", actionId, eventId);
 		}
 	}
 
@@ -199,7 +218,7 @@ public class CallableAction {
 		return action;
 	}
 
-	private boolean retrieveData(boolean setBeanNull) throws ProcessingException {
+	protected boolean retrieveData(boolean setBeanNull) throws ProcessingException {
 		boolean dataOk = true;
 		ParameterSupport fieldParams = null;
 		DatasourceRef datasourceRef = action.getDatasource();
@@ -208,41 +227,43 @@ public class CallableAction {
 					actionParamSupport, datasourceRef);
 			if (datasourceElement.doInclude()) {
 
-				List<Message> before = new ArrayList<Message>();
+				List<Message> before = new ArrayList<>();
 				Environment environment = applicationRequest.getEnvironment();
-				if (elementHelper.hasMessages(environment)) {
-					before.addAll(elementHelper.getMessages(environment).getMessageList());
+				Messages envMessages = elementHelper.getMessages();
+				if (elementHelper.hasMessages()) {
+					before.addAll(envMessages.getMessageList());
 				}
 
-				Data data = datasourceElement.perform(null, setBeanNull, true);
+				Data data = datasourceElement.perform(null, setBeanNull, true, true);
 				action.setData(data);
 				DataConfig dsConfig = datasourceElement.getDatasource().getConfig();
 				elementHelper.addTemplates(applicationRequest.getApplicationConfig(), dsConfig);
 				action.getConfig().setMetaData(dsConfig.getMetaData());
 
-				List<Message> after = new ArrayList<Message>();
-				if (elementHelper.hasMessages(environment)) {
-					after.addAll(elementHelper.getMessages(environment).getMessageList());
+				List<Message> after = new ArrayList<>();
+				if (elementHelper.hasMessages()) {
+					envMessages = elementHelper.getMessages();
+					after.addAll(envMessages.getMessageList());
 				}
 
 				@SuppressWarnings("unchecked")
-				Collection<Message> addedMessages = CollectionUtils.disjunction(before, after);
+				Collection<Message> dataSourceMessages = CollectionUtils.disjunction(before, after);
 
-				if (!addedMessages.isEmpty()) {
-					for (Message message : addedMessages) {
-						dataOk &= !MessageType.ERROR.equals(message.getClazz());
+				if (!dataSourceMessages.isEmpty()) {
+					dataOk = !dataSourceMessages.stream().filter(m -> MessageType.ERROR.equals(m.getClazz())).findAny()
+							.isPresent();
+
+					envMessages.getMessageList().removeAll(dataSourceMessages);
+					if (envMessages.getMessageList().isEmpty()) {
+						elementHelper.removeMessages(environment);
 					}
-					if (!dataOk) {
-						Messages messages = elementHelper.getMessages(environment);
-						messages.getMessageList().removeAll(addedMessages);
-						Messages actionMessages = new Messages();
-						actionMessages.getMessageList().addAll(addedMessages);
-						getAction().setMessages(actionMessages);
-					}
+					Messages actionMessages = new Messages();
+					actionMessages.getMessageList().addAll(dataSourceMessages);
+					getAction().setMessages(actionMessages);
 				}
 
 				if (null != data && null != data.getResult()) {
-					Map<String, String> fieldValues = new HashMap<String, String>();
+					Map<String, String> fieldValues = new HashMap<>();
 					for (Datafield datafield : data.getResult().getFields()) {
 						fieldValues.put(datafield.getName(), datafield.getValue());
 					}
@@ -274,40 +295,70 @@ public class CallableAction {
 	 * {@link Site#sendRedirect(Environment, String)}.
 	 * 
 	 * @return a {@link FieldProcessor}, only non-{@code null} if the {@link Action} has been executed successfully
+	 * 
 	 * @throws ProcessingException
-	 *             if an error occurred while performing
+	 *                             if an error occurred while performing
+	 * 
 	 * @see #doInclude()
 	 * @see #doExecute()
 	 * @see #doForward()
 	 * @see #getOnSuccess()
 	 */
 	public FieldProcessor perform() throws ProcessingException {
+		return perform(false);
+	}
+
+	/**
+	 * Performs this {@link CallableAction}.<br/>
+	 * If the {@link Action} is actually included and/or executed depends on the returns values of {@link #doInclude()}
+	 * and {@link #doExecute()}. If the {@link Action} is executed and a forward-path exists, a redirect is send via
+	 * {@link Site#sendRedirect(Environment, String)}.
+	 * 
+	 * @param isSectionHidden
+	 *                        whether this action is part of a hidden {@link Section}, meaning no {@link Messages}
+	 *                        should be set for the action.
+	 * 
+	 * @return a {@link FieldProcessor}, only non-{@code null} if the {@link Action} has been executed successfully
+	 * 
+	 * @throws ProcessingException
+	 *                             if an error occurred while performing
+	 * 
+	 * @see #doInclude()
+	 * @see #doExecute()
+	 * @see #doForward()
+	 * @see #getOnSuccess()
+	 */
+	public FieldProcessor perform(boolean isSectionHidden) throws ProcessingException {
 		FieldProcessor fp = null;
 		if (doExecute()) {
 			execute = retrieveData(false);
 			if (doExecute()) {
 				fp = execute();
 				if (doForward() || forceForward()) {
-					String outputPrefix = elementHelper.getOutputPrefix(applicationRequest.getEnvironment());
+					String outputPrefix = elementHelper.getOutputPrefix();
 					StringBuilder target = new StringBuilder();
 					if (null != outputPrefix) {
 						target.append(outputPrefix);
 					}
 					target.append(getOnSuccess());
-					site.sendRedirect(applicationRequest.getEnvironment(), target.toString());
+					site.sendRedirect(applicationRequest.getEnvironment(), target.toString(), HttpStatus.FOUND.value());
 					getAction().setOnSuccess(target.toString());
 					applicationRequest.setRedirectTarget(target.toString());
-				} else {
-					Messages messages = elementHelper.removeMessages(applicationRequest.getEnvironment());
-					getAction().setMessages(messages);
 				}
 			}
 		}
-		if (doInclude()) {
-			if (!doExecute() || !doForward()) {
+		if (doInclude() && !(doExecute() && doForward())) {
 				retrieveData(false);
 				handleSelections();
-			}
+				if (!isSectionHidden && elementHelper.hasMessages()) {
+					Messages messages = elementHelper.removeMessages();
+					Messages actionMessages = action.getMessages();
+					if (null == actionMessages) {
+						action.setMessages(messages);
+					} else {
+						actionMessages.getMessageList().addAll(0, messages.getMessageList());
+					}
+				}
 		}
 		return fp;
 	}
@@ -323,9 +374,9 @@ public class CallableAction {
 			try {
 				String beanId = bean.getId();
 				String actionId = actionRef.getId();
-				log.trace("retrieving action '" + beanId + "'");
+				LOGGER.trace("retrieving action '{}'", beanId);
 				final ActionProvider actionProvider = this.application.getBean(beanId, ActionProvider.class);
-				log.trace("action '" + beanId + "' is of Type '" + actionProvider.getClass().getName() + "'");
+				LOGGER.trace("action '{}' is of Type '{}'", beanId, actionProvider.getClass().getName());
 
 				fieldProcessor = new FieldProcessorImpl(actionId, metaData);
 				fieldProcessor.addLinkPanels(action.getConfig().getLinkpanel());
@@ -333,7 +384,7 @@ public class CallableAction {
 
 				final Options options = elementHelper.getOptions(bean.getOptions());
 
-				log.trace("options for action '{}' of event '{}': {}", actionId, actionRef.getEventId(), options);
+				LOGGER.trace("options for action '{}' of event '{}': {}", actionId, actionRef.getEventId(), options);
 
 				Object bindObject = getBindObject(fieldProcessor);
 				validateBindObject(fieldProcessor, actionProvider, options, bindObject);
@@ -347,7 +398,7 @@ public class CallableAction {
 					Boolean async = applicationRequest.getExpressionEvaluator().getBoolean(actionRef.getAsync());
 					action.setAsync(String.valueOf(async));
 					if (Boolean.TRUE.equals(async)) {
-						log.debug("validation OK, asynchronously calling bean '{}' of application '{}'", beanId,
+						LOGGER.debug("validation OK, asynchronously calling bean '{}' of application '{}'", beanId,
 								application.getName());
 						final String actionTitle = getAction().getConfig().getTitle().getValue();
 						final FieldProcessor innerFieldProcessor = new FieldProcessorImpl(actionId, metaData);
@@ -366,10 +417,10 @@ public class CallableAction {
 											actionTitle);
 									innerFieldProcessor.addOkMessage(message);
 									ElementHelper.addMessages(env, innerFieldProcessor.getMessages());
-									log.debug("Background task '{}' finished.", actionTitle);
+									LOGGER.debug("Background task '{}' finished.", actionTitle);
 								} catch (Exception e) {
 									String id = String.valueOf(e.hashCode());
-									log.error(String.format("error while executing background task %s, ID: %s",
+									LOGGER.error(String.format("error while executing background task %s, ID: %s",
 											actionTitle, id), e);
 									String backgroundTaskError = application.getMessage(locale, "backgroundTaskError",
 											actionTitle, id);
@@ -384,9 +435,10 @@ public class CallableAction {
 						executor.shutdown();
 						String message = application.getMessage(locale, "backgroundTaskStarted", actionTitle);
 						fieldProcessor.addOkMessage(message);
-						log.debug("Background task '{}' started.", actionTitle);
+						LOGGER.debug("Background task '{}' started.", actionTitle);
 					} else {
-						log.debug("validation OK, calling bean '{}' of application '{}'", beanId, application.getName());
+						LOGGER.debug("validation OK, calling bean '{}' of application '{}'", beanId,
+								application.getName());
 						actionProvider.perform(site, application, env, options, applicationRequest, bindObject,
 								fieldProcessor);
 					}
@@ -394,7 +446,7 @@ public class CallableAction {
 				errors = fieldProcessor.hasErrors();
 				ElementHelper.addMessages(env, fieldProcessor.getMessages());
 				if (errors) {
-					log.debug("validation returned errors");
+					LOGGER.debug("validation returned errors");
 					addUserdata(metaData.getFields());
 					handleSelections();
 				}
@@ -416,21 +468,24 @@ public class CallableAction {
 	 * Creates, fills and returns a new bindobject.
 	 * 
 	 * @param fieldProcessor
-	 *            the {@link FieldProcessor} to use
+	 *                       the {@link FieldProcessor} to use
+	 * 
 	 * @return a new bindobject
+	 * 
 	 * @throws BusinessException
-	 *             if
-	 *             {@link ApplicationRequest#getBindObject(FieldProcessor, org.appng.forms.RequestContainer, ClassLoader)}
-	 *             throws such an exception
+	 *                           if
+	 *                           {@link ApplicationRequest#getBindObject(FieldProcessor, org.appng.forms.RequestContainer, ClassLoader)}
+	 *                           throws such an exception
+	 * 
 	 * @see ApplicationRequest#getBindObject(FieldProcessor, org.appng.forms.RequestContainer, ClassLoader)
 	 */
 	protected Object getBindObject(FieldProcessor fieldProcessor) throws BusinessException {
 		Object bindObject = null;
 		if (fieldProcessor.getMetaData().getBindClass() != null) {
-			bindObject = applicationRequest
-					.getBindObject(fieldProcessor, applicationRequest, site.getSiteClassLoader());
+			bindObject = applicationRequest.getBindObject(fieldProcessor, applicationRequest,
+					site.getSiteClassLoader());
 		} else {
-			log.debug("no bindclass given for action '{}'", getAction().getId());
+			LOGGER.debug("no bindclass given for action '{}'", getAction().getId());
 		}
 		return bindObject;
 	}
@@ -438,8 +493,9 @@ public class CallableAction {
 	private void validateBindObject(FieldProcessor fieldProcessor, final ActionProvider<?> actionProvider,
 			final Options options, Object bindObject) {
 		if (null != bindObject) {
-			applicationRequest.validateBean(bindObject, fieldProcessor, elementHelper.getValidationGroups(fieldProcessor.getMetaData(), bindObject));
-			
+			applicationRequest.validateBean(bindObject, fieldProcessor,
+					elementHelper.getValidationGroups(fieldProcessor.getMetaData(), bindObject));
+
 			Environment env = applicationRequest.getEnvironment();
 			if (bindObject instanceof FormValidator) {
 				((FormValidator) bindObject).validate(site, application, env, options, applicationRequest,
@@ -457,10 +513,11 @@ public class CallableAction {
 	 * by the user.
 	 * 
 	 * @see #handleSelections()
+	 * 
 	 * @param action
 	 * @param request
 	 * @param writeableFields
-	 *            a list of writeable {@link FieldDef}initions
+	 *                        a list of writeable {@link FieldDef}initions
 	 */
 	private void addUserdata(List<FieldDef> writeableFields) {
 		MetaData metaData = action.getConfig().getMetaData();
@@ -525,7 +582,7 @@ public class CallableAction {
 	/**
 	 * Returns the forward-path that was defined by the {@link ActionRef} this {@link CallableAction} was build from.
 	 * 
-	 * @return the forward-path, may by {@code null}
+	 * @return the forward-path, may be {@code null}
 	 */
 	public String getOnSuccess() {
 		return onSuccess;
@@ -550,14 +607,14 @@ public class CallableAction {
 	 * {@link Action}s {@link UserData}<br/>
 	 * Don't really like this solution...open for improvement
 	 * 
-	 * 
 	 * @see #addUserdata(List)
+	 * 
 	 * @param action
 	 */
 	// XXX MM this is the root of all evil
 	private void handleSelections() {
 		if (null != action.getData()) {
-			Map<String, Selection> selectionMap = new HashMap<String, Selection>();
+			Map<String, Selection> selectionMap = new HashMap<>();
 			for (Selection selection : action.getData().getSelections()) {
 				selectionMap.put(selection.getId(), selection);
 			}
@@ -565,11 +622,11 @@ public class CallableAction {
 			UserData userdata = action.getUserdata();
 			if (null != userdata) {
 
-				Map<String, List<String>> userinput = new HashMap<String, List<String>>();
+				Map<String, List<String>> userinput = new HashMap<>();
 				for (UserInputField userInputField : userdata.getInput()) {
 					String name = userInputField.getName();
 					if (!userinput.containsKey(name)) {
-						userinput.put(name, new ArrayList<String>());
+						userinput.put(name, new ArrayList<>());
 					}
 					userinput.get(name).add(userInputField.getContent());
 				}

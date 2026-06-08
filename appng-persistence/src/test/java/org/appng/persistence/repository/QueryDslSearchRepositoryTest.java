@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,6 @@ package org.appng.persistence.repository;
 
 import org.appng.persistence.model.QTestEntity;
 import org.appng.persistence.model.TestEntity;
-import org.appng.testsupport.persistence.ConnectionHelper;
-import org.appng.testsupport.persistence.HsqlServer;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -31,12 +29,9 @@ public class QueryDslSearchRepositoryTest {
 
 	private QueryDslSearchRepository<TestEntity, Integer> repo;
 	private AnnotationConfigApplicationContext ctx;
-	private int hsqlPort;
 
 	@Before
 	public void setup() {
-		this.hsqlPort = ConnectionHelper.getHsqlPort();
-		HsqlServer.start(hsqlPort);
 		ctx = new AnnotationConfigApplicationContext();
 		ctx.register(RepositoryConfiguration.class);
 		ctx.refresh();
@@ -73,6 +68,5 @@ public class QueryDslSearchRepositoryTest {
 	@After
 	public void tearDown() {
 		ctx.close();
-		HsqlServer.stop(hsqlPort);
 	}
 }

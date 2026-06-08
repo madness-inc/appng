@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,38 +15,57 @@
  */
 package org.appng.api.support.environment;
 
+import java.util.Collections;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
 import org.appng.api.Scope;
-import org.appng.api.support.SiteClassLoader;
 
 /**
- * A {@link ScopedEnvironment} for {@link Scope#SESSION}. Uses a {@link HttpSession} for storing its attributes.
+ * A {@link ScopedEnvironment} for {@link Scope#SESSION}. Uses a {@link HttpServletRequest}'s {@link HttpSession} for
+ * storing its attributes.
  * 
  * @author Matthias Müller
  */
 class SessionEnvironment extends AbstractEnvironment {
 
 	private static final String CHANGED = "__changed__";
-	private HttpSession session;
-	private boolean valid;
+	private final HttpServletRequest request;
+	private final HttpSession session;
+	private final String siteName;
 
-	SessionEnvironment(HttpSession session) {
+	SessionEnvironment(HttpServletRequest request, String siteName) {
+		super(Scope.SESSION);
+		this.request = request;
+		this.siteName = siteName;
+		this.session = null;
+	}
+
+	SessionEnvironment(HttpSession session, String siteName) {
 		super(Scope.SESSION);
 		this.session = session;
-		this.valid = true;
+		this.siteName = siteName;
+		this.request = null;
+	}
+
+	Map<String, Object> getAttributes() {
+		return Collections.unmodifiableMap(
+				getContainer().keySet().stream().collect(Collectors.toMap(Function.identity(), this::getAttribute)));
 	}
 
 	@SuppressWarnings("unchecked")
 	public ConcurrentMap<String, Object> getContainer() {
-		Object container = session.getAttribute(getIdentifier());
+		Object container = getHttpSession().getAttribute(getIdentifier());
 		if (null == container) {
-			container = new ConcurrentHashMap<String, Object>();
-			session.setAttribute(getIdentifier(), container);
+			container = new ConcurrentHashMap<>();
+			getHttpSession().setAttribute(getIdentifier(), container);
 		}
 		return (ConcurrentMap<String, Object>) container;
 	}
@@ -56,7 +75,7 @@ class SessionEnvironment extends AbstractEnvironment {
 	public <T> T getAttribute(String name) {
 		Object attribute = getContainer().get(name);
 		if (null != attribute && attribute instanceof AttributeWrapper) {
-			attribute = ((AttributeWrapper) attribute).getValue();
+			attribute = AttributeWrapper.class.cast(attribute).getValue();
 		}
 		return (T) attribute;
 	}
@@ -65,13 +84,7 @@ class SessionEnvironment extends AbstractEnvironment {
 	public void setAttribute(String name, Object value) {
 		if (!Objects.equals(value, getAttribute(name))) {
 			markSessionDirty();
-			ClassLoader classLoader = value.getClass().getClassLoader();
-			if (null != classLoader && classLoader instanceof SiteClassLoader) {
-				String siteName = ((SiteClassLoader) classLoader).getSiteName();
-				getContainer().put(name, new AttributeWrapper(siteName, value));
-			} else {
-				getContainer().put(name, value);
-			}
+			getContainer().put(name, new AttributeWrapper(siteName, value));
 		}
 	}
 
@@ -94,17 +107,14 @@ class SessionEnvironment extends AbstractEnvironment {
 	}
 
 	public void logout() {
-		session.invalidate();
-		session = null;
-		valid = false;
+		getHttpSession().invalidate();
 	}
 
 	public HttpSession getHttpSession() {
-		return session;
+		return null == session ? request.getSession() : session;
 	}
 
-	public boolean isValid() {
-		return valid;
+	String getSiteName() {
+		return siteName;
 	}
-
 }

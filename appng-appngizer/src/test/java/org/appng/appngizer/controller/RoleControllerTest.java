@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,31 @@ package org.appng.appngizer.controller;
 import org.appng.appngizer.model.xml.Permission;
 import org.appng.appngizer.model.xml.Permissions;
 import org.appng.appngizer.model.xml.Role;
+import org.junit.FixMethodOrder;
 import org.junit.Test;
+import org.junit.runners.MethodSorters;
 import org.springframework.http.HttpStatus;
 
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class RoleControllerTest extends ControllerTest {
+
+	@Test
+	public void testDotInName() throws Exception {
+		Role role = new Role();
+		role.setName("with.dot");
+		role.setApplication("demo-application");
+		postAndVerify("/application/demo-application/role", "", role, HttpStatus.CREATED);
+		putAndVerify("/application/demo-application/role/with.dot", "", role, HttpStatus.OK);
+		deleteAndVerify("/application/demo-application/role/with.dot", "", HttpStatus.NO_CONTENT);
+	}
+
+	@Test
+	public void testInvalidName() throws Exception {
+		Role role = new Role();
+		role.setName("john doe!");
+		role.setApplication("demo-application");
+		postAndVerify("/application/demo-application/role", "", role, HttpStatus.BAD_REQUEST);
+	}
 
 	@Test
 	public void testCreateRetrieveAndUpdate() throws Exception {
@@ -44,6 +65,7 @@ public class RoleControllerTest extends ControllerTest {
 		p2.setApplication("demo-application");
 		role.getPermissions().getPermission().add(p2);
 		postAndVerify("/application/demo-application/role", "xml/role-create.xml", role, HttpStatus.CREATED);
+		postAndVerify("/application/demo-application/role", null, role, HttpStatus.CONFLICT);
 
 		role.setDescription("The editor role");
 		role.getPermissions().getPermission().remove(1);

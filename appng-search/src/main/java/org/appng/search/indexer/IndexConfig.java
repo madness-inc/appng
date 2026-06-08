@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,24 +27,22 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.index.IndexWriterConfig.OpenMode;
 import org.appng.search.Search;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * A {@code IndexConfig} is used to provide different index configurations for different folders.
  * 
  * @author Matthias Müller
- * 
  */
+@Slf4j
 public class IndexConfig {
 
 	private static final String SLASH = "/";
 
-	private static final Logger log = LoggerFactory.getLogger(IndexConfig.class);
+	private List<ConfigEntry> entries = new ArrayList<>();
 
-	private List<ConfigEntry> entries = new ArrayList<IndexConfig.ConfigEntry>();
-
-	private Map<String, ConfigEntry> entryMap = new HashMap<String, IndexConfig.ConfigEntry>();
+	private Map<String, ConfigEntry> entryMap = new HashMap<>();
 
 	private OpenMode openMode;
 
@@ -54,23 +52,27 @@ public class IndexConfig {
 	 * Creates a new {@code ParseTags} using the given tag-prefix (usually {@code appNG}).
 	 * 
 	 * @param tagPrefix
-	 *            the tag prefix to use
+	 *                  the tag prefix to use
 	 */
 	public IndexConfig(String tagPrefix) {
 		this.tagPrefix = tagPrefix;
 	}
 
 	/**
-	 * Parses a given String to an {@link IndexConfig}, using the pipe '|' for separating folders.<br/> format:<br/>
-	 * {@code <folder>;<language>;<analyzer-class>|}<br/>Example:<br/>
+	 * Parses a given String to an {@link IndexConfig}, using the pipe '|' for separating folders.<br/>
+	 * format:<br/>
+	 * {@code <folder>;<language>;<analyzer-class>|}<br/>
+	 * Example:<br/>
 	 * {@code /de;de-DE;GermanAnalyzer|/en;en-US;org.apache.lucene.analysis.en.EnglishAnalyzer|/assets;de-DE;GermanAnalyzer}
-	 * </p> If the analyzer class isn't fully qualified, the following name-schema is applied:<br/>
+	 * </p>
+	 * If the analyzer class isn't fully qualified, the following name-schema is applied:<br/>
 	 * {@code org.apache.lucene.analysis.<folder>.<analyzer-class>}
 	 * 
 	 * @param configString
-	 *            the string to parse the {@link IndexConfig} from
+	 *                     the string to parse the {@link IndexConfig} from
 	 * @param tagPrefix
-	 *            the tag prefix to use
+	 *                     the tag prefix to use
+	 * 
 	 * @return the {@link IndexConfig} instance
 	 */
 	public static IndexConfig getInstance(String configString, String tagPrefix) {
@@ -80,13 +82,15 @@ public class IndexConfig {
 
 	/**
 	 * Parses a list of strings to an {@link IndexConfig}. Each string has the following format:<br/>
-	 * {@code <folder>;<language>;<analyzer-class>}<br/> Example:<br/>
+	 * {@code <folder>;<language>;<analyzer-class>}<br/>
+	 * Example:<br/>
 	 * {@code /en;en-US;org.apache.lucene.analysis.en.EnglishAnalyzer}
 	 * 
 	 * @param configEntries
-	 *            a list of config entries
+	 *                      a list of config entries
 	 * @param tagPrefix
-	 *            the tag prefix to use
+	 *                      the tag prefix to use
+	 * 
 	 * @return the {@link IndexConfig} instance
 	 */
 	public static IndexConfig getInstance(List<String> configEntries, String tagPrefix) {
@@ -110,7 +114,6 @@ public class IndexConfig {
 	 * use.
 	 * 
 	 * @author Matthias Müller
-	 * 
 	 */
 	public class ConfigEntry {
 		private final String folder;
@@ -133,23 +136,23 @@ public class IndexConfig {
 			} catch (ClassNotFoundException e1) {
 				String className = "org.apache.lucene.analysis." + getFolder().replaceAll("/", "") + "."
 						+ analyzerClass;
-				log.info("could not find analyzer class '" + analyzerClass + "', trying '" + className + "'");
+				LOGGER.info("could not find analyzer class '{}', trying '{}'", analyzerClass, className);
 				try {
 					clazz = (Class<? extends Analyzer>) Class.forName(className);
 				} catch (ClassNotFoundException e2) {
-					log.info("could not find analyzer class '" + analyzerClass + "', trying '" + className + "'");
+					LOGGER.info("could not find analyzer class '{}', trying '{}'", analyzerClass, className);
 				}
 			}
 			if (null != clazz) {
 				try {
 					return clazz.getDeclaredConstructor().newInstance();
 				} catch (Exception e) {
-					log.warn("could not instanciate class '" + clazz.getName() + "'");
+					LOGGER.warn("could not instanciate class '{}'", clazz.getName());
 				}
 			}
 			if (null == analyzer) {
-				log.info("no analyzer found for folder '" + getFolder() + "', using default "
-						+ Search.getDefaultAnalyzerClass().getName());
+				LOGGER.info("no analyzer found for folder '{}', using default {}", getFolder(),
+						Search.getDefaultAnalyzerClass().getName());
 				analyzer = Search.getDefaultAnalyzer();
 			}
 			return analyzer;
@@ -170,7 +173,7 @@ public class IndexConfig {
 	}
 
 	public SortedSet<String> getFolders() {
-		SortedSet<String> folders = new TreeSet<String>();
+		SortedSet<String> folders = new TreeSet<>();
 		folders.addAll(entryMap.keySet());
 		return folders;
 	}

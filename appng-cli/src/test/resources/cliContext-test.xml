@@ -16,25 +16,32 @@
         http://www.springframework.org/schema/data/jpa
         http://www.springframework.org/schema/data/jpa/spring-jpa.xsd">
 
-	<context:component-scan base-package="org.appng.core" />
+	<context:component-scan base-package="org.appng.core">
+		<context:exclude-filter type="regex" expression="org.appng.core.controller.rest.*"/>
+		<context:exclude-filter type="regex" expression="org.appng.core.controller.PlatformConfig"/>
+	</context:component-scan>
+
 	<jpa:repositories base-package="org.appng.core.repository" entity-manager-factory-ref="entityManagerFactory"
 		factory-class="org.appng.persistence.repository.SearchRepositoryFactoryBean" transaction-manager-ref="coreTxManager" />
 
 	<tx:annotation-driven transaction-manager="coreTxManager" />
+
+	<bean class="org.appng.core.domain.PlatformEventListener">
+		<property name="auditUser" value="appNG CLI" />
+		<property name="persist" value="false" />
+	</bean>
 
 	<bean id="coreTxManager" class="org.springframework.orm.jpa.JpaTransactionManager">
 		<property name="entityManagerFactory" ref="entityManagerFactory" />
 		<qualifier value="coreTxManager" />
 	</bean>
 
-	<bean id="server" class="org.appng.testsupport.persistence.HsqlServerFactoryBean" init-method="init"
-		destroy-method="destroy">
-		<property name="port" value="${hsqlPort:9001}" />
-		<property name="databasePath" value="file:target/hsql/${databaseName:hsql-testdb}" />
+	<bean id="datasource" class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+    	<constructor-arg type="java.lang.String" value="${hibernate.connection.url}" />
 	</bean>
 
-	<bean id="entityManagerFactory" class="org.springframework.orm.jpa.LocalEntityManagerFactoryBean" depends-on="server">
-		<property name="persistenceUnitName" value="appng" />
+	<bean id="entityManagerFactory" class="org.springframework.orm.jpa.LocalEntityManagerFactoryBean" depends-on="datasource">
+		<property name="persistenceUnitName" value="appNG CLI" />
 		<property name="persistenceProviderClass" value="org.hibernate.jpa.HibernatePersistenceProvider" />
 		<property name="jpaProperties">
 			<props>
@@ -46,7 +53,6 @@
 				<prop key="hibernate.show_sql">${hibernate.show_sql:false}</prop>
 				<prop key="hibernate.format_sql">${hibernate.format_sql:false}</prop>
 				<prop key="hibernate.hbm2ddl.auto">${hibernate.hbm2ddl.auto:}</prop>
-				<prop key="hibernate.id.new_generator_mappings">false</prop>
 			</props>
 		</property>
 	</bean>

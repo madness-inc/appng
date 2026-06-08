@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,18 +24,21 @@ import java.util.Set;
 import javax.servlet.http.HttpServletRequest;
 
 import org.apache.commons.lang3.StringUtils;
+import org.appng.api.ApplicationConfigProvider;
 import org.appng.api.BusinessException;
 import org.appng.api.Environment;
 import org.appng.api.FieldConverter;
 import org.appng.api.FieldProcessor;
 import org.appng.api.MessageParam;
 import org.appng.api.ParameterSupport;
+import org.appng.api.Path;
 import org.appng.api.PermissionProcessor;
-import org.appng.api.ApplicationConfigProvider;
 import org.appng.api.Request;
 import org.appng.api.RequestSupport;
+import org.appng.api.Scope;
 import org.appng.api.ValidationProvider;
 import org.appng.api.model.Subject;
+import org.appng.api.support.environment.EnvironmentKeys;
 import org.appng.el.ExpressionEvaluator;
 import org.appng.forms.FormUpload;
 import org.appng.forms.RequestContainer;
@@ -45,13 +48,12 @@ import org.appng.xml.platform.Labels;
 import org.appng.xml.platform.MetaData;
 import org.springframework.context.MessageSource;
 import org.springframework.core.convert.TypeDescriptor;
+import org.springframework.http.HttpHeaders;
 
 /**
- * 
  * Default {@link Request} implementation, mostly delegating method-calls to one of the internal objects.
  * 
  * @author Matthias Müller
- * 
  */
 public class ApplicationRequest implements Request {
 
@@ -65,6 +67,7 @@ public class ApplicationRequest implements Request {
 	private String redirectTarget;
 	private ApplicationConfigProvider applicationConfigProvider;
 	private List<String> urlParameters;
+	private HttpHeaders headers;
 
 	public ApplicationRequest() {
 
@@ -74,6 +77,7 @@ public class ApplicationRequest implements Request {
 			RequestSupport requestSupport) {
 		this.permissionProcessor = permissionProcessor;
 		this.wrappedRequest = request;
+		this.headers = HttpHeaderUtils.parse(request.getHttpServletRequest());
 		setRequestSupport(requestSupport);
 	}
 
@@ -264,6 +268,10 @@ public class ApplicationRequest implements Request {
 		wrappedRequest.addParameters(singleParameters);
 	}
 
+	public void addParameters(String name, List<String> values) {
+		wrappedRequest.addParameters(name, values);
+	}
+
 	public void addParameter(String key, String value) {
 		wrappedRequest.addParameter(key, value);
 	}
@@ -347,8 +355,102 @@ public class ApplicationRequest implements Request {
 		validationProvider.validateField(bean, fp, fieldBinding, groups);
 	}
 
-	public void addValidationMetaData(MetaData metaData, ClassLoader classLoader, Class<?>... groups) throws ClassNotFoundException {
+	public void addValidationMetaData(MetaData metaData, ClassLoader classLoader, Class<?>... groups)
+			throws ClassNotFoundException {
 		validationProvider.addValidationMetaData(metaData, classLoader, groups);
 	}
 
+	public HttpHeaders headers() {
+		return headers;
+	}
+
+	/**
+	 * Creates a new {@link ApplicationPath} to be used to evaluate include-conditions on a page.
+	 * 
+	 * @return the {@link ApplicationPath}
+	 * 
+	 * @see Path#getApplicationUrlParameters()
+	 * 
+	 * @since 1.21
+	 */
+	public ApplicationPath applicationPath() {
+		Path path = getEnvironment().getAttribute(Scope.REQUEST, EnvironmentKeys.PATH_INFO);
+		List<String> urlParameters = path.getApplicationUrlParameters();
+		return new ApplicationPath('/' + StringUtils.join(urlParameters, '/'), getParameters());
+	}
+
+	/**
+	 * Helper class used to simplify include conditions for actions and datasources on a page.<br/>
+	 * Registered as variable {@code PATH}, so conditions can look like
+	 * 
+	 * <pre>
+	 * &lt;condition expression="${ PATH.starts('/create') }"/>
+	 * </pre>
+	 * 
+	 * or
+	 * 
+	 * <pre>
+	 * &lt;condition expression="${ PATH.starts('/update/', itemId) }"/>
+	 * </pre>
+	 * 
+	 * All methods that can be used:
+	 * <ul>
+	 * <li>{@code matches(String... elements)}
+	 * <li>{@code starts(String... elements)}
+	 * <li>{@code ends(String... elements)}
+	 * <li>{@code contains(String... elements)}
+	 * <li>{@code isEqual(String... elements)}
+	 * <li>{@code hasParam(String... params)}
+	 * </ul>
+	 * 
+	 * @since 1.21
+	 */
+	public static class ApplicationPath {
+		public static final String PATH_VAR = "PATH";
+		final String path;
+		final Map<String, String> variables;
+
+		ApplicationPath(String path, Map<String, String> variables) {
+			this.path = path;
+			this.variables = variables;
+		}
+
+		public boolean hasParam(String... variables) {
+			for (String v : variables) {
+				if (!this.variables.containsKey(v)) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		public boolean matches(String... elements) {
+			return path.matches(getExpected(elements));
+		}
+
+		public boolean starts(String... elements) {
+			return path.startsWith(getExpected(elements));
+		}
+
+		public boolean ends(String... elements) {
+			return path.endsWith(getExpected(elements));
+		}
+
+		public boolean contains(String... elements) {
+			return path.contains(getExpected(elements));
+		}
+
+		public boolean isEqual(String... elements) {
+			return path.equals(getExpected(elements));
+		}
+
+		private String getExpected(String... elements) {
+			return StringUtils.join(elements);
+		}
+
+		@Override
+		public String toString() {
+			return path + " (" + StringUtils.join(variables, ",") + ")";
+		}
+	}
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package org.appng.persistence.repository;
 
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.List;
 
 import javax.persistence.EntityManager;
 import javax.persistence.Query;
@@ -29,31 +30,32 @@ import org.springframework.data.repository.NoRepositoryBean;
 import org.springframework.data.repository.PagingAndSortingRepository;
 
 /**
- * 
  * A {@link SearchRepository} provides several search-methods for a persistent domain-class.
  * 
  * @author Matthias Müller
  * 
  * @param <T>
- *            the domain class
+ *             the domain class
  * @param <ID>
- *            the type of the Id of the domain class
+ *             the type of the Id of the domain class
  * 
  * @see JpaRepository
  * @see JpaSpecificationExecutor
  */
 @NoRepositoryBean
-public interface SearchRepository<T, ID extends Serializable> extends JpaRepository<T, ID>, JpaSpecificationExecutor<T> {
+public interface SearchRepository<T, ID extends Serializable>
+		extends JpaRepository<T, ID>, JpaSpecificationExecutor<T> {
 
 	/**
 	 * Checks whether the given property is unique for this domain type.
 	 * 
 	 * @param id
-	 *            the ID of the entity to check, may be {@code null} if it's a new entity
+	 *                 the ID of the entity to check, may be {@code null} if it's a new entity
 	 * @param property
-	 *            the name of the property to check uniqueness for, must not be {@code null}
+	 *                 the name of the property to check uniqueness for, must not be {@code null}
 	 * @param value
-	 *            the value of the property to check uniqueness for, must not be {@code null}
+	 *                 the value of the property to check uniqueness for, must not be {@code null}
+	 * 
 	 * @return {@code true}, if there is no other entity where the given property has the given value, {@code false}
 	 *         otherwise
 	 */
@@ -63,11 +65,12 @@ public interface SearchRepository<T, ID extends Serializable> extends JpaReposit
 	 * Checks whether the given properties are unique for this domain type.
 	 * 
 	 * @param id
-	 *            the ID of the entity to check, may be {@code null} if it's a new entity
+	 *                   the ID of the entity to check, may be {@code null} if it's a new entity
 	 * @param properties
-	 *            the names of the properties to check uniqueness for, must not be {@code null}
+	 *                   the names of the properties to check uniqueness for, must not be {@code null}
 	 * @param values
-	 *            the values of the properties to check uniqueness for, must not be {@code null}
+	 *                   the values of the properties to check uniqueness for, must not be {@code null}
+	 * 
 	 * @return {@code true}, if there is no other entity where the given properties have the given values, {@code false}
 	 *         otherwise
 	 */
@@ -80,37 +83,54 @@ public interface SearchRepository<T, ID extends Serializable> extends JpaReposit
 	 * {@link Page#getTotalElements()}, a new {@link Pageable} is created, starting with page 0.
 	 * 
 	 * @param pageable
-	 *            a {@link Pageable}
+	 *                 a {@link Pageable}
+	 * 
 	 * @return a {@link Page} containing the result
 	 */
 	Page<T> search(Pageable pageable);
 
 	/**
-	 * Performs a paginated search based upon the given query-String.<b>Note that the query string must start with
-	 * "from &lt;Entity> &lt;entityName>"!</b>
+	 * Performs a paginated search based upon the given query-String.<b>Note that the query string must start with "from
+	 * &lt;Entity> &lt;entityName>"!</b>
 	 * 
 	 * @param queryString
-	 *            the JPQL-query, starting with "from &lt;Entity> &lt;entityName>"
+	 *                    the JPQL-query, starting with "from &lt;Entity> &lt;entityName>"
 	 * @param entityName
-	 *            the alias used for the entity within the query.<br/>
-	 *            E.g. if your query is {@code from Foo f}, then the entityName needs to be {@code f}.
+	 *                    the alias used for the entity within the query.<br/>
+	 *                    E.g. if your query is {@code from Foo f}, then the entityName needs to be {@code f}.
 	 * @param pageable
-	 *            a {@link Pageable}
+	 *                    a {@link Pageable}
 	 * @param params
-	 *            the parameters to be applied to the {@link Query}, using {@link Query#setParameter(int, Object)}.
-	 * @return a {@link Page} containing the result
+	 *                    the parameters to be applied to the {@link Query}, using
+	 *                    {@link Query#setParameter(int, Object)}.
 	 * 
+	 * @return a {@link Page} containing the result
 	 */
 	Page<T> search(String queryString, String entityName, Pageable pageable, Object... params);
+
+	/**
+	 * Performs a search with the given query-String.
+	 * 
+	 * @param queryString
+	 *                    the JPQL-query
+	 * @param params
+	 *                    the parameters to be applied to the {@link Query}, using
+	 *                    {@link Query#setParameter(int, Object)}.
+	 * 
+	 * @return a {@link Page} containing the result
+	 */
+	List<T> search(String queryString, Object... params);
 
 	/**
 	 * Performs a paginated search with the given {@link SearchQuery}.
 	 * 
 	 * @param searchQuery
-	 *            the {@link SearchQuery}
+	 *                    the {@link SearchQuery}
 	 * @param pageable
-	 *            a {@link Pageable}
-	 * @return a {@link Page} containing the result
+	 *                    a {@link Pageable} (optional)
+	 * 
+	 * @return a {@link Page} containing the result. When {@code pageable} is null, a single page containing all results
+	 *         will be returned
 	 */
 	Page<T> search(SearchQuery<T> searchQuery, Pageable pageable);
 
@@ -119,7 +139,8 @@ public interface SearchRepository<T, ID extends Serializable> extends JpaReposit
 	 * is audited).
 	 * 
 	 * @param id
-	 *            the ID of the entity
+	 *           the ID of the entity
+	 * 
 	 * @return the previous revisions of the entity, if any
 	 */
 	Collection<T> getHistory(ID id);
@@ -128,9 +149,10 @@ public interface SearchRepository<T, ID extends Serializable> extends JpaReposit
 	 * Returns the requested revision of the entity with the requested ID (if the domain-class is audited);
 	 * 
 	 * @param id
-	 *            the ID of the entity
+	 *                 the ID of the entity
 	 * @param revision
-	 *            the revision of the entity
+	 *                 the revision of the entity
+	 * 
 	 * @return the requested revision of the entity with the requested ID. If either the entity or the revision does not
 	 *         exist, {@code null} is returned.
 	 */
@@ -140,7 +162,8 @@ public interface SearchRepository<T, ID extends Serializable> extends JpaReposit
 	 * If the domain-class is audited, the latest revision number of the entity is returned.
 	 * 
 	 * @param id
-	 *            the ID of the entity to get the revision for.
+	 *           the ID of the entity to get the revision for.
+	 * 
 	 * @return the revision of the entity, or {@code null} if the domain-class is not audited or an entity with this ID
 	 *         does not exist
 	 */
@@ -150,7 +173,7 @@ public interface SearchRepository<T, ID extends Serializable> extends JpaReposit
 	 * Detaches the entity from the underlying {@link EntityManager}.
 	 * 
 	 * @param entity
-	 *            the entity to detach
+	 *               the entity to detach
 	 */
 	void detach(T entity);
 

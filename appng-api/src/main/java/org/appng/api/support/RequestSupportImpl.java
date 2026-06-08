@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,11 +15,9 @@
  */
 package org.appng.api.support;
 
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Modifier;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
 import org.appng.api.BusinessException;
@@ -33,8 +31,6 @@ import org.appng.forms.RequestContainer;
 import org.appng.xml.platform.Condition;
 import org.appng.xml.platform.FieldDef;
 import org.appng.xml.platform.MetaData;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanWrapper;
 import org.springframework.beans.BeanWrapperImpl;
 import org.springframework.context.MessageSource;
@@ -42,21 +38,21 @@ import org.springframework.core.convert.ConversionService;
 import org.springframework.core.convert.TypeDescriptor;
 import org.springframework.util.ClassUtils;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
- * 
  * Default {@link RequestSupport} implementation
  * 
  * @author Matthias Müller
- * 
  */
+@Slf4j
 public class RequestSupportImpl extends AdapterBase implements RequestSupport {
-
-	private static final Logger log = LoggerFactory.getLogger(RequestSupportImpl.class);
 
 	public RequestSupportImpl() {
 	}
 
-	public RequestSupportImpl(ConversionService conversionService, Environment environment, MessageSource messageSource) {
+	public RequestSupportImpl(ConversionService conversionService, Environment environment,
+			MessageSource messageSource) {
 		setConversionService(conversionService);
 		setEnvironment(environment);
 		setMessageSource(messageSource);
@@ -83,7 +79,7 @@ public class RequestSupportImpl extends AdapterBase implements RequestSupport {
 					FieldWrapper fieldWrapper = new FieldWrapper(fieldDef, beanWrapper);
 					fieldConverter.setObject(fieldWrapper, container);
 				} else {
-					log.trace(fieldDef.getBinding() + " is readonly!");
+					LOGGER.trace("{} is readonly!", fieldDef.getBinding());
 				}
 			}
 		} catch (Exception e) {
@@ -124,13 +120,7 @@ public class RequestSupportImpl extends AdapterBase implements RequestSupport {
 					throw new BusinessException("bindClass " + bindClass.getName() + " needs to be public!");
 				}
 			}
-		} catch (IllegalAccessException e) {
-			throw new BusinessException(errorMssg, e);
-		} catch (InstantiationException e) {
-			throw new BusinessException(errorMssg, e);
-		} catch (InvocationTargetException e) {
-			throw new BusinessException(errorMssg, e);
-		} catch (NoSuchMethodException e) {
+		} catch (ReflectiveOperationException e) {
 			throw new BusinessException(errorMssg, e);
 		}
 	}
@@ -224,10 +214,10 @@ public class RequestSupportImpl extends AdapterBase implements RequestSupport {
 		}
 		BeanWrapper sourceWrapper = new BeanWrapperImpl(source);
 		BeanWrapper targetWrapper = new BeanWrapperImpl(target);
-		Map<String, Object> parameters = new HashMap<String, Object>();
-		ExpressionEvaluator expressionEvaluator = new ExpressionEvaluator(parameters);
-		expressionEvaluator.setVariable(CURRENT, source);
-		setPropertyValues(sourceWrapper, targetWrapper, metaData, expressionEvaluator);
+		ExpressionEvaluator currentEvaluator = new ExpressionEvaluator(new HashMap<>());
+		currentEvaluator.setVariable(CURRENT, source);
+		setPropertyValues(sourceWrapper, targetWrapper, metaData,
+				new ElementHelper(environment, site, application, currentEvaluator));
 	}
 
 	public <T> void setPropertyValue(T source, T target, String property) {
@@ -237,7 +227,7 @@ public class RequestSupportImpl extends AdapterBase implements RequestSupport {
 	}
 
 	private <T> void setPropertyValues(BeanWrapper sourceWrapper, BeanWrapper targetWrapper, MetaData metaData,
-			ExpressionEvaluator expressionEvaluator) {
+			ElementHelper elementHelper) {
 		for (FieldDef fieldDef : metaData.getFields()) {
 			boolean doWrite = true;
 			String fieldBinding = fieldDef.getBinding();
@@ -246,12 +236,12 @@ public class RequestSupportImpl extends AdapterBase implements RequestSupport {
 			if (null != condition) {
 				expression = condition.getExpression();
 				if (StringUtils.isNotBlank(expression)) {
-					doWrite = expressionEvaluator.evaluate(expression);
+					doWrite = elementHelper.conditionMatches(condition);
 					if (doWrite) {
-						log.debug("condition '" + expression + "' for property '" + fieldBinding + "' matched");
+						LOGGER.debug("condition '{}' for property '{}' matched", expression, fieldBinding);
 					} else {
-						log.debug("condition '" + expression + "' for property '" + fieldBinding
-								+ "' did not match, skipping field");
+						LOGGER.debug("condition '{}' for property '{}' did not match, skipping field", expression,
+								fieldBinding);
 					}
 				}
 			}
@@ -267,14 +257,15 @@ public class RequestSupportImpl extends AdapterBase implements RequestSupport {
 				if (targetWrapper.isWritableProperty(property)) {
 					Object propertyValue = sourceWrapper.getPropertyValue(property);
 					if (!(propertyValue instanceof Collection<?>)) {
-						log.debug("setting property '" + property + "' of class '"
-								+ targetWrapper.getWrappedClass().getName() + "' to '" + propertyValue + "'");
+						LOGGER.debug("setting property '{}' of class '{}' to '{}'", property,
+								targetWrapper.getWrappedClass().getName(), propertyValue);
 						targetWrapper.setPropertyValue(property, propertyValue);
 					}
 				}
 			} else {
 				// should never ever happen
-				log.error("property '" + property + "' not readable in class '" + sourceWrapper.getWrappedClass() + "'");
+				LOGGER.error(
+						"property '" + property + "' not readable in class '" + sourceWrapper.getWrappedClass() + "'");
 			}
 		}
 	}

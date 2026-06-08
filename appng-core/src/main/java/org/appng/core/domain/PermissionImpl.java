@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import java.util.Date;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.EntityListeners;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
@@ -33,15 +34,14 @@ import org.appng.api.ValidationMessages;
 import org.appng.api.model.Permission;
 
 /**
- * 
  * Default {@link Permission}-implementation
  * 
  * @author Matthias Müller
- * 
  */
 @Entity
 @Table(name = "permission")
-public class PermissionImpl implements Permission {
+@EntityListeners(PlatformEventListener.class)
+public class PermissionImpl implements Permission, Auditable<Integer> {
 
 	private Integer id;
 	private String name;
@@ -50,7 +50,7 @@ public class PermissionImpl implements Permission {
 	private ApplicationImpl application;
 
 	@Id
-	@GeneratedValue(strategy = GenerationType.AUTO)
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	public Integer getId() {
 		return id;
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,6 @@ import org.appng.api.Path;
 import org.appng.api.Scope;
 import org.appng.api.VHostMode;
 import org.appng.api.model.Properties;
-import org.appng.api.model.Site;
 import org.appng.core.service.TemplateService;
 import org.appng.xml.MarshallService;
 import org.appng.xml.platform.OutputFormat;
@@ -66,13 +65,14 @@ public class OutputFormatAndTypeTest {
 		MockServletContext servletContext = new MockServletContext();
 		Map<String, Object> platformScope = new ConcurrentHashMap<>();
 		platformScope.put(org.appng.api.Platform.Environment.PLATFORM_CONFIG, properties);
-		platformScope.put(org.appng.api.Platform.Environment.SITES, new HashMap<String, Site>());
+		platformScope.put(org.appng.api.Platform.Environment.SITES, new HashMap<>());
 		Mockito.when(properties.getString(org.appng.api.Platform.Property.VHOST_MODE))
 				.thenReturn(VHostMode.NAME_BASED.name());
 		servletContext.setAttribute(Scope.PLATFORM.name(), platformScope);
 		processor.setPlatformTransformer(new PlatformTransformer());
 		processor.setTemplatePath(PlatformTransformerTest.TEMPLATE_PATH);
-		processor.init(new MockHttpServletRequest(servletContext), new MockHttpServletResponse(), null, PlatformTransformerTest.TEMPLATE_PATH);
+		processor.init(new MockHttpServletRequest(servletContext), new MockHttpServletResponse(), null,
+				PlatformTransformerTest.TEMPLATE_PATH);
 	}
 
 	@Test

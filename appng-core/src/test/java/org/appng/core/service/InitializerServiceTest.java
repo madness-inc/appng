@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,10 @@ import java.io.InputStream;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import javax.persistence.EntityManager;
 
@@ -32,13 +35,12 @@ import org.appng.api.InvalidConfigurationException;
 import org.appng.api.Platform;
 import org.appng.api.Scope;
 import org.appng.api.model.Application;
-import org.appng.api.model.Properties;
+import org.appng.api.model.Property.Type;
 import org.appng.api.model.Site;
 import org.appng.api.support.FieldProcessorImpl;
 import org.appng.api.support.PropertyHolder;
 import org.appng.api.support.environment.DefaultEnvironment;
 import org.appng.core.controller.TestSupport;
-import org.appng.core.domain.SiteImpl;
 import org.appng.testapplication.TestEntity;
 import org.appng.testapplication.TestService;
 import org.junit.Assert;
@@ -63,7 +65,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 @Rollback(false)
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(locations = "classpath:platformContext.xml", initializers = InitializerServiceTest.class)
+@ContextConfiguration(classes = PlatformTestConfig.class, initializers = InitializerServiceTest.class)
 @DirtiesContext
 public class InitializerServiceTest extends TestSupport
 		implements ApplicationContextInitializer<GenericApplicationContext> {
@@ -128,12 +130,12 @@ public class InitializerServiceTest extends TestSupport
 
 	@Test
 	public void testInitPlatform() throws Exception {
-		PropertyHolder propertyHolder = new PropertyHolder(PropertySupport.PREFIX_PLATFORM,
-				Collections.<org.appng.api.model.Property> emptyList());
+		PropertyHolder propertyHolder = new PropertyHolder(PropertySupport.PREFIX_PLATFORM, Collections.emptyList());
 		for (String prop : platformProperties.getPropertyNames()) {
 			String key = prop.substring(PropertySupport.PREFIX_PLATFORM.length());
 			String value = platformProperties.getString(prop);
-			propertyHolder.addProperty(key, value == null ? StringUtils.EMPTY : value, StringUtils.EMPTY);
+			String defaultValue = value == null ? StringUtils.EMPTY : value;
+			propertyHolder.addProperty(key, defaultValue, StringUtils.EMPTY, Type.forString(defaultValue));
 		}
 		propertyHolder.setFinal();
 		platformMap.put(Platform.Environment.PLATFORM_CONFIG, propertyHolder);
@@ -141,22 +143,35 @@ public class InitializerServiceTest extends TestSupport
 		File templateRoot = new File("target/test-classes/repository/site-1/www/template/");
 		FileUtils.deleteQuietly(templateRoot);
 		Mockito.when(ctx.getRealPath("/uploads")).thenReturn("target/uploads");
-		
-		
-		Mockito.when(env.getAttribute(Scope.PLATFORM, Platform.Environment.SITES)).thenReturn(new HashMap<String, Site>());
-		
+
+		Mockito.when(env.getAttribute(Scope.PLATFORM, Platform.Environment.SITES)).thenReturn(new HashMap<>());
+
 		Mockito.when(env.getAttribute(Scope.PLATFORM, Platform.Environment.PLATFORM_CONFIG))
 				.thenReturn(platformProperties);
-		service.loadPlatform(new java.util.Properties(), env, null, null, null);
+		PlatformProperties platformProperties = service.loadPlatformProperties(new Properties(), env);
+		ExecutorService executor = Executors.newSingleThreadExecutor();
+		service.loadPlatform(platformProperties, env, null, null, executor);
+		executor.awaitTermination(5, TimeUnit.SECONDS);
+
 		Mockito.verify(ctx, Mockito.atLeastOnce()).getRealPath(Mockito.anyString());
-		Mockito.verify(env,VerificationModeFactory.atLeast(1)).setAttribute(Mockito.eq(Scope.PLATFORM), Mockito.anyString(),
-				Mockito.any());
-	
+		Mockito.verify(env, VerificationModeFactory.atLeast(1)).setAttribute(Mockito.eq(Scope.PLATFORM),
+				Mockito.anyString(), Mockito.any());
+
 		Assert.assertTrue(new File(templateRoot, "assets/favicon.ico").exists());
 		Assert.assertTrue(new File(templateRoot, "resources/dummy.txt").exists());
 		Assert.assertFalse(new File(templateRoot, "xsl").exists());
 		Assert.assertFalse(new File(templateRoot, "conf").exists());
 		Assert.assertFalse(new File(templateRoot, "template.xml").exists());
+
+	}
+
+	@Override
+	protected Properties getPlatformPropertyOverrides() {
+		Properties overrides = super.getPlatformPropertyOverrides();
+		overrides.put(PropertySupport.PREFIX_PLATFORM + Platform.Property.PLATFORM_ROOT_PATH,
+				new File("target/test-classes").getAbsolutePath());
+		overrides.put(PropertySupport.PREFIX_PLATFORM + Platform.Property.TEMPLATE_FOLDER, "template");
+		return overrides;
 	}
 
 	@Test
@@ -165,30 +180,18 @@ public class InitializerServiceTest extends TestSupport
 		FileUtils.copyDirectory(new File("src/test/resources/applications/application1"),
 				new File("target/root/applications/application1"));
 		Site siteToLoad = siteMap.remove("manager");
-		service.loadSite((SiteImpl) siteToLoad, ctx, new FieldProcessorImpl("testLoadSite"));
+		service.loadSite(DefaultEnvironment.getGlobal(), site, true, new FieldProcessorImpl("testLoadSite"));
 
 		Application application = siteToLoad.getApplication("application1");
 		TestService testservice = application.getBean(TestService.class);
 		TestEntity entity = new TestEntity(null, "name", 2, 3.4d, true);
 		testservice.createEntity(entity);
 		Assert.assertEquals(Integer.valueOf(1), entity.getId());
-		service.shutDownSite(env, siteToLoad);
+		service.shutDownSite(env, siteToLoad, true);
 	}
 
-	@Override
 	public void initialize(GenericApplicationContext applicationContext) {
-		new TestInitializer() {
-
-			@Override
-			protected java.util.Properties getProperties() {
-				java.util.Properties properties = super.getProperties();
-				properties.put("entityPackage", "org.appng.testapplication");
-				properties.put("hsqlPort", "9010");
-				properties.put("hsqlPath", "file:target/hsql/" + InitializerServiceTest.class.getSimpleName());
-				properties.put("repositoryBase", "org.appng.testapplication");
-				return properties;
-			}
-		}.initialize(applicationContext);
+		new TestInitializer().initialize(applicationContext);
 	}
 
 }

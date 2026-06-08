@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,18 +15,19 @@
  */
 package org.appng.forms;
 
-import org.jsoup.safety.Whitelist;
+import org.jsoup.safety.Safelist;
 import org.junit.Assert;
 import org.junit.Test;
 import org.owasp.esapi.ESAPI;
 
 public class XSSUtilTest {
-	
+
 	@Test
-	public void test(){
-		XSSUtil xssUtil = new XSSUtil(ESAPI.encoder(), new Whitelist());
+	public void test() {
+		XSSUtil xssUtil = new XSSUtil(ESAPI.encoder(), new Safelist());
 		Assert.assertEquals("", xssUtil.stripXss("<script>alert('XSS!')<%2Fscript>"));
-		Assert.assertEquals("", xssUtil.stripXss("<meta http-equiv%3D\"refresh\" content%3D\"0; url%3Dhttps:%2F%2Fwww.aiticon.com%2F\">"));
+		Assert.assertEquals("", xssUtil
+				.stripXss("<meta http-equiv%3D\"refresh\" content%3D\"0; url%3Dhttps:%2F%2Fwww.aiticon.com%2F\">"));
 	}
 
 }

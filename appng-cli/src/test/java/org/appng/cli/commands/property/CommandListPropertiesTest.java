@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,13 +33,13 @@ import org.junit.Test;
  * Test for {@link ListProperties}.
  * 
  * @author Matthias Herlitzius
- * 
  */
 public class CommandListPropertiesTest extends AbstractCommandTest {
 
-	private static final int NUM_SITE_PROPERTIES = 59;
-	private static final int NUM_PLATFORM_PROPERTIES = 49;
-	private static final int PROP_ROOT_PATH_IDX = 32;
+	private static final int NUM_SITE_PROPERTIES = 72;
+	private static final int NUM_PLATFORM_PROPERTIES = 55;
+	private static final int PROP_ROOT_PATH_IDX = 37;
+
 	private ListProperties commandListProperties = new ListProperties();
 
 	@Override

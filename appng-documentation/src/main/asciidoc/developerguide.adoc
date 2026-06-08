@@ -5,13 +5,14 @@ Version {project-version} created on {localdate}
 :title-logo-image: images/appng.png
 :toc:
 :homepage: http://appng.org
+:stable: 1.26.0
 
-:appng: https://www.appng.org/appng/docs/{project-version}/javadoc
-:lucene: http://lucene.apache.org/core/6_6_0/core
-:spring: http://docs.spring.io/spring/docs/{spring-version}
-:spring-data: http://docs.spring.io/spring-data/commons/docs/{spring-data-version}
-:spring-data-jpa: http://docs.spring.io/spring-data/jpa/docs/{spring-data-jpa-version}
-:jse: http://docs.oracle.com/javase/8/docs/api
+:appng: https://appng.org/appng/docs/{project-version}/javadoc
+:lucene: http://lucene.apache.org/core/8_5_0/core/index.html
+:spring: https://docs.spring.io/spring/docs/{spring-version}
+:spring-data: https://docs.spring.io/spring-data/commons/docs/{spring-data-version}
+:spring-data-jpa: https://docs.spring.io/spring-data/jpa/docs/{spring-data-jpa-version}
+:jse: https://docs.oracle.com/javase/8/docs/api
 :jee: https://docs.oracle.com/javaee/7/api
 :appng-schema: http://www.appng.org/schema
 
@@ -21,7 +22,7 @@ This document describes how to develop applications based on the appNG platform.
 
 
 == Core concepts
-An appNG application relies on three core concepts: XML, Java and XSLT. The basic idea is that you define the *structure* of your user interface in XML and implement the *business logic* in Java. Finally, XSLT is the part that bridges the gap between the internal XML based structure and the HTML based user interface.
+An appNG application relies on three core concepts: XML, Java and templating. The basic idea is that you define the *structure* of your user interface in XML and implement the *business logic* in Java. Finally, the templating engine transforms the internal XML-based structure into an HTML-based user interface.
 
 The following diagram illustrates these core concepts:
 
@@ -36,8 +37,8 @@ The following XML schema is used for the source-XML: +
 * *Business Logic* +
 The implementation of the business logic in Java.
 * *Template* +
-An appNG Template is a set of resources, used to transform the target-XML into HTML. +
-A Template consists of several XSL-stylesheet and all the assets (like JavaScript, CSS, icons) needed to render the HTML. It also contains a `platform.xml` file which is the blue-print for the generated target-XML.
+An appNG template is a set of resources, used to transform the target-XML into HTML. The supported template technologies are https://en.wikipedia.org/wiki/XSLT[XSLT^] and https://www.thymeleaf.org/[Thymeleaf^]. +
+A template consists of several template files consumed by the template engine and all the assets (like JavaScript, CSS, icons) needed to render the HTML. It also contains a `platform.xml` file which is the blue-print for the generated target-XML.
 * *Target-XML* +
 The target-XML is one single XML document using the template's `platform.xml` as a blue print. This XML document is being enriched with XML fragments that result from combining the static source-XML with the dynamic business logic.
 * *HTML* +
@@ -54,6 +55,8 @@ include::parts/actions.adoc[]
 
 include::parts/pages.adoc[]
 
+include::parts/openapi.adoc[]
+
 include::parts/common.adoc[]
 
 include::parts/jsp.adoc[]
@@ -66,11 +69,8 @@ include::parts/api.adoc[]
 
 include::parts/urlrewriting.adoc[]
 
-== The appNG Maven Archetype
-An appNG application uses https://maven.apache.org/[Apache Maven^] as a build system, thus the fastest way to setup an appNG application is to use the appNG Maven Archetype as shown below:
-[source,subs="normal"]
-----
-mvn archetype:generate -DgroupId=mygroupid -DartifactId=myartifactid -DarchetypeGroupId=org.appng -DarchetypeArtifactId=appng-archetype-application -DarchetypeVersion={project-version} -DinteractiveMode=false
-----
+include::parts/maven.adoc[]
+
+include::parts/camunda.adoc[]
 
 include::parts/appendix.adoc[]

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,14 +15,19 @@
  */
 package org.appng.core.domain;
 
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.Driver;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Date;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.EntityListeners;
 import javax.persistence.EnumType;
 import javax.persistence.Enumerated;
 import javax.persistence.GeneratedValue;
@@ -34,60 +39,88 @@ import javax.persistence.ManyToOne;
 import javax.persistence.Table;
 import javax.persistence.Transient;
 import javax.persistence.Version;
+import javax.sql.DataSource;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.appng.api.ValidationMessages;
-import org.appng.api.model.Named;
 import org.appng.api.model.Site;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.flywaydb.core.api.MigrationInfoService;
+import org.springframework.jdbc.core.ConnectionCallback;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.util.ClassUtils;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
- * 
  * Represents a connection to a database which is being used either by the platform itself ("root-connection") or by a
  * {@link SiteApplication}.
  * 
  * @author Matthias Müller
  * 
- * @see SiteApplication#getDatabaseConnection()
- * 
+ * @see    SiteApplication#getDatabaseConnection()
  */
+@Slf4j
 @Entity
 @Table(name = "database_connection")
-public class DatabaseConnection implements Named<Integer> {
+@EntityListeners(PlatformEventListener.class)
+public class DatabaseConnection implements Auditable<Integer> {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(DatabaseConnection.class);
-
-	private static final String DATABASE_NAME = "databaseName=";
 	public static final String DB_PLACEHOLDER = "<name>";
+	private static final String DATABASE_NAME = "databaseName=";
+
+	private static final String MARIADB_DATASOURCE = "org.mariadb.jdbc.MariaDbDataSource";
+	private static final String MARIADB_DRIVER = "org.mariadb.jdbc.Driver";
+	private static final String MARIADB_URL = "jdbc:mariadb://localhost:%s/%s";
+
+	private static String MYSQL_DRIVER = "com.mysql.cj.jdbc.Driver";
+	private static String MYSQL_DATASOURCE = "com.mysql.cj.jdbc.MysqlDataSource";
+	private static String MYSQL_URL = "jdbc:mysql://localhost:%s/%s";
+
+	static {
+		if (ClassUtils.isPresent(MARIADB_DATASOURCE, null)) {
+			MYSQL_DATASOURCE = MARIADB_DATASOURCE;
+			MYSQL_DRIVER = MARIADB_DRIVER;
+			MYSQL_URL = MARIADB_URL;
+			LOGGER.info("Found {} in classpath, using {}", MARIADB_DATASOURCE, MARIADB_DRIVER);
+		}
+	}
 
 	/** enum-type for the supported databases */
 	public enum DatabaseType {
 
 		/** MySQL */
-		MYSQL("com.mysql.jdbc.Driver", "com.mysql.jdbc.jdbc2.optional.MysqlDataSource",
-				"jdbc:mysql://localhost:3306/" + DB_PLACEHOLDER, "select 1"),
+		MYSQL(MYSQL_DRIVER, 3306, MYSQL_DATASOURCE, MYSQL_URL, "select 1"),
 
 		/** Microsoft SQL Server */
-		MSSQL("com.microsoft.sqlserver.jdbc.SQLServerDriver", "com.microsoft.sqlserver.jdbc.SQLServerDataSource",
-				"jdbc:sqlserver://localhost:1433;databaseName=" + DB_PLACEHOLDER, "select 1"),
+		MSSQL("com.microsoft.sqlserver.jdbc.SQLServerDriver", 1433, "com.microsoft.sqlserver.jdbc.SQLServerDataSource",
+				"jdbc:sqlserver://localhost:%s;databaseName=%s", "select 1"),
+
+		/** PostgreSQL */
+		POSTGRESQL("org.postgresql.Driver", 5432, "org.postgresql.ds.PGSimpleDataSource",
+				"jdbc:postgresql://localhost:%s/%s", "select 1"),
 
 		/** HSQL DB */
-		HSQL("org.hsqldb.jdbc.JDBCDriver", "org.hsqldb.jdbc.JDBCDataSource",
-				"jdbc:hsqldb:hsql://localhost:9001/" + DB_PLACEHOLDER, "select 1 from INFORMATION_SCHEMA.SYSTEM_USERS");
+		HSQL("org.hsqldb.jdbc.JDBCDriver", 9001, "org.hsqldb.jdbc.JDBCDataSource", "jdbc:hsqldb:hsql://localhost:%s/%s",
+				"select 1 from INFORMATION_SCHEMA.SYSTEM_USERS");
 
 		private final String defaultDriver;
 		private final String templateUrl;
+		private final Integer defaultPort;
 		private String validationQuery;
 		private String dataSourceClassName;
 
-		private DatabaseType(String defaultDriver, String dataSourceClassName, String templateUrl,
+		private DatabaseType(String defaultDriver, Integer defaultPort, String dataSourceClassName, String templateUrl,
 				String validationQuery) {
 			this.defaultDriver = defaultDriver;
+			this.defaultPort = defaultPort;
 			this.dataSourceClassName = dataSourceClassName;
-			this.templateUrl = templateUrl;
+			this.templateUrl = String.format(templateUrl, defaultPort, DB_PLACEHOLDER);
 			this.validationQuery = validationQuery;
 		}
 
@@ -103,6 +136,11 @@ public class DatabaseConnection implements Named<Integer> {
 			return templateUrl;
 		}
 
+		/** the default port */
+		public Integer getDefaultPort() {
+			return defaultPort;
+		}
+
 		/** the default validation query */
 		public String getDefaultValidationQuery() {
 			return validationQuery;
@@ -114,6 +152,20 @@ public class DatabaseConnection implements Named<Integer> {
 		public String getDataSourceClassName() {
 			return dataSourceClassName;
 		}
+
+		String getDatabaseName(String jdbcUrl) {
+			int paramStart = jdbcUrl.indexOf('?') < 0 ? jdbcUrl.length() : jdbcUrl.indexOf('?');
+			switch (this) {
+
+			case MSSQL:
+				return jdbcUrl.substring(jdbcUrl.lastIndexOf(DATABASE_NAME) + DATABASE_NAME.length(), paramStart);
+
+			default:
+				int beginIndex = jdbcUrl.indexOf('/', jdbcUrl.indexOf("//") + 2) + 1;
+				return jdbcUrl.substring(beginIndex, paramStart);
+			}
+		}
+
 	}
 
 	private Integer id;
@@ -133,6 +185,11 @@ public class DatabaseConnection implements Named<Integer> {
 	private Integer maxConnections = 20;
 	private String validationQuery;
 	private Integer validationPeriod;
+	private Double databaseSize;
+	private String productName;
+	private String productVersion;
+
+	private MigrationInfoService migrationInfoService;
 
 	public DatabaseConnection() {
 
@@ -158,7 +215,7 @@ public class DatabaseConnection implements Named<Integer> {
 	}
 
 	@Id
-	@GeneratedValue(strategy = GenerationType.AUTO)
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	public Integer getId() {
 		return id;
 	}
@@ -318,27 +375,70 @@ public class DatabaseConnection implements Named<Integer> {
 		this.validationPeriod = validationPeriod;
 	}
 
-	public boolean testConnection(StringBuilder dbInfo) {
-		Connection connection = null;
+	public void registerDriver(boolean throwException) {
 		try {
-			connection = getConnection();
-			DatabaseMetaData metaData = connection.getMetaData();
+			@SuppressWarnings("unchecked")
+			Class<? extends Driver> driverClazz = (Class<? extends Driver>) Class.forName(driverClass);
+			DriverManager.registerDriver(driverClazz.newInstance());
+			LOGGER.info("Registered JDBC driver {}", driverClass);
+		} catch (Exception e) {
+			if (throwException) {
+				throw new RuntimeException("Error while registering driver " + driverClass, e);
+			} else {
+				LOGGER.warn("Driver {} could not be loaded.", driverClass);
+			}
+		}
+	}
+
+	public boolean testConnection(StringBuilder dbInfo) {
+		return testConnection(dbInfo, false);
+	}
+
+	public boolean testConnection(StringBuilder dbInfo, boolean determineSize) {
+		return testConnection(determineSize, con -> {
 			if (null != dbInfo) {
-				dbInfo.append(metaData.getDatabaseProductName() + " " + metaData.getDatabaseProductVersion());
+				DatabaseMetaData metaData = con.getMetaData();
+				dbInfo.append(
+						metaData.getDatabaseProductName() + StringUtils.SPACE + metaData.getDatabaseProductVersion());
+			}
+			return null;
+		});
+	}
+
+	public boolean testConnection(boolean determineSize, ConnectionCallback<?>... callbacks) {
+		try {
+			JdbcTemplate jdbcTemplate = new JdbcTemplate(getDataSource());
+			for (ConnectionCallback<?> connectionCallback : callbacks) {
+				jdbcTemplate.execute(connectionCallback);
+			}
+
+			if (determineSize) {
+				String resource = String.format("db/init/%s/size.sql", getType().name().toLowerCase());
+				InputStream sqlFile = getClass().getClassLoader().getResourceAsStream(resource);
+				if (null != sqlFile) {
+					String sizeStatement = StringUtils.replace(IOUtils.toString(sqlFile, StandardCharsets.UTF_8),
+							"<database>", getDatabaseName());
+					jdbcTemplate.query(sizeStatement, new RowMapper<Void>() {
+						public Void mapRow(ResultSet rs, int rowNum) throws SQLException {
+							setDatabaseSize(rs.getDouble(1));
+							return null;
+						}
+					});
+				}
+			}
+			try (Connection con = jdbcTemplate.getDataSource().getConnection()) {
+				this.productName = con.getMetaData().getDatabaseProductName();
+				this.productVersion = con.getMetaData().getDatabaseProductVersion();
 			}
 			return true;
 		} catch (Exception e) {
-			LOGGER.warn("error while connecting to " + jdbcUrl + " (" + e.getClass().getName() + ":" + e.getMessage()
-					+ ")");
-		} finally {
-			closeConnection(connection);
+			LOGGER.warn("error while connecting to {} ({}: {})", jdbcUrl, e.getClass().getName(), e.getMessage());
 		}
 		return false;
 	}
 
 	@Transient
-	public Connection getConnection() throws SQLException, ClassNotFoundException {
-		Class.forName(driverClass);
+	public Connection getConnection() throws SQLException {
 		return DriverManager.getConnection(jdbcUrl, userName, new String(password));
 	}
 
@@ -354,18 +454,20 @@ public class DatabaseConnection implements Named<Integer> {
 
 	public String getDatabaseConnectionString(String databaseName) {
 		switch (type) {
-		case MYSQL:
-			return getJdbcUrl().substring(0, getJdbcUrl().lastIndexOf('/') + 1) + databaseName;
 
 		case MSSQL:
 			return getJdbcUrl().substring(0, getJdbcUrl().indexOf(DATABASE_NAME) + DATABASE_NAME.length())
 					+ databaseName;
-		case HSQL:
-			return getJdbcUrl().substring(0, getJdbcUrl().lastIndexOf('/') + 1) + databaseName;
-
 		default:
-			return null;
+			String currentDatabaseName = getType().getDatabaseName(getJdbcUrl());
+			return getJdbcUrl().replace(currentDatabaseName, databaseName);
+
 		}
+	}
+
+	@Transient
+	public String getDatabaseName() {
+		return type.getDatabaseName(jdbcUrl);
 	}
 
 	@Transient
@@ -373,9 +475,42 @@ public class DatabaseConnection implements Named<Integer> {
 		return getSite() == null;
 	}
 
+	@Transient
+	public MigrationInfoService getMigrationInfoService() {
+		return migrationInfoService;
+	}
+
+	public void setMigrationInfoService(MigrationInfoService migrationInfoService) {
+		this.migrationInfoService = migrationInfoService;
+	}
+
+	@Transient
+	public Double getDatabaseSize() {
+		return databaseSize;
+	}
+
+	public void setDatabaseSize(Double databaseSize) {
+		this.databaseSize = databaseSize;
+	}
+
+	@Transient
+	public String getProductName() {
+		return productName;
+	}
+
+	@Transient
+	public String getProductVersion() {
+		return productVersion;
+	}
+
 	@Override
 	public String toString() {
 		return (type == null ? "Unknown" : type.toString()) + " " + getJdbcUrl();
+	}
+
+	@Transient
+	public DataSource getDataSource() {
+		return new DriverManagerDataSource(jdbcUrl, userName, getPasswordPlain());
 	}
 
 }

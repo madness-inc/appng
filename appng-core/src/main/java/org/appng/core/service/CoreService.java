@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,11 +25,12 @@ import java.security.Principal;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import javax.persistence.NoResultException;
 import javax.servlet.http.HttpServletRequest;
@@ -39,20 +40,24 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.time.DateUtils;
 import org.appng.api.ApplicationController;
 import org.appng.api.BusinessException;
 import org.appng.api.Environment;
 import org.appng.api.FieldProcessor;
 import org.appng.api.InvalidConfigurationException;
+import org.appng.api.MessageConstants;
 import org.appng.api.Path;
 import org.appng.api.Platform;
 import org.appng.api.Request;
 import org.appng.api.Scope;
 import org.appng.api.SiteProperties;
 import org.appng.api.auth.PasswordPolicy;
+import org.appng.api.messaging.Messaging;
 import org.appng.api.model.Application;
 import org.appng.api.model.ApplicationSubject;
 import org.appng.api.model.AuthSubject;
+import org.appng.api.model.AuthSubject.PasswordChangePolicy;
 import org.appng.api.model.Group;
 import org.appng.api.model.Permission;
 import org.appng.api.model.Properties;
@@ -69,13 +74,17 @@ import org.appng.api.support.ApplicationResourceHolder;
 import org.appng.api.support.PropertyHolder;
 import org.appng.api.support.environment.DefaultEnvironment;
 import org.appng.api.support.environment.EnvironmentKeys;
-import org.appng.core.controller.AppngCache;
+import org.appng.core.controller.CachedResponse;
 import org.appng.core.controller.handler.SoapService;
+import org.appng.core.controller.messaging.ReloadTemplateEvent;
+import org.appng.core.controller.messaging.SiteDeletedEvent;
 import org.appng.core.domain.ApplicationImpl;
 import org.appng.core.domain.DatabaseConnection;
 import org.appng.core.domain.GroupImpl;
 import org.appng.core.domain.PermissionImpl;
 import org.appng.core.domain.PersistentPropertyHolder;
+import org.appng.core.domain.PlatformEvent.Type;
+import org.appng.core.domain.PlatformEventListener;
 import org.appng.core.domain.PropertyImpl;
 import org.appng.core.domain.RepositoryImpl;
 import org.appng.core.domain.ResourceImpl;
@@ -112,11 +121,12 @@ import org.appng.xml.application.ApplicationInfo;
 import org.appng.xml.application.PackageInfo;
 import org.appng.xml.application.PermissionRef;
 import org.appng.xml.application.Permissions;
+import org.appng.xml.application.PropertyType;
 import org.appng.xml.application.Roles;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.domain.Sort.Direction;
@@ -124,21 +134,17 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StopWatch;
 
-import net.sf.ehcache.Element;
-import net.sf.ehcache.Statistics;
-import net.sf.ehcache.constructs.blocking.BlockingCache;
-import net.sf.ehcache.constructs.web.PageInfo;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * A service implementing the core business logic for creation/retrieval/removal of business-objects.
- * 
+ *
  * @author Matthias Müller
  * @author Matthias Herlitzius
  */
+@Slf4j
 @Transactional(rollbackFor = BusinessException.class)
 public class CoreService {
-
-	private static final Logger log = LoggerFactory.getLogger(CoreService.class);
 
 	@Autowired
 	protected DatabaseConnectionRepository databaseConnectionRepository;
@@ -182,52 +188,132 @@ public class CoreService {
 	@Autowired
 	protected TemplateService templateService;
 
+	@Autowired
+	protected PlatformEventListener auditableListener;
+
+	@Autowired
+	private MessageSource messageSource;
+
 	public Subject createSubject(SubjectImpl subject) {
+		boolean changePasswordAllowed = UserType.LOCAL_USER.equals(subject.getUserType());
+		subject.setPasswordChangePolicy(
+				changePasswordAllowed ? PasswordChangePolicy.MAY : PasswordChangePolicy.MUST_NOT);
+		if (changePasswordAllowed) {
+			subject.setPasswordLastChanged(new Date());
+		}
 		return subjectRepository.save(subject);
 	}
 
 	public PropertyHolder getPlatformProperties() {
-		return getPlatform(true);
+		return getPlatform(true, false);
 	}
 
-	PropertyHolder getPlatform(boolean finalize) {
-		Iterable<PropertyImpl> properties = getPlatformPropertiesList(null);
-		PropertyHolder propertyHolder = new PersistentPropertyHolder(PropertySupport.PREFIX_PLATFORM, properties);
+	protected PropertyHolder getPlatform(boolean finalize, boolean detached) {
+		PropertyHolder propertyHolder = getProperties(PropertySupport.PREFIX_PLATFORM, detached);
 		if (finalize) {
 			propertyHolder.setFinal();
 		}
 		return propertyHolder;
 	}
 
-	public PropertyHolder initPlatformConfig(java.util.Properties defaultOverrides, String rootPath, Boolean devMode,
-			boolean persist, boolean finalize) {
-		PropertyHolder platformConfig = getPlatform(false);
-		new PropertySupport(platformConfig).initPlatformConfig(rootPath, devMode, defaultOverrides, finalize);
-		if (persist) {
+	public PlatformProperties initPlatformConfig(java.util.Properties defaultOverrides, String rootPath,
+			Boolean devMode, boolean persist, boolean tempOverrides) {
+		PropertyHolder platformConfig = getPlatform(false, !persist && tempOverrides);
+		new PropertySupport(platformConfig).initPlatformConfig(rootPath, devMode, defaultOverrides, false);
+		if (persist && !tempOverrides) {
 			saveProperties(platformConfig);
 		}
-		return platformConfig;
+		addPropertyIfExists(platformConfig, defaultOverrides, InitializerService.APPNG_USER);
+		addPropertyIfExists(platformConfig, defaultOverrides, InitializerService.APPNG_GROUP);
+		platformConfig.setFinal();
+		return PlatformProperties.get(platformConfig);
 	}
 
-	private Page<PropertyImpl> getPlatformPropertiesList(Pageable pageable) {
-		return getProperties(PropertySupport.PREFIX_PLATFORM, pageable);
+	public Properties initNodeConfig() {
+		String nodeId = Messaging.getNodeId();
+		PropertyHolder nodeConfig = getNodeProperties(nodeId);
+		new PropertySupport(nodeConfig).initNodeConfig(true);
+		saveProperties(nodeConfig);
+		return nodeConfig;
 	}
 
-	private Page<PropertyImpl> getSiteProperties(Integer siteId, Pageable pageable) {
-		SiteImpl site = siteRepository.findOne(siteId);
-		return getProperties(PropertySupport.getSitePrefix(site), pageable);
+	private void addPropertyIfExists(PropertyHolder platformConfig, java.util.Properties defaultOverrides,
+			String name) {
+		if (defaultOverrides.containsKey(name)) {
+			platformConfig.addProperty(name, defaultOverrides.getProperty(name), null,
+					org.appng.api.model.Property.Type.TEXT);
+		}
 	}
 
-	private PropertyHolder getSiteProperties(Site site) {
-		String prefix = PropertySupport.getSitePrefix(site);
-		Iterable<PropertyImpl> properties = getProperties(prefix);
-		return new PersistentPropertyHolder(prefix, properties);
+	private PropertyHolder getNodeProperties(String nodeId) {
+		String prefix = PropertySupport.getNodePrefix(nodeId);
+		return getProperties(prefix);
 	}
 
-	private PropertyHolder getApplicationProperties(Site site, Application application) {
+	public Page<PropertyImpl> getNodeProperties(String nodeId, Pageable pageable) {
+		return getProperties(PropertySupport.getNodePrefix(nodeId), pageable);
+	}
+
+	private PropertyHolder getProperties(Site site, Application application) {
 		String prefix = PropertySupport.getPropertyPrefix(site, application);
-		Iterable<PropertyImpl> properties = getProperties(prefix);
+		return getProperties(prefix);
+	}
+
+	protected Iterable<PropertyImpl> getPropertiesList(Integer siteId, Integer applicationId) {
+		return getProperties(siteId, applicationId, null);
+	}
+
+	protected Page<PropertyImpl> getProperties(Integer siteId, Integer applicationId, Pageable pageable) {
+		Site site = siteId == null ? null : siteRepository.findOne(siteId);
+		Application application = applicationId == null ? null : applicationRepository.findOne(applicationId);
+		return getProperties(site, application, pageable);
+	}
+
+	public Iterable<PropertyImpl> getPropertiesList(String siteName, String applicationName) {
+		Site site;
+		if (null != siteName) {
+			site = siteRepository.findByName(siteName);
+			if (null == site) {
+				throw new IllegalArgumentException("No such site: '" + siteName + "'");
+			}
+		} else {
+			site = null;
+		}
+		Application application;
+		if (null != applicationName) {
+			application = applicationRepository.findByName(applicationName);
+			if (null == application) {
+				throw new IllegalArgumentException("No such application: '" + applicationName + "'");
+			}
+		} else {
+			application = null;
+		}
+		return getPropertiesList(site, application);
+	}
+
+	public Iterable<PropertyImpl> getPropertiesList(Site site, Application application) {
+		return getProperties(site, application, null);
+	}
+
+	public Page<PropertyImpl> getProperties(Site site, Application application, Pageable pageable) {
+		String prefix = PropertySupport.getPropertyPrefix(site, application);
+		return getProperties(prefix, pageable);
+	}
+
+	private PropertyHolder getProperties(String prefix) {
+		return getProperties(prefix, false);
+	}
+
+	private PropertyHolder getProperties(String prefix, boolean detached) {
+		Iterable<PropertyImpl> properties = getPropertiesList(prefix);
+		if (detached) {
+			properties.forEach(propertyRepository::detach);
+		}
 		return new PersistentPropertyHolder(prefix, properties);
+	}
+
+	private Iterable<PropertyImpl> getPropertiesList(String prefix) {
+		return getProperties(prefix, (Pageable) null);
 	}
 
 	private Page<PropertyImpl> getProperties(String prefix, Pageable pageable) {
@@ -238,68 +324,7 @@ public class CoreService {
 		return page;
 	}
 
-	private Page<PropertyImpl> getProperties(String prefix) {
-		return getProperties(prefix, (Pageable) null);
-	}
-
-	private Page<PropertyImpl> getApplicationPropertiesList(Integer siteId, Integer applicationId, Pageable pageable) {
-		String prefix = getPropertyPrefix(siteId, applicationId);
-		return getProperties(prefix, pageable);
-	}
-
-	private Page<PropertyImpl> getApplicationPropertiesList(Integer siteId, Integer applicationId) {
-		String prefix = getPropertyPrefix(siteId, applicationId);
-		return getProperties(prefix);
-	}
-
-	private String getPropertyPrefix(Integer siteId, Integer applicationId) {
-		Site site = null == siteId ? null : siteRepository.findOne(siteId);
-		Application application = null == applicationId ? null : applicationRepository.findOne(applicationId);
-		String prefix = PropertySupport.getPropertyPrefix(site, application);
-		return prefix;
-	}
-
-	public Page<PropertyImpl> getProperties(String siteName, String applicationName) {
-		return getProperties(siteName, applicationName, null);
-	}
-
-	public Page<PropertyImpl> getProperties(String siteName, String applicationName, Pageable pageable) {
-		Integer siteId = null;
-		Integer applicationId = null;
-		if (null != siteName) {
-			Site site = siteRepository.findByName(siteName);
-			if (null == site) {
-				throw new IllegalArgumentException("No such site: '" + siteName + "'");
-			}
-			siteId = site.getId();
-		}
-		if (null != applicationName) {
-			Application application = applicationRepository.findByName(applicationName);
-			if (null == application) {
-				throw new IllegalArgumentException("No such application: '" + applicationName + "'");
-			}
-			applicationId = application.getId();
-		}
-		return getProperties(siteId, applicationId, pageable);
-	}
-
-	protected Page<PropertyImpl> getProperties(Integer siteId, Integer applicationId) {
-		return getProperties(siteId, applicationId, null);
-	}
-
-	protected Page<PropertyImpl> getProperties(Integer siteId, Integer applicationId, Pageable pageable) {
-		Page<PropertyImpl> properties;
-		if (null != applicationId) {
-			properties = getApplicationPropertiesList(siteId, applicationId, pageable);
-		} else if (null != siteId) {
-			properties = getSiteProperties(siteId, pageable);
-		} else {
-			properties = getPlatformPropertiesList(pageable);
-		}
-		return properties;
-	}
-
-	public void createProperty(Integer siteId, Integer applicationId, PropertyImpl property) {
+	public PropertyImpl createProperty(Integer siteId, Integer applicationId, PropertyImpl property) {
 		Site site = null;
 		Application application = null;
 		if (null != siteId) {
@@ -308,10 +333,12 @@ public class CoreService {
 		if (null != applicationId) {
 			application = applicationRepository.findOne(applicationId);
 		}
+		return createProperty(site, application, property);
+	}
+
+	public PropertyImpl createProperty(Site site, Application application, PropertyImpl property) {
 		String propertyPrefix = PropertySupport.getPropertyPrefix(site, application);
-		String currentName = property.getName();
-		property.setName(propertyPrefix + currentName);
-		saveProperty(property);
+		property = createProperty(propertyPrefix, property);
 		String logMssg = "created property '" + property.getName();
 		if (null != application) {
 			logMssg += "' for application '" + application.getName() + "'";
@@ -319,17 +346,34 @@ public class CoreService {
 		if (null != site) {
 			logMssg += " in site '" + site.getName() + "'";
 		}
-		log.debug(logMssg);
+		LOGGER.debug(logMssg);
+		return property;
+	}
+
+	public PropertyImpl createNodeProperty(String nodeId, PropertyImpl property) {
+		PropertyImpl created = createProperty(PropertySupport.getNodePrefix(nodeId), property);
+		LOGGER.debug("createed node property '%s' for node '%s'", property.getName(), nodeId);
+		return created;
+	}
+
+	private PropertyImpl createProperty(String prefix, PropertyImpl property) {
+		String currentName = property.getName();
+		property.setName(prefix + currentName);
+		property.determineType();
+		return propertyRepository.save(property);
 	}
 
 	protected boolean checkPropertyExists(Integer siteId, Integer applicationId, PropertyImpl property) {
-		String propertyPrefix = getPropertyPrefix(siteId, applicationId);
+		Site site = null == siteId ? null : siteRepository.findOne(siteId);
+		Application application = null == applicationId ? null : applicationRepository.findOne(applicationId);
+		String prefix = PropertySupport.getPropertyPrefix(site, application);
+		String propertyPrefix = prefix;
 		String propertyName = propertyPrefix + property.getName();
 		Property findById = propertyRepository.findByName(propertyName);
 		return findById != null;
 	}
 
-	List<Integer> getSiteIds() {
+	protected List<Integer> getSiteIds() {
 		return siteRepository.getSiteIds();
 	}
 
@@ -362,59 +406,102 @@ public class CoreService {
 				applicationRepository.detach((ApplicationImpl) application);
 			}
 			siteRepository.detach((SiteImpl) site);
-			initSiteProperties((SiteImpl) site, null, true);
+			initSiteProperties((SiteImpl) site, true);
 		}
+	}
+
+	public boolean checkSiteNameConflicts(Site site, String check, Locale locale, List<String> problems) {
+		boolean onlyOne = !"all".equals(check);
+		boolean problemSpotted = false;
+		switch (check) {
+		case "all":
+		case "name":
+			Site collidingSite = siteRepository.findByName(site.getName());
+			if (collidingSite != null) {
+				problems.add(messageSource.getMessage(MessageConstants.SITE_NAME_EXISTS,
+						new Object[] { site.getName() }, locale));
+				problemSpotted = true;
+			}
+			if (onlyOne)
+				break;
+		case "host":
+			List<SiteImpl> hostOverlapSites = siteRepository.findSitesForHostName(site.getHost());
+			for (SiteImpl ovlpSite : hostOverlapSites) {
+				if (site.getId() != ovlpSite.getId()) {
+					problems.add(messageSource.getMessage(MessageConstants.SITE_HOST_IN_USE,
+							new Object[] { site.getHost(), ovlpSite.getName() }, locale));
+					problemSpotted = true;
+				}
+			}
+			if (onlyOne)
+				break;
+		case "hostAliases":
+			List<SiteImpl> aliasOverlapSites = siteRepository.findSitesForHostNames(site.getHostAliases());
+			for (SiteImpl ovlpSite : aliasOverlapSites) {
+				if (site.getId() != ovlpSite.getId()) {
+					HashSet<String> intersection = new HashSet<>(ovlpSite.getHostAliases());
+					intersection.add(ovlpSite.getHost());
+					intersection.retainAll(site.getHostAliases());
+					String conflictAliases = intersection.stream().sorted().collect(Collectors.joining(", "));
+					problems.add(messageSource.getMessage(MessageConstants.SITE_HOSTALIAS_IN_USE,
+							new Object[] { ovlpSite.getName(), conflictAliases }, locale));
+					problemSpotted = true;
+				}
+			}
+			if (onlyOne)
+				break;
+		case "domain":
+			if (!siteRepository.isUnique(site.getId(), "domain", site.getDomain())) {
+				problems.add(messageSource.getMessage(MessageConstants.SITE_DOMAIN_EXISTS,
+						new Object[] { site.getDomain() }, locale));
+				problemSpotted = true;
+			}
+			break;
+		default:
+			throw new UnsupportedOperationException("Name collision check for '" + check + "' is not implemented");
+		}
+		return problemSpotted;
 	}
 
 	public PropertyImpl saveProperty(PropertyImpl property) {
 		return propertyRepository.save(property);
 	}
 
-	private Subject loginSubject(Site site, String username, String password) {
+	private SubjectImpl loginSubject(Site site, SubjectImpl subject, String username, String password,
+			Environment env) {
 		char[] pwdArr = password.toCharArray();
-		log.debug("user '" + username + "' tries to login");
-		Subject loginSubject = null;
-		Subject subject = getSubjectByName(username, true);
+		SubjectImpl loginSubject = null;
 		if (subject != null) {
-			UserType userType = subject.getUserType();
-			switch (userType) {
+			boolean precondition = false;
+			switch (subject.getUserType()) {
 			case LOCAL_USER:
-				if (isValidPassword(subject, password)) {
-					loginSubject = subject;
-				} else {
-					log.warn("User '{}' submitted wrong password.", subject.getName());
-				}
+				precondition = isValidPassword(subject, password);
 				break;
-
 			case GLOBAL_USER:
-				boolean success = ldapService.loginUser(site, username, pwdArr);
-				if (success) {
-					loginSubject = subject;
-				}
+				precondition = ldapService.loginUser(site, username, pwdArr);
 				break;
 			default:
 				break;
-
 			}
+
+			if (verifySubject(precondition, subject, env, "User '{}' submitted wrong password.")) {
+				loginSubject = subject;
+			}
+
 		} else {
 			List<SubjectImpl> globalGroups = getSubjectsByType(UserType.GLOBAL_GROUP);
 			if (!globalGroups.isEmpty()) {
-				List<String> groupNames = new ArrayList<String>();
-				for (SubjectImpl subjectImpl : globalGroups) {
-					groupNames.add(subjectImpl.getName());
-				}
+				List<String> groupNames = globalGroups.stream().map(SubjectImpl::getName).collect(Collectors.toList());
 				SubjectImpl groupSubject = new SubjectImpl();
+				groupSubject.setUserType(UserType.GLOBAL_GROUP);
+				groupSubject.setPasswordChangePolicy(PasswordChangePolicy.MUST_NOT);
 				List<String> subjectNames = ldapService.loginGroup(site, username, pwdArr, groupSubject, groupNames);
 				if (!subjectNames.isEmpty()) {
-					for (String subjectName : subjectNames) {
-						Subject s = getSubjectByName(subjectName, true);
-						List<Group> groups = s.getGroups();
-						groupSubject.getGroups().addAll(groups);
-					}
+					subjectNames.forEach(n -> groupSubject.getGroups().addAll(getSubjectByName(n, true).getGroups()));
 					loginSubject = groupSubject;
 				}
 			} else {
-				log.warn("no such user: '{}'", username);
+				LOGGER.warn("no such user: '{}'", username);
 			}
 		}
 		for (int i = 0; i < pwdArr.length; i++) {
@@ -436,12 +523,12 @@ public class CoreService {
 		if (validPassword) {
 			passwordHandler.migrate(this, password);
 		} else {
-			log.warn("wrong password for user {}", authSubject.getAuthName());
+			LOGGER.warn("wrong password for user {}", authSubject.getAuthName());
 		}
 		password = "";
 		sw.stop();
-		if (log.isDebugEnabled()) {
-			log.debug(sw.shortSummary());
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug(sw.shortSummary());
 		}
 		return validPassword;
 	}
@@ -450,12 +537,16 @@ public class CoreService {
 	 * Returns a {@link PasswordHandler} which is able to handle the password of a given {@link AuthSubject}. This is
 	 * only relevant if {@link Subject}s exist which still use passwords hashed with an older {@link PasswordHandler}.
 	 * This method may be removed in the future.
+	 *
+	 * @param      authSubject
+	 *                         The {@link AuthSubject} which is used to initialize the {@link PasswordHandler} and to
+	 *                         determine which implementation of the {@link PasswordHandler} interface will be returned.
 	 * 
-	 * @param authSubject
-	 *            The {@link AuthSubject} which is used to initialize the {@link PasswordHandler} and to determine which
-	 *            implementation of the {@link PasswordHandler} interface will be returned.
-	 * @return the {@link PasswordHandler} for the {@link AuthSubject}
+	 * @return                 the {@link PasswordHandler} for the {@link AuthSubject}
+	 * 
+	 * @deprecated             will be removed in 2.x
 	 */
+	@Deprecated
 	public PasswordHandler getPasswordHandler(AuthSubject authSubject) {
 		if (!authSubject.getDigest().startsWith(BCryptPasswordHandler.getPrefix())) {
 			return new Sha1PasswordHandler(authSubject);
@@ -466,103 +557,156 @@ public class CoreService {
 
 	/**
 	 * Returns the default password manager which should be used to handle all passwords.
+	 *
+	 * @param  authSubject
+	 *                     The {@link AuthSubject} which is used for initializing the {@link PasswordHandler}.
 	 * 
-	 * @param authSubject
-	 *            The {@link AuthSubject} which is used for initializing the {@link PasswordHandler}.
-	 * @return the default {@link PasswordHandler} for the {@link AuthSubject}
+	 * @return             the default {@link PasswordHandler} for the {@link AuthSubject}
 	 */
 	public PasswordHandler getDefaultPasswordHandler(AuthSubject authSubject) {
 		return new BCryptPasswordHandler(authSubject);
 	}
 
 	public Subject restoreSubject(String name) {
-		Subject subject = getSubjectByName(name, true);
+		SubjectImpl subject = getSubjectByName(name, true);
 		if (null != subject) {
 			initAuthenticatedSubject(subject);
-			log.trace("successfully restored subject '" + subject.getName());
+			LOGGER.trace("successfully restored subject '{}'", subject.getName());
 		} else {
-			log.error("can not restore subject '" + name);
+			LOGGER.error("can not restore subject '{}'", name);
 		}
 		return subject;
 	}
 
-	void saveProperties(Properties properties) {
+	protected void saveProperties(Properties properties) {
 		Set<String> propertyNames = properties.getPropertyNames();
 		PropertyHolder propertyHolder = (PropertyHolder) properties;
 		propertyNames.forEach(name -> saveProperty((PropertyImpl) propertyHolder.getProperty(name)));
 	}
 
 	public boolean login(Environment env, Principal principal) {
-		Subject loginSubject = null;
-		Subject subject = getSubjectByName(principal.getName(), true);
+		SubjectImpl loginSubject = null;
+		SubjectImpl subject = getSubjectByName(principal.getName(), false);
 		if (null != subject) {
-			if (UserType.GLOBAL_USER.equals(subject.getUserType())) {
+			if (verifySubject(UserType.GLOBAL_USER.equals(subject.getUserType()), subject, env,
+					"{} must be a global user!")) {
+				LOGGER.info("user {} found", principal.getName());
 				loginSubject = subject;
-				log.info("user " + principal.getName() + " found");
-			} else {
-				log.error("subject must be of type " + UserType.GLOBAL_USER);
 			}
 		} else {
-			log.info("Subject authentication failed. Trying to authenticate based on LDAP group membership.");
+			LOGGER.info("Subject authentication failed. Trying to authenticate based on LDAP group membership.");
 			loginSubject = new SubjectImpl();
-			((SubjectImpl) loginSubject).setName(principal.getName());
+			loginSubject.setName(principal.getName());
 
 			boolean hasAnyRole = false;
 			List<SubjectImpl> globalGroups = getSubjectsByType(UserType.GLOBAL_GROUP);
 			HttpServletRequest request = ((DefaultEnvironment) env).getServletRequest();
 			for (Subject globalGroup : globalGroups) {
 				if (request.isUserInRole(globalGroup.getName())) {
-					log.info("user '" + principal.getName() + "' belongs to group '" + globalGroup.getName() + "'");
+					LOGGER.info("user '{}' belongs to group '{}'", principal.getName(), globalGroup.getName());
 					hasAnyRole = true;
-					List<Group> groups = globalGroup.getGroups();
-					for (Group group : groups) {
+					for (Group group : globalGroup.getGroups()) {
 						initGroup(group);
 						if (!loginSubject.getGroups().contains(group)) {
 							loginSubject.getGroups().add(group);
-							((SubjectImpl) loginSubject).setLanguage(globalGroup.getLanguage());
-							((SubjectImpl) loginSubject).setRealname(globalGroup.getName());
+							loginSubject.setLanguage(globalGroup.getLanguage());
+							loginSubject.setRealname(globalGroup.getName());
 						}
 					}
 				}
 			}
 			if (hasAnyRole) {
-				log.info("User \"" + principal.getName() + "\" successfully authenticated.");
+				LOGGER.info("User '{}' successfully authenticated.", principal.getName());
 			} else {
 				loginSubject = null;
-				log.error("No valid group membership found for user \"" + principal.getName() + "\"");
+				LOGGER.error("No valid group membership found for user '{}'", principal.getName());
 			}
 		}
 		return login(env, loginSubject);
 	}
 
 	public boolean login(Environment env, String digest, int digestMaxValidity) {
-		Properties platformConfig = env.getAttribute(Scope.PLATFORM, Platform.Environment.PLATFORM_CONFIG);
-		String sharedSecret = platformConfig.getString(Platform.Property.SHARED_SECRET);
+		String sharedSecret = getPlatformConfig(env).getString(Platform.Property.SHARED_SECRET);
 		DigestValidator validator = new DigestValidator(digest, digestMaxValidity);
 		String username = validator.getUsername();
 		if (StringUtils.isNotBlank(username)) {
-			Subject s = getSubjectByName(username, true);
-			if (null != s) {
-				if (validator.validate(sharedSecret)) {
-					sharedSecret = "";
-					login(env, s);
-					log.debug("digest validation succeeded for {}", username);
-					return true;
-				} else {
-					log.debug("digest validation failed for {}", username);
+			SubjectImpl subject = getSubjectByName(username, false);
+			if (null != subject) {
+				boolean success = validator.validate(sharedSecret);
+				sharedSecret = "";
+				if (verifySubject(success, subject, env, "Digest validation failed for {}")) {
+					return login(env, subject);
 				}
 			} else {
-				log.debug("user for digest login not found: {}", username);
+				LOGGER.debug("user for digest login not found: {}", username);
 			}
 		} else {
-			log.debug("empty user name for digest validation!");
+			LOGGER.debug("empty user name for digest validation!");
 		}
+
+		return false;
+	}
+
+	private boolean verifySubject(boolean precondition, SubjectImpl subject, Environment env, String message) {
+		Properties platformCfg = getPlatformConfig(env);
+		String username = subject.getAuthName();
+		Date now = new Date();
+		if (precondition) {
+			Integer inactiveLockPeriod = platformCfg.getInteger(Platform.Property.INACTIVE_LOCK_PERIOD);
+			boolean isLocalUser = UserType.LOCAL_USER.equals(subject.getUserType());
+			if (subject.isLocked()) {
+				createEvent(Type.INFO, "Rejected login for locked user %s.", username);
+			} else if (subject.isExpired(now)) {
+				subject.setLocked(true);
+				createEvent(Type.INFO, "User %s has been locked because the expiry date has exceeded (%s).", username,
+						subject.getExpiryDate());
+			} else if (subject.isInactive(now, inactiveLockPeriod)) {
+				subject.setLocked(true);
+				createEvent(Type.WARN, "User %s has been locked due to inactivity (last login was at %s).", username,
+						subject.getLastLogin());
+			} else if (isLocalUser && PasswordChangePolicy.MUST_RECOVER.equals(subject.getPasswordChangePolicy())) {
+				createEvent(Type.INFO, "Rejected login for user %s, password recovery is required.", username);
+				env.setAttribute(Scope.REQUEST, "subject.mustRecoverPassword", true);
+			} else {
+				Boolean forceChangePassword = platformCfg.getBoolean(Platform.Property.FORCE_CHANGE_PASSWORD, false);
+				Integer maxPasswordValidity = platformCfg.getInteger(Platform.Property.PASSWORD_MAX_VALIDITY, -1);
+				boolean mayChangePassword = PasswordChangePolicy.MAY.equals(subject.getPasswordChangePolicy());
+				if (isLocalUser && mayChangePassword && forceChangePassword && maxPasswordValidity > 0
+						&& null != subject.getPasswordLastChanged()) {
+					Date pwExpiredAt = DateUtils.addDays(subject.getPasswordLastChanged(), maxPasswordValidity);
+					if (pwExpiredAt.before(now)) {
+						subject.setPasswordChangePolicy(PasswordChangePolicy.MUST);
+						createEvent(Type.INFO,
+								"User %s must change password (has not been changed since more than %s days).",
+								username, maxPasswordValidity);
+					}
+				}
+				subject.setAuthenticated(true);
+				subject.setLastLogin(now);
+				subject.setFailedLoginAttempts(0);
+				return true;
+			}
+		} else {
+			subject.setAuthenticated(false);
+			subject.setFailedLoginAttempts(subject.getFailedLoginAttempts() + 1);
+			Integer maxAttempts = platformCfg.getInteger(Platform.Property.MAX_LOGIN_ATTEMPTS);
+			if (maxAttempts <= subject.getFailedLoginAttempts()) {
+				subject.setLocked(true);
+				createEvent(Type.WARN, "User %s has been locked after %s failed login attempts.", username,
+						subject.getFailedLoginAttempts());
+			} else {
+				createEvent(Type.INFO, "User %s has %s failed login attempts.", username,
+						subject.getFailedLoginAttempts());
+			}
+			LOGGER.debug(message, username);
+		}
+		env.setAttribute(Scope.REQUEST, "subject.locked", subject.isLocked());
 		return false;
 	}
 
 	public boolean login(Site site, Environment env, String username, String password) {
-		Subject s = loginSubject(site, username, password);
-		return login(env, s);
+		SubjectImpl subject = loginSubject(site, getSubjectByName(username, false), username, password, env);
+		return login(env, subject);
 	}
 
 	public boolean loginGroup(Environment env, AuthSubject authSubject, String password, Integer groupId) {
@@ -579,46 +723,77 @@ public class CoreService {
 				return login(env, subject);
 			}
 		} else {
-			log.warn("no such group: {}", groupId);
+			LOGGER.warn("no such group: {}", groupId);
 		}
 		return false;
 	}
 
-	private boolean login(Environment env, Subject subject) {
+	public boolean loginUserWithGroups(Environment env, String userName, String email, String realName,
+			List<String> appNGGroups) {
+		List<Group> groups = groupRepository.findByNameIn(appNGGroups);
+		if (groups.isEmpty()) {
+			return false;
+		}
+		SubjectImpl subject = new SubjectImpl();
+		subject.setEmail(email);
+		subject.setName(userName);
+		subject.setRealname(realName);
+		subject.setGroups(groups);
+		initializeSubject(subject);
+		return login(env, subject);
+	}
+
+	public boolean loginByUserName(Environment env, String username) {
+		SubjectImpl subject = getSubjectByName(username, true);
+		if (null != subject && UserType.LOCAL_USER.equals(subject.getUserType())) {
+			return login(env, subject);
+		} else {
+			LOGGER.info("User {} not found or not a local user!", username);
+			return false;
+		}
+	}
+
+	private boolean login(Environment env, SubjectImpl subject) {
 		if (subject != null) {
-			initAuthenticatedSubject(subject);
-			log.info("successfully logged in user '" + subject.getName() + "'");
 			((DefaultEnvironment) env).setSubject(subject);
+			if (null != subject.getId()) {
+				subjectRepository.saveAndFlush(subject);
+			}
+			initAuthenticatedSubject(subject);
+			LOGGER.info("successfully logged in user '{}'", subject.getName());
+			auditableListener.createEvent(Type.INFO, "logged in");
 			return true;
 		}
 		return false;
 	}
 
 	public void logoutSubject(Environment env) {
-		String subjectName = env.getSubject().getName();
+		Subject subject = env.getSubject();
+		auditableListener.createEvent(Type.INFO, "logged out");
 		((DefaultEnvironment) env).logoutSubject();
-		log.info("'" + subjectName + "' logged out");
+		LOGGER.info("'{}' logged out", subject.getName());
 	}
 
 	public PropertyImpl getProperty(String propertyId) {
 		return propertyRepository.findOne(propertyId);
 	}
 
-	protected void createSite(SiteImpl site, Environment environment) {
+	protected void createSite(SiteImpl site, Environment env) {
 		if (site.isCreateRepository()) {
-			File repositoryRootDir = getRepositoryRootFolder(environment);
+			File repositoryRootDir = PlatformProperties.get(getPlatformConfig(env)).getRepositoryRootFolder();
 			File siteRootDir = new File(repositoryRootDir, site.getName());
 			if (!siteRootDir.exists()) {
 				try {
 					FileUtils.forceMkdir(siteRootDir);
 				} catch (IOException e) {
-					log.error("directory cannot be created or the file named " + site.getName()
-							+ " already exists but is not a directory", e);
+					LOGGER.error(String.format(
+							"directory cannot be created or the file named %s already exists but is not a directory",
+							site.getName()), e);
 				}
 			}
 		}
 
-		initSiteProperties(site, environment, true);
+		initSiteProperties(site, true);
 		siteRepository.save(site);
 	}
 
@@ -626,29 +801,29 @@ public class CoreService {
 		createSite(site, null);
 	}
 
-	private void initAuthenticatedSubject(Subject subject) {
+	private void initAuthenticatedSubject(SubjectImpl subject) {
+		initializeSubject(subject);
 		((SubjectImpl) subject).setAuthenticated(true);
 		((SubjectImpl) subject).setSalt(null);
 		((SubjectImpl) subject).setDigest(null);
 	}
 
 	protected void initSiteProperties(SiteImpl site) {
-		initSiteProperties(site, null);
+		initSiteProperties(site, false);
 	}
 
-	void initSiteProperties(SiteImpl site, Environment environment) {
-		initSiteProperties(site, environment, false);
-	}
-
-	void initSiteProperties(SiteImpl site, Environment environment, boolean doSave) {
-		PropertyHolder siteProperties = getSiteProperties(site);
-		Properties platformConfig = getPlatformConfig(environment);
-		new PropertySupport(siteProperties).initSiteProperties(site, platformConfig);
+	protected void initSiteProperties(SiteImpl site, boolean doSave) {
+		PropertyHolder siteProperties = getProperties(site, null);
+		List<String> platformProps = PropertySupport.getSiteRelevantPlatformProps();
+		SearchQuery<PropertyImpl> query = propertyRepository.createSearchQuery().in("name", platformProps);
+		Page<PropertyImpl> properties = propertyRepository.search(query, new PageRequest(0, platformProps.size()));
+		new PropertySupport(siteProperties).initSiteProperties(site,
+				new PropertyHolder(PropertySupport.PREFIX_PLATFORM, properties));
 		if (doSave) {
 			saveProperties(siteProperties);
 		}
 		site.setProperties(siteProperties);
-		log.debug("initialized properties for site " + site.getName() + ": " + siteProperties.toString());
+		LOGGER.debug("initialized properties for site {}: {}", site.getName(), siteProperties.toString());
 	}
 
 	private void createApplication(ApplicationImpl application, ApplicationInfo applicationInfo, FieldProcessor fp) {
@@ -667,8 +842,8 @@ public class CoreService {
 
 			if (null != applicationInfo.getRoles()) {
 				Roles roles = applicationInfo.getRoles();
-				Set<Role> applicationRoles = new HashSet<Role>();
-				Set<Role> adminRoles = new HashSet<Role>();
+				Set<Role> applicationRoles = new HashSet<>();
+				Set<Role> adminRoles = new HashSet<>();
 
 				for (org.appng.xml.application.Role role : roles.getRole()) {
 					RoleImpl applicationRole = createApplicationRole(application, role);
@@ -691,7 +866,7 @@ public class CoreService {
 					if (null != fp) {
 						fp.addNoticeMessage(message.toString());
 					}
-					log.debug(message.toString());
+					LOGGER.debug(message.toString());
 				}
 			}
 
@@ -699,9 +874,9 @@ public class CoreService {
 				for (org.appng.xml.application.Property prop : applicationInfo.getProperties().getProperty()) {
 					PropertyImpl property = new PropertyImpl(prop.getId(), null, null);
 					setPropertyValue(prop, property, true);
-					createProperty(null, application.getId(), property);
+					createProperty(null, application, property);
 				}
-				final Properties applicationProperties = getApplicationProperties(null, application);
+				final Properties applicationProperties = getProperties(null, application);
 				application.setProperties(applicationProperties);
 			}
 		}
@@ -714,7 +889,7 @@ public class CoreService {
 		applicationRole.setApplication(application);
 		roleRepository.save(applicationRole);
 		addPermissionsToRole(application.getId(), role, applicationRole);
-		log.info("creating new role '" + role.getName() + "' for application '" + application.getName() + "'");
+		LOGGER.info("creating new role '{}' for application '{}'", role.getName(), application.getName());
 		return applicationRole;
 	}
 
@@ -724,12 +899,12 @@ public class CoreService {
 			String permissionName = permissionRef.getId();
 			Permission p = permissionRepository.findByNameAndApplicationId(permissionName, applicationId);
 			if (null == p) {
-				log.warn("the role '" + role.getName() + "' references permisson '" + permissionName
-						+ "' which does not exist!");
+				LOGGER.warn("the role '{}' references permisson '{}' which does not exist!", role.getName(),
+						permissionName);
 			} else if (applicationRole.getPermissions().add(p)) {
-				log.info("added permission '" + permissionName + "' to role '" + role.getName() + "'");
+				LOGGER.info("added permission '{}' to role '{}'", permissionName, role.getName());
 			} else {
-				log.info("role '" + role.getName() + "' already has permission '" + permissionName + "'");
+				LOGGER.info("role '{}' already has permission '{}'", role.getName(), permissionName);
 			}
 		}
 	}
@@ -739,17 +914,25 @@ public class CoreService {
 		siteApplication.setActive(true);
 		siteApplication.setReloadRequired(true);
 		siteApplication.setMarkedForDeletion(false);
+
 		MigrationStatus migrationStatus = createDatabaseConnection(siteApplication);
+		DatabaseConnection dbc = siteApplication.getDatabaseConnection();
 		if (!migrationStatus.isErroneous()) {
 			siteApplicationRepository.save(siteApplication);
 			site.getSiteApplications().add(siteApplication);
+			auditableListener.createEvent(Type.INFO,
+					String.format("Assigned application %s to site %s", application.getName(), site.getName()));
+			if (MigrationStatus.DB_MIGRATED.equals(migrationStatus)) {
+				auditableListener.createEvent(Type.INFO,
+						String.format("Created database %s with user %s", dbc.getJdbcUrl(), dbc.getUserName()));
+			}
 			if (createProperties) {
 				String prefix = PropertySupport.getPropertyPrefix(site, application);
-				Iterable<PropertyImpl> properties = getProperties(prefix);
+				Iterable<PropertyImpl> properties = getPropertiesList(prefix);
 				for (PropertyImpl property : properties) {
 					propertyRepository.delete(property);
 				}
-				PropertyHolder originalProperties = getApplicationProperties(null, application);
+				PropertyHolder originalProperties = getProperties(null, application);
 				if (null != originalProperties) {
 					for (String name : originalProperties.getPropertyNames()) {
 						Property platformApplicationProperty = originalProperties.getProperty(name);
@@ -757,20 +940,39 @@ public class CoreService {
 						String propName = name.substring(name.lastIndexOf(".") + 1);
 						PropertyImpl property = new PropertyImpl(propName, null, value);
 						property.setDescription(platformApplicationProperty.getDescription());
+						property.setType(platformApplicationProperty.getType());
 						if (StringUtils.isNotEmpty(platformApplicationProperty.getClob())) {
 							property.setClob(platformApplicationProperty.getClob());
 						} else {
 							property.setDefaultString(platformApplicationProperty.getDefaultString());
 						}
-						createProperty(site.getId(), application.getId(), property);
+						createProperty(site, application, property);
 					}
 				}
 			}
+		} else if (null != dbc) {
+			auditableListener.createEvent(Type.ERROR,
+					String.format("Error creating database %s with user %s for application %s on site %s",
+							dbc.getJdbcUrl(), dbc.getUserName(), application.getName(), site.getName()));
+			MigrationStatus droppedState = databaseService.dropDataBaseAndUser(dbc);
+			if (MigrationStatus.ERROR.equals(droppedState)) {
+				String message = String.format(
+						"Failed to delete database and user for connection %s, manual cleanup might be required!",
+						dbc.getJdbcUrl());
+				LOGGER.warn(message);
+				auditableListener.createEvent(Type.ERROR, message);
+			}
+			databaseConnectionRepository.delete(dbc);
+		} else {
+			auditableListener.createEvent(Type.ERROR,
+					String.format("Error creating database and/or user for application %s on site %s",
+							application.getName(), site.getName()));
 		}
+
 		return migrationStatus;
 	}
 
-	private MigrationStatus createDatabaseConnection(SiteApplication siteApplication) {
+	protected MigrationStatus createDatabaseConnection(SiteApplication siteApplication) {
 		Application application = siteApplication.getApplication();
 		Site site = siteApplication.getSite();
 		Properties platformConfig = getPlatformProperties();
@@ -778,15 +980,20 @@ public class CoreService {
 		CacheProvider cacheProvider = new CacheProvider(platformConfig);
 		try {
 			File platformCache = cacheProvider.getPlatformCache(site, application);
-			Resources applicationResources = getResources(application, platformCache, applicationRootFolder);
-			applicationResources.dumpToCache(ResourceType.APPLICATION, ResourceType.SQL);
-			ApplicationInfo applicationInfo = applicationResources.getApplicationInfo();
+			Resources resources = getResources(application, platformCache, applicationRootFolder);
+			resources.dumpToCache(ResourceType.APPLICATION, ResourceType.SQL);
 			File sqlFolder = new File(platformCache, ResourceType.SQL.getFolder());
 			String databasePrefix = platformConfig.getString(Platform.Property.DATABASE_PREFIX);
-			return databaseService.manageApplicationConnection(siteApplication, applicationInfo, sqlFolder,
+			PropertyHolder applicationProperties = getProperties(null, siteApplication.getApplication());
+			((AccessibleApplication) application).setProperties(applicationProperties);
+			if (null == application.getResources()) {
+				((AccessibleApplication) application).setResources(resources);
+			}
+			MigrationStatus status = databaseService.manageApplicationConnection(siteApplication, sqlFolder,
 					databasePrefix);
+			return status;
 		} catch (Exception e) {
-			log.error("error during database setup for application " + application.getName(), e);
+			LOGGER.error(String.format("error during database setup for application %s", application.getName()), e);
 		} finally {
 			cacheProvider.clearCache(site, application.getName());
 		}
@@ -798,7 +1005,7 @@ public class CoreService {
 	}
 
 	public PermissionImpl savePermission(PermissionImpl p) {
-		log.info("creating new permission '{}' for application '{}'", p.getName(), p.getApplication().getName());
+		LOGGER.info("creating new permission '{}' for application '{}'", p.getName(), p.getApplication().getName());
 		return permissionRepository.save(p);
 	}
 
@@ -817,11 +1024,11 @@ public class CoreService {
 
 	public PackageInfo installPackage(final Integer repositoryId, final String name, final String version,
 			String timestamp, final boolean isPrivileged, final boolean isHidden, final boolean isFileBased,
-			FieldProcessor fp) throws BusinessException {
+			FieldProcessor fp, boolean updateHiddenAndPrivileged) throws BusinessException {
 		PackageArchive applicationArchive = getArchive(repositoryId, name, version, timestamp);
 		switch (applicationArchive.getType()) {
 		case APPLICATION:
-			provideApplication(applicationArchive, isFileBased, isPrivileged, isHidden, fp);
+			provideApplication(applicationArchive, isFileBased, isPrivileged, isHidden, fp, updateHiddenAndPrivileged);
 			break;
 		case TEMPLATE:
 			provideTemplate(applicationArchive);
@@ -832,8 +1039,7 @@ public class CoreService {
 	public PackageInfo installPackage(final Integer repositoryId, final String name, final String version,
 			String timestamp, final boolean isPrivileged, final boolean isHidden, final boolean isFileBased)
 			throws BusinessException {
-
-		return installPackage(repositoryId, name, version, timestamp, isPrivileged, isHidden, isFileBased, null);
+		return installPackage(repositoryId, name, version, timestamp, isPrivileged, isHidden, isFileBased, null, false);
 	}
 
 	private PackageArchive getArchive(final Integer repositoryId, final String applicationName,
@@ -841,8 +1047,8 @@ public class CoreService {
 		if (null != repositoryId && null != applicationName && null != applicationVersion) {
 			RepositoryImpl repository = repoRepository.findOne(repositoryId);
 			if (null != repository) {
-				log.info("retrieving '" + applicationName + "-" + applicationVersion + "' from repository "
-						+ repository.getUri());
+				LOGGER.info("retrieving '{}-{}' from repository {}", applicationName, applicationVersion,
+						repository.getUri());
 				return repository.getPackageArchive(applicationName, applicationVersion, applicationTimestamp);
 			} else {
 				throw new BusinessException("Repository not found: " + repositoryId);
@@ -864,15 +1070,16 @@ public class CoreService {
 
 	/**
 	 * Deletes a {@link Template}
+	 *
+	 * @param  name
+	 *              the name of the template to delete
 	 * 
-	 * @param name
-	 *            the name of the template to delete
 	 * @return
-	 *         <ul>
-	 *         <li>0 - if everything went OK
-	 *         <li>-1 - if no such template exists
-	 *         <li>-2 - if the template is still in use
-	 *         </ul>
+	 *              <ul>
+	 *              <li>0 - if everything went OK
+	 *              <li>-1 - if no such template exists
+	 *              <li>-2 - if the template is still in use
+	 *              </ul>
 	 */
 	public Integer deleteTemplate(String name) {
 		Template template = templateService.getTemplateByName(name);
@@ -882,29 +1089,32 @@ public class CoreService {
 		Integer sitesUsingTemplate = propertyRepository.countByActualStringAndNameLike(template.getDisplayName(),
 				"platform\\.site\\.%\\." + SiteProperties.TEMPLATE);
 		if (0 == sitesUsingTemplate) {
-			Properties platformConfig = getPlatformConfig(null);
-			return templateService.deleteTemplate(template, platformConfig);
+			return templateService.deleteTemplate(template);
 		}
 		return -2;
 	}
 
 	private ApplicationImpl provideApplication(PackageArchive applicationArchive, boolean isFileBased,
-			boolean isPrivileged, boolean isHidden, FieldProcessor fp) throws BusinessException {
+			boolean isPrivileged, boolean isHidden, FieldProcessor fp, boolean updateHiddenAndPrivileged)
+			throws BusinessException {
 		ApplicationInfo applicationInfo = (ApplicationInfo) applicationArchive.getPackageInfo();
 		String applicationName = applicationInfo.getName();
 		String applicationVersion = applicationInfo.getVersion();
 		File outputDir = getApplicationFolder(null, applicationName);
 		ApplicationImpl application = applicationRepository.findByName(applicationName);
 		if (null == application) {
-			log.info("deploying application " + applicationName + "-" + applicationVersion);
+			LOGGER.info("deploying application {}-{}", applicationName, applicationVersion);
 			application = RepositoryImpl.getApplication(applicationInfo);
 			application.setFileBased(isFileBased);
 			application.setPrivileged(isPrivileged);
 			application.setHidden(isHidden);
 			createApplication(application, applicationInfo, fp);
 		} else {
-			log.info("updating application " + applicationName + "-" + applicationVersion);
-			// Update application information
+			LOGGER.info("updating application {}-{}", applicationName, applicationVersion);
+			if (updateHiddenAndPrivileged) {
+				application.setPrivileged(isPrivileged);
+				application.setHidden(isHidden);
+			}
 			RepositoryImpl.getApplication(application, applicationInfo);
 		}
 		updateApplication(application, applicationArchive, outputDir);
@@ -962,12 +1172,14 @@ public class CoreService {
 		Roles roles = applicationInfo.getRoles();
 		if (null != roles) {
 			for (org.appng.xml.application.Role role : roles.getRole()) {
-				Role applicationRole = roleRepository.findByApplicationIdAndName(application.getId(), role.getName());
+				RoleImpl applicationRole = roleRepository.findByApplicationIdAndName(application.getId(),
+						role.getName());
 				if (null == applicationRole) {
 					applicationRole = createApplicationRole(application, role);
 					application.getRoles().add(applicationRole);
 				} else {
 					addPermissionsToRole(application.getId(), role, applicationRole);
+					applicationRole.setDescription(role.getDescription());
 				}
 			}
 		}
@@ -980,7 +1192,7 @@ public class CoreService {
 				PropertyImpl property = propertyRepository.findOne(propName);
 				if (null == property) {
 					property = new PropertyImpl(prop.getId(), null, null);
-					createProperty(null, application.getId(), property);
+					createProperty(null, application, property);
 				}
 				setPropertyValue(prop, property, true);
 
@@ -990,25 +1202,30 @@ public class CoreService {
 					boolean forceValue = null == siteProperty;
 					if (forceValue) {
 						siteProperty = new PropertyImpl(prop.getId(), null, null);
-						createProperty(site.getId(), application.getId(), siteProperty);
+						createProperty(site, application, siteProperty);
 					}
 					setPropertyValue(prop, siteProperty, forceValue);
 				}
 			}
 		}
-		final Properties applicationProperties = getApplicationProperties(null, application);
+		final Properties applicationProperties = getProperties(null, application);
 		application.setProperties(applicationProperties);
 	}
 
 	private void setPropertyValue(org.appng.xml.application.Property prop, PropertyImpl property,
-			boolean forceClobValue) {
+			boolean forceMultiline) {
 		property.setDescription(prop.getDescription());
-		if (Boolean.TRUE.equals(prop.isClob())) {
-			if (forceClobValue || null == property.getClob()) {
+		PropertyType orignalType = prop.getType();
+		Property.Type type = null != orignalType ? Property.Type.valueOf(orignalType.name())
+				: Property.Type.forString(prop.getValue());
+		property.setType(type);
+		if (Boolean.TRUE.equals(prop.isClob()) || Property.Type.MULTILINE.equals(type)) {
+			if (forceMultiline || null == property.getClob()) {
 				property.setClob(prop.getValue());
 			}
 			property.setDefaultString(null);
 			property.setActualString(null);
+			property.setType(Property.Type.MULTILINE);
 		} else if (StringUtils.isBlank(property.getClob())) {
 			property.setDefaultString(prop.getValue());
 			property.setClob(null);
@@ -1033,14 +1250,14 @@ public class CoreService {
 	protected void writeApplicationResources(Application application, boolean fileBased, File outputDir,
 			Collection<Resource> resources) throws BusinessException {
 		if (fileBased) {
-			log.info("extracting filebased application {} - {} to {}", application.getName(),
+			LOGGER.info("extracting filebased application {} - {} to {}", application.getName(),
 					application.getPackageVersion(), outputDir);
 			writeFileBasedApplicationResources(resources, outputDir);
 		} else {
-			log.info("creating resource(s) for database-based application {} - {}", application.getName(),
+			LOGGER.info("creating resource(s) for database-based application {} - {}", application.getName(),
 					application.getPackageVersion());
 			for (Resource r : resources) {
-				log.info("saving applicationresource {}", r.getName());
+				LOGGER.info("saving applicationresource {}", r.getName());
 				ResourceImpl resource = (r instanceof ResourceImpl) ? ((ResourceImpl) r)
 						: new ResourceImpl(application, r);
 				resourceRepository.save(resource);
@@ -1049,37 +1266,20 @@ public class CoreService {
 	}
 
 	protected File getApplicationRootFolder(Environment environment) {
-		Properties platformConfig = getPlatformConfig(environment);
-		String rootPath = platformConfig.getString(Platform.Property.PLATFORM_ROOT_PATH);
-		String applicationDir = platformConfig.getString(Platform.Property.APPLICATION_DIR);
-		return new File(rootPath, applicationDir);
+		return PlatformProperties.get(getPlatformConfig(environment)).getApplicationDir();
 	}
 
 	public File getApplicationFolder(Environment env, String applicationName) {
-		File applicationRootFolder = getApplicationRootFolder(env);
-		return new File(applicationRootFolder, applicationName);
+		return new File(getApplicationRootFolder(env), applicationName);
 	}
 
 	private File getApplicationFolder(Environment env, Application application) {
 		return getApplicationFolder(env, application.getName());
 	}
 
-	private File getRepositoryRootFolder(Environment environment) {
-		Properties platformConfig = getPlatformConfig(environment);
-		String rootPath = platformConfig.getString(Platform.Property.PLATFORM_ROOT_PATH);
-		String repositoryPath = platformConfig.getString(Platform.Property.REPOSITORY_PATH);
-		String repositoryRootDir = rootPath + File.separator + repositoryPath;
-		return new File(repositoryRootDir);
-	}
-
 	protected Properties getPlatformConfig(Environment environment) {
-		Properties platformConfig = null;
-		if (null == environment) {
-			platformConfig = getPlatformProperties();
-		} else {
-			platformConfig = environment.getAttribute(Scope.PLATFORM, Platform.Environment.PLATFORM_CONFIG);
-		}
-		return platformConfig;
+		return null == environment ? getPlatform(false, false)
+				: environment.getAttribute(Scope.PLATFORM, Platform.Environment.PLATFORM_CONFIG);
 	}
 
 	protected String deleteResource(Environment env, Integer applicationId, Integer resourceId)
@@ -1111,14 +1311,14 @@ public class CoreService {
 			File applicationFolder = getApplicationFolder(env, currentApplication);
 			if (currentApplication.isFileBased() && !isFileBased) {
 				convertDirection = "filebased to database";
-				log.info("application '{}' is beeing converted from {}", currentApplication.getName(),
+				LOGGER.info("application '{}' is beeing converted from {}", currentApplication.getName(),
 						convertDirection);
 				Resources resources = getResources(currentApplication, null, getApplicationRootFolder(env));
 				writeApplicationResources(currentApplication, false, null, resources.getResources());
 				deleteApplicationResources(application, applicationFolder);
 			} else if (!currentApplication.isFileBased() && isFileBased) {
 				convertDirection = "database to filebased";
-				log.info("application '{}' is beeing converted from {}", currentApplication.getName(),
+				LOGGER.info("application '{}' is beeing converted from {}", currentApplication.getName(),
 						convertDirection);
 				Resources resources = getResources(currentApplication, applicationFolder, null);
 				writeApplicationResources(currentApplication, true, applicationFolder, resources.getResources());
@@ -1136,20 +1336,16 @@ public class CoreService {
 			String outputPath = outputDir.getAbsolutePath() + File.separator
 					+ applicationResource.getResourceType().getFolder() + File.separator
 					+ applicationResource.getName();
-			OutputStream outputStream = null;
-			InputStream inputStream = null;
 			try {
 				File outputFile = new File(outputPath);
 				FileUtils.forceMkdir(outputFile.getParentFile());
-				outputStream = new FileOutputStream(outputFile);
-				inputStream = new ByteArrayInputStream(applicationResource.getBytes());
-				IOUtils.copy(inputStream, outputStream);
-				log.debug("writing " + outputPath);
+				try (OutputStream outputStream = new FileOutputStream(outputFile);
+						InputStream inputStream = new ByteArrayInputStream(applicationResource.getBytes())) {
+					IOUtils.copy(inputStream, outputStream);
+					LOGGER.debug("writing {}", outputPath);
+				}
 			} catch (IOException e) {
 				throw new BusinessException("error while updating resource " + applicationResource.getName(), e);
-			} finally {
-				IOUtils.closeQuietly(outputStream);
-				IOUtils.closeQuietly(inputStream);
 			}
 		}
 	}
@@ -1171,28 +1367,44 @@ public class CoreService {
 	}
 
 	public byte[] resetPassword(AuthSubject authSubject, PasswordPolicy passwordPolicy, String email, String hash) {
-		PasswordHandler passwordHandler = getPasswordHandler(authSubject);
-		if (passwordHandler.isValidPasswordResetDigest(hash)) {
-			log.debug("setting new password for " + email);
-			String password = passwordPolicy.generatePassword();
-			PasswordHandler defaultPasswordHandler = getDefaultPasswordHandler(authSubject);
-			defaultPasswordHandler.savePassword(password);
-			return password.getBytes();
+		SubjectImpl subject = getSubjectByName(authSubject.getAuthName(), false);
+		if (canSubjectResetPassword(subject)) {
+			PasswordHandler passwordHandler = getPasswordHandler(authSubject);
+			if (passwordHandler.isValidPasswordResetDigest(hash)) {
+				LOGGER.debug("setting new password for {}", email);
+				String password = passwordPolicy.generatePassword();
+				getDefaultPasswordHandler(authSubject).applyPassword(password);
+				subject.setDigest(authSubject.getDigest());
+				subject.setSalt(null);
+				subject.setPasswordLastChanged(new Date());
+				subject.setPasswordChangePolicy(PasswordChangePolicy.MAY);
+				return password.getBytes();
+			} else {
+				LOGGER.debug("hash did not match, not setting new password for '{}'", authSubject.getAuthName());
+			}
 		} else {
-			log.debug("hash did not match, not setting new password for '" + email + "'");
+			LOGGER.debug("{} does not exist, is locked or must not change password!", authSubject.getAuthName());
 		}
 		return null;
 	}
 
-	public String forgotPassword(AuthSubject subject) throws BusinessException {
-		PasswordHandler passwordHandler = getPasswordHandler(subject);
-		String digest = passwordHandler.getPasswordResetDigest();
-		passwordHandler.updateSubject(this);
-		return digest;
+	public String forgotPassword(AuthSubject authSubject) throws BusinessException {
+		SubjectImpl subject = getSubjectByName(authSubject.getAuthName(), false);
+		if (canSubjectResetPassword(subject)) {
+			return getPasswordHandler(subject).calculatePasswordResetDigest();
+		} else {
+			throw new BusinessException(String.format("%s does not exist, is locked or must not change password!",
+					authSubject.getAuthName()));
+		}
 	}
 
-	public void updateSubject(SubjectImpl subject) {
-		subjectRepository.save(subject);
+	private boolean canSubjectResetPassword(SubjectImpl subject) {
+		return !(null == subject || PasswordChangePolicy.MUST_NOT.equals(subject.getPasswordChangePolicy())
+				|| subject.isExpired(new Date()));
+	}
+
+	public SubjectImpl updateSubject(SubjectImpl subject) {
+		return subjectRepository.save(subject);
 	}
 
 	public AccessibleApplication findApplicationByName(String name) {
@@ -1218,7 +1430,7 @@ public class CoreService {
 		if (null == siteByName) {
 			throw new BusinessException("No such site " + name);
 		}
-		deleteSite(null, siteByName, fp, null, null, null);
+		deleteSite(null, siteByName);
 	}
 
 	public void setSiteActive(String name, boolean active) throws BusinessException {
@@ -1229,39 +1441,59 @@ public class CoreService {
 		siteByName.setActive(active);
 	}
 
+	@Deprecated
 	protected void deleteSite(Environment env, SiteImpl site, FieldProcessor fp, Request request,
 			final String siteAliasDeleted, final String siteDeleteError) throws BusinessException {
-		log.info("starting deletion of site {}", site.getName());
+		deleteSite(env, site);
+	}
+
+	public void deleteSite(Environment env, SiteImpl site) throws BusinessException {
+		LOGGER.info("starting deletion of site {}", site.getName());
 		List<SiteApplication> grantedApplications = siteApplicationRepository.findByGrantedSitesIn(site);
 		for (SiteApplication siteApplication : grantedApplications) {
 			siteApplication.getGrantedSites().remove(site);
 		}
 		detachApplications(site);
 
-		Iterable<PropertyImpl> siteProperties = getSiteProperties(site.getId(), null);
+		Iterable<PropertyImpl> siteProperties = getPropertiesList(site, null);
 		deleteProperties(siteProperties);
 
-		shutdownSite(env, site.getName());
+		SiteImpl shutdownSite = shutdownSite(env, site.getName(), false);
 		List<DatabaseConnection> connections = databaseConnectionRepository.findBySiteId(site.getId());
-		log.info("deleting {} orphaned database connections", connections.size());
+		LOGGER.info("deleting {} orphaned database connections", connections.size());
 		databaseConnectionRepository.delete(connections);
 		siteRepository.delete(site);
-		Properties platformConfig = getPlatformConfig(env);
-		if (site.isCreateRepository()) {
-			File siteRootFolder = new File(getRepositoryRootFolder(env), site.getName());
-			try {
-				FileUtils.deleteDirectory(siteRootFolder);
-			} catch (IOException e) {
-				log.error("error while deleting site's folder " + siteRootFolder.getName(), e);
+		cleanupSite(env, shutdownSite, true);
+		LOGGER.info("done deleting site {}", site.getName());
+	}
+
+	public void cleanupSite(Environment env, SiteImpl site, boolean sendDeletedEvent) {
+		PlatformProperties platformConfig = PlatformProperties.get(getPlatformConfig(env));
+		if (null != site) {
+			if (site.isCreateRepository()) {
+				File siteRootFolder = new File(platformConfig.getRepositoryRootFolder(), site.getName());
+				try {
+					FileUtils.deleteDirectory(siteRootFolder);
+					LOGGER.info("deleted site repository {}", siteRootFolder.getPath());
+				} catch (IOException e) {
+					LOGGER.error(String.format("error while deleting site's folder %s", siteRootFolder.getName()), e);
+				}
+			}
+			CacheProvider cacheProvider = new CacheProvider(platformConfig);
+			cacheProvider.clearCache(site);
+			site.setState(SiteState.DELETED, env);
+
+			Map<String, Site> siteMap = env.getAttribute(Scope.PLATFORM, Platform.Environment.SITES);
+			siteMap.remove(site.getName());
+
+			if (sendDeletedEvent) {
+				site.sendEvent(new SiteDeletedEvent(site.getName()));
 			}
 		}
-		CacheProvider cacheProvider = new CacheProvider(platformConfig);
-		cacheProvider.clearCache(site);
-		log.info("done deleting site {}", site.getName());
 	}
 
 	private void detachApplications(SiteImpl site) throws BusinessException {
-		Collection<SiteApplication> siteApplications = new HashSet<SiteApplication>(site.getSiteApplications());
+		Collection<SiteApplication> siteApplications = new HashSet<>(site.getSiteApplications());
 		for (SiteApplication siteApplication : siteApplications) {
 			unlinkApplicationFromSite(siteApplication);
 		}
@@ -1277,13 +1509,13 @@ public class CoreService {
 	}
 
 	private void deleteProperties(Integer siteId, Integer applicationId) throws BusinessException {
-		Iterable<PropertyImpl> properties = getApplicationPropertiesList(siteId, applicationId);
+		Iterable<PropertyImpl> properties = getPropertiesList(siteId, applicationId);
 		deleteProperties(properties);
 	}
 
 	public void deleteProperty(PropertyImpl prop) {
 		propertyRepository.delete(prop);
-		log.debug("deleting property '" + prop.getName() + "'");
+		LOGGER.debug("deleting property '{}'", prop.getName());
 	}
 
 	protected MigrationStatus unlinkApplicationFromSite(SiteApplication siteApplication) {
@@ -1297,8 +1529,18 @@ public class CoreService {
 			databaseConnectionRepository.delete(databaseConnection);
 			status = databaseService.dropDataBaseAndUser(databaseConnection);
 		}
-		log.info("unlinking application {} from site {}, status of database-connection is {}",
-				siteApplication.getApplication().getName(), site.getName(), status);
+		String applicationName = siteApplication.getApplication().getName();
+		LOGGER.info("unlinking application {} from site {}, status of database-connection is {}", applicationName,
+				site.getName(), status);
+		auditableListener.createEvent(Type.INFO,
+				String.format("Removed application %s from site %s", applicationName, site.getName()));
+		if (MigrationStatus.DB_MIGRATED.equals(status)) {
+			auditableListener.createEvent(Type.INFO, String.format("Dropped database %s and user %s",
+					databaseConnection.getJdbcUrl(), databaseConnection.getUserName()));
+		} else if (MigrationStatus.ERROR.equals(status)) {
+			auditableListener.createEvent(Type.ERROR, String.format("Error while dropping database %s and user %s",
+					databaseConnection.getJdbcUrl(), databaseConnection.getUserName()));
+		}
 		return status;
 	}
 
@@ -1319,7 +1561,7 @@ public class CoreService {
 
 	/**
 	 * Deletes a ApplicationRole
-	 * 
+	 *
 	 * @throws BusinessException
 	 */
 	protected void deleteRole(Integer roleId, final String roleDeleteError, final String roleErrorInvalid)
@@ -1394,7 +1636,7 @@ public class CoreService {
 
 		if (fp.hasErrors()) {
 			String errorMessage = "Cannot delete application with ID " + applicationId + ": " + application.getName();
-			log.error(errorMessage);
+			LOGGER.error(errorMessage);
 			throw new BusinessException(errorMessage);
 		}
 
@@ -1439,17 +1681,17 @@ public class CoreService {
 
 	private void deleteApplicationPropertiesFromSite(Site site, Application application) {
 		String propertyPrefix = PropertySupport.getPropertyPrefix(site, application);
-		Iterable<PropertyImpl> properties = getProperties(propertyPrefix);
+		Iterable<PropertyImpl> properties = getPropertiesList(propertyPrefix);
 		try {
 			deleteProperties(properties);
 		} catch (BusinessException e) {
-			log.error("error while deleting properties " + properties, e);
+			LOGGER.error(String.format("error while deleting properties %s", properties), e);
 		}
 	}
 
 	protected void assignRolesToGroup(Group group, Site site, List<Integer> applicationRoleIds) {
 		Set<Role> applicationRoles = group.getRoles();
-		List<Role> currentRoles = new ArrayList<Role>(applicationRoles);
+		List<Role> currentRoles = new ArrayList<>(applicationRoles);
 		for (Role applicationRole : currentRoles) {
 			Application applicationOfRole = applicationRole.getApplication();
 			if (site.hasApplication(applicationOfRole.getName())) {
@@ -1508,23 +1750,49 @@ public class CoreService {
 
 	public Page<DatabaseConnection> getDatabaseConnections(Integer siteId, FieldProcessor fp) {
 		SearchQuery<DatabaseConnection> query = new SearchQuery<DatabaseConnection>(DatabaseConnection.class);
+		CacheProvider cacheProvider = null;
 		if (siteId == null) {
 			query.isNull("site.id");
 		} else {
 			query.equals("site.id", siteId);
+			cacheProvider = new CacheProvider(getPlatformProperties());
 		}
 		Page<DatabaseConnection> connections = databaseConnectionRepository.search(query, fp.getPageable());
 		for (DatabaseConnection databaseConnection : connections) {
-			clearConnectionPassword(databaseConnection);
+			prepareConnection(databaseConnection, true, cacheProvider);
 		}
 		return connections;
 	}
 
+	private void prepareConnection(DatabaseConnection databaseConnection, boolean clearPassword,
+			CacheProvider cacheProvider) {
+		if (databaseConnection.isActive()) {
+			boolean isWorking = databaseConnection.testConnection(true);
+			if (isWorking) {
+				if (null == databaseConnection.getSite()) {
+					databaseConnection
+							.setMigrationInfoService(databaseService.statusComplete(databaseConnection, false));
+				} else {
+					SiteApplication siteApplication = siteApplicationRepository
+							.findByDatabaseConnectionId(databaseConnection.getId());
+					if (null != siteApplication) {
+						File platformCache = cacheProvider.getPlatformCache(siteApplication.getSite(),
+								siteApplication.getApplication());
+						File sqlFolder = new File(platformCache, ResourceType.SQL.getFolder());
+						databaseService.statusComplete(databaseConnection, sqlFolder);
+					}
+				}
+			}
+		}
+		if (clearPassword) {
+			clearConnectionPassword(databaseConnection);
+		}
+	}
+
 	public DatabaseConnection getDatabaseConnection(Integer dcId, boolean clearPassword) {
 		DatabaseConnection conn = databaseConnectionRepository.findOne(dcId);
-		if (clearPassword) {
-			clearConnectionPassword(conn);
-		}
+		CacheProvider cacheProvider = null == conn.getSite() ? null : new CacheProvider(getPlatformProperties());
+		prepareConnection(conn, clearPassword, cacheProvider);
 		return conn;
 	}
 
@@ -1549,24 +1817,24 @@ public class CoreService {
 		}
 	}
 
-	void initApplicationProperties(Site site, AccessibleApplication application) {
-		log.info("loading properties for application '" + application.getName() + "' of site '" + site.getName() + "'");
-		PropertyHolder applicationProperties = getApplicationProperties(site, application);
+	protected void initApplicationProperties(Site site, AccessibleApplication application) {
+		LOGGER.info("loading properties for application '{}' of site '{}'", application.getName(), site.getName());
+		PropertyHolder applicationProperties = getProperties(site, application);
 		setFeatures(applicationProperties);
 		applicationProperties.setFinal();
 		application.setProperties(applicationProperties);
-		log.debug("initialized properties for application " + application.getName() + ": "
-				+ applicationProperties.toString());
+		LOGGER.debug("initialized properties for application {}: {}", application.getName(),
+				applicationProperties.toString());
 		initApplicationProperties(application);
 	}
 
-	void initApplicationProperties(AccessibleApplication application) {
-		log.info("loading properties for application " + application.getName());
-		PropertyHolder applicationProperties = getApplicationProperties(null, application);
+	protected void initApplicationProperties(AccessibleApplication application) {
+		LOGGER.info("loading properties for application {}", application.getName());
+		PropertyHolder applicationProperties = getProperties(null, application);
 		setFeatures(applicationProperties);
 		applicationProperties.setFinal();
-		log.debug("initialized properties for application " + application.getName() + ": "
-				+ applicationProperties.toString());
+		LOGGER.debug("initialized properties for application {}: {}", application.getName(),
+				applicationProperties.toString());
 	}
 
 	private void setFeatures(Properties applicationProperties) {
@@ -1575,27 +1843,27 @@ public class CoreService {
 		}
 	}
 
+	public PasswordPolicy.ValidationResult updatePassword(PasswordPolicy policy, char[] currentPassword,
+			char[] password, SubjectImpl currentSubject) {
+		PasswordPolicy.ValidationResult validationResult = policy.validatePassword(currentSubject.getAuthName(),
+				currentPassword, password);
+		if (validationResult.isValid()) {
+			PasswordHandler passwordHandler = getDefaultPasswordHandler(currentSubject);
+			passwordHandler.applyPassword(new String(password));
+		}
+		return validationResult;
+	}
+
+	@Deprecated
 	public Boolean updatePassword(char[] password, char[] passwordConfirmation, SubjectImpl currentSubject)
 			throws BusinessException {
-		boolean passwordUpdated = false;
-		String passwordString = new String(password);
-		String passwordConfirmationString = new String(passwordConfirmation);
-		if (StringUtils.isNotEmpty(passwordString) && StringUtils.isNotEmpty(passwordConfirmationString)) {
-			if (passwordString.equals(passwordConfirmationString)) {
-				PasswordHandler passwordHandler = getDefaultPasswordHandler(currentSubject);
-				passwordHandler.savePassword(passwordString);
-				passwordUpdated = true;
-			} else {
-				throw new BusinessException("Passwords are not equal.");
-			}
-		}
-		return passwordUpdated;
+		throw new UnsupportedOperationException();
 	}
 
 	public void resetConnection(FieldProcessor fp, Integer conId) {
 		SiteApplication siteApplication = siteApplicationRepository.findByDatabaseConnectionId(conId);
 		if (null != siteApplication) {
-			String databasePrefix = getPlatform(true).getString(Platform.Property.DATABASE_PREFIX);
+			String databasePrefix = getPlatform(true, false).getString(Platform.Property.DATABASE_PREFIX);
 			databaseService.resetApplicationConnection(siteApplication, databasePrefix);
 		}
 	}
@@ -1609,12 +1877,12 @@ public class CoreService {
 			List<SubjectImpl> subjects = subjectRepository.findAll();
 			for (Subject subject : subjects) {
 				if (subject.getGroups().remove(group)) {
-					log.debug("removed group '" + group.getName() + "' from subject " + subject.getName());
+					LOGGER.debug("removed group '{}' from subject {}", group.getName() + subject.getName());
 				}
 			}
 			groupRepository.delete(group);
 		} else {
-			log.error("Someone tried to delete default admin group: " + group);
+			LOGGER.error("Someone tried to delete default admin group: {}", group);
 		}
 	}
 
@@ -1626,20 +1894,23 @@ public class CoreService {
 		subjectRepository.delete(subject.getId());
 	}
 
-	protected void shutdownSite(Environment env, String siteName) {
+	public SiteImpl shutdownSite(Environment env, String siteName) {
+		return shutdownSite(env, siteName, false);
+	}
+
+	public SiteImpl shutdownSite(Environment env, String siteName, boolean removeFromSiteMap) {
+		Properties platformConfig = getPlatformConfig(env);
 		if (null != env) {
 			Map<String, Site> siteMap = env.getAttribute(Scope.PLATFORM, Platform.Environment.SITES);
 			if (siteMap.containsKey(siteName) && null != siteMap.get(siteName)) {
 				SiteImpl shutdownSite = (SiteImpl) siteMap.get(siteName);
 				int requests;
 				int waited = 0;
-				Properties platformProperties = env.getAttribute(Scope.PLATFORM, Platform.Environment.PLATFORM_CONFIG);
-				int waitTime = platformProperties.getInteger(Platform.Property.WAIT_TIME, 1000);
-				int maxWaitTime = platformProperties.getInteger(Platform.Property.MAX_WAIT_TIME, 30000);
-				shutdownSite.setState(SiteState.STOPPING);
+				int waitTime = platformConfig.getInteger(Platform.Property.WAIT_TIME, 1000);
+				int maxWaitTime = platformConfig.getInteger(Platform.Property.MAX_WAIT_TIME, 30000);
 
-				if (platformProperties.getBoolean(Platform.Property.WAIT_ON_SITE_SHUTDOWN, false)) {
-					log.info("preparing to shutdown site {} that is currently handling {} requests", shutdownSite,
+				if (platformConfig.getBoolean(Platform.Property.WAIT_ON_SITE_SHUTDOWN, false)) {
+					LOGGER.info("preparing to shutdown site {} that is currently handling {} requests", shutdownSite,
 							shutdownSite.getRequests());
 					Path path = env.getAttribute(Scope.REQUEST, EnvironmentKeys.PATH_INFO);
 					int requestLimit = null == path ? 0 : path.getSiteName().equals(siteName) ? 1 : 0;
@@ -1648,28 +1919,38 @@ public class CoreService {
 							Thread.sleep(waitTime);
 							waited += waitTime;
 						} catch (InterruptedException e) {
-							log.error("error while waiting for site to finish its requests", e);
+							Thread.currentThread().interrupt();
+							LOGGER.error("error while waiting for site to finish its requests", e);
 						}
-						log.info("waiting for {} requests to finish before shutting down site {}", requests, siteName);
+						LOGGER.info("waiting for {} requests to finish before shutting down site {}", requests,
+								siteName);
 					}
 				}
 
-				log.info("destroying site {}", shutdownSite);
-				for (SiteApplication siteApplication : shutdownSite.getSiteApplications()) {
-					shutdownApplication(siteApplication, env);
+				LOGGER.info("destroying site {}", shutdownSite);
+				if (shutdownSite.hasState(SiteState.STARTED, SiteState.SUSPENDED)) {
+					shutdownSite.setState(SiteState.STOPPING, env);
+					for (SiteApplication siteApplication : shutdownSite.getSiteApplications()) {
+						shutdownApplication(siteApplication, env);
+					}
+					shutdownSite.closeSiteContext();
+					((DefaultEnvironment) env).clearSiteScope(shutdownSite);
+					LOGGER.info("destroying site {} complete", shutdownSite);
+					setSiteStartUpTime(shutdownSite, null);
+					SoapService.clearCache(siteName);
+					if (shutdownSite.getProperties().getBoolean(SiteProperties.CACHE_CLEAR_ON_SHUTDOWN)) {
+						CacheService.clearCache(shutdownSite);
+					}
 				}
-				shutdownSite.closeSiteContext();
-				log.info("destroying site {} complete", shutdownSite);
-				setSiteStartUpTime(shutdownSite, null);
-				SoapService.clearCache(siteName);
-				if (shutdownSite.getProperties().getBoolean(SiteProperties.EHCACHE_CLEAR_ON_SHUTDOWN)) {
-					CacheService.clearCache(shutdownSite);
+				shutdownSite.setState(shutdownSite.isActive() ? SiteState.STOPPED : SiteState.INACTIVE, env);
+				auditableListener.createEvent(Type.INFO, "Shut down site " + shutdownSite.getName());
+				if (removeFromSiteMap) {
+					siteMap.remove(siteName);
 				}
-				shutdownSite.setState(SiteState.STOPPED);
-				shutdownSite = null;
-				siteMap.remove(siteName);
+				return shutdownSite;
 			}
 		}
+		return null;
 	}
 
 	private void shutdownApplication(SiteApplication siteApplication, Environment env) {
@@ -1695,16 +1976,15 @@ public class CoreService {
 	}
 
 	public Collection<ApplicationSubject> getApplicationSubjects(Integer applicationId, Site site) {
-		List<ApplicationSubject> applicationSubjects = new ArrayList<ApplicationSubject>();
+		List<ApplicationSubject> applicationSubjects = new ArrayList<>();
 		ApplicationImpl application = applicationRepository.findOne(applicationId);
 		List<SubjectImpl> subjects = subjectRepository.findSubjectsForApplication(applicationId);
 		String siteTimeZone = site.getProperties().getString(Platform.Property.TIME_ZONE);
 		for (SubjectImpl subject : subjects) {
 			initializeSubject(subject);
-			subject.getApplicationroles(application);
+			subject.getApplicationRoles(application);
 			if (UserType.GLOBAL_GROUP.equals(subject.getUserType())) {
-				List<SubjectImpl> membersOfGroup = ldapService.getMembersOfGroup(site.getProperties(),
-						subject.getAuthName());
+				List<SubjectImpl> membersOfGroup = ldapService.getMembersOfGroup(site, subject.getAuthName());
 				for (SubjectImpl ldapSubject : membersOfGroup) {
 					String timeZone = subject.getTimeZone();
 					if (null == timeZone) {
@@ -1727,7 +2007,7 @@ public class CoreService {
 	private ApplicationSubject getApplicationSubject(ApplicationImpl application, SubjectImpl subject) {
 		ApplicationSubject ps = new ApplicationSubjectImpl(subject.getAuthName(), subject.getRealname(),
 				subject.getEmail(), subject.getLanguage(), subject.getTimeZone());
-		ps.getRoles().addAll(subject.getApplicationroles(application));
+		ps.getRoles().addAll(subject.getApplicationRoles(application));
 		return ps;
 	}
 
@@ -1751,6 +2031,7 @@ public class CoreService {
 		if (null != subject) {
 			List<Group> groups = subject.getGroups();
 			for (Group group : groups) {
+				((GroupImpl) group).setSubjects(new HashSet<>());
 				initGroup(group);
 			}
 			subjectRepository.detach(subject);
@@ -1759,8 +2040,7 @@ public class CoreService {
 
 	private void initGroup(Group group) {
 		for (Role applicationRole : group.getRoles()) {
-			Set<Permission> permissions = applicationRole.getPermissions();
-			permissions.iterator().hasNext();
+			applicationRole.getPermissions().size();
 			groupRepository.detach((GroupImpl) group);
 		}
 	}
@@ -1898,109 +2178,38 @@ public class CoreService {
 
 	public Map<String, String> getCacheStatistics(Integer siteId) {
 		SiteImpl site = getSite(siteId);
-		Map<String, String> cacheStatistics = new HashMap<String, String>();
-		Boolean ehcacheEnabled = site.getProperties().getBoolean(SiteProperties.EHCACHE_ENABLED);
-		if (ehcacheEnabled) {
-			try {
-				BlockingCache cache = CacheService.getBlockingCache(site);
-				if (null == cache) {
-					cacheStatistics.put("Status",
-							"No cache found for site " + site.getName() + ", propably site is not running.");
-				} else if (cache.isStatisticsEnabled()) {
-					Statistics statistics = cache.getStatistics();
-					int statisticsAccuracy = statistics.getStatisticsAccuracy();
-					String accuracy = "";
-
-					switch (statisticsAccuracy) {
-					case Statistics.STATISTICS_ACCURACY_NONE:
-						accuracy = "ACCURACY_NONE";
-						break;
-
-					case Statistics.STATISTICS_ACCURACY_BEST_EFFORT:
-						accuracy = "BEST_EFFORT";
-						break;
-
-					case Statistics.STATISTICS_ACCURACY_GUARANTEED:
-						accuracy = "ACCURACY_GUARANTEED";
-						break;
-					}
-
-					cacheStatistics.put("Average get time", String.valueOf(statistics.getAverageGetTime()));
-					cacheStatistics.put("Hits", String.valueOf(statistics.getCacheHits()));
-					cacheStatistics.put("Misses", String.valueOf(statistics.getCacheMisses()));
-					cacheStatistics.put("Name", cache.getName());
-					cacheStatistics.put("Size", String.valueOf(cache.getSize()));
-					cacheStatistics.put("Statistics accuracy", accuracy);
-					cacheStatistics.put("Status", cache.getStatus().toString());
-				} else {
-					cacheStatistics.put("Status",
-							"Statistics are disabled for this site. To enable statistics set the site property 'platform.site."
-									+ site.getName() + ".ehcacheStatistics' to 'true'.");
-				}
-			} catch (Exception e) {
-				log.error("Error while getting cache statistics.", e);
-			}
-		} else {
-			cacheStatistics.put("Status",
-					"Ehcache is disabled for this site. To enable the cache set the site property 'platform.site."
-							+ site.getName() + ".ehcacheEnabled' to 'true'.");
-		}
-		return cacheStatistics;
+		return CacheService.getCacheStatistics(site);
 	}
 
-	public List<AppngCache> getCacheEntries(Integer siteId) {
+	public List<CachedResponse> getCacheEntries(Integer siteId) {
 		SiteImpl site = siteRepository.findOne(siteId);
-		List<AppngCache> appngCacheEntries = new ArrayList<AppngCache>();
-		try {
-			BlockingCache cache = CacheService.getBlockingCache(site);
-			if (null != cache) {
-				for (Object key : cache.getKeys()) {
-					Element element = cache.getQuiet(key);
-					if (null != element && null != element.getObjectValue()) {
-						Object objectValue = element.getObjectValue();
-						PageInfo ehcachePageInfo = (PageInfo) objectValue;
-						AppngCache appngCache = new AppngCache(key, site, ehcachePageInfo, element);
-						appngCacheEntries.add(appngCache);
-					}
-				}
-			}
-		} catch (Exception e) {
-			log.error("Error while getting cache entries.", e);
-		}
-		return appngCacheEntries;
+		return CacheService.getCacheEntries(site);
 	}
 
 	public void expireCacheElement(Integer siteId, String cacheElement) throws BusinessException {
 		Site site = getSite(siteId);
-		boolean hasRemoved;
-		try {
-			hasRemoved = CacheService.getBlockingCache(site).remove(cacheElement);
-			if (!hasRemoved) {
-				throw new BusinessException("No such element: " + cacheElement);
-			}
-		} catch (Exception e) {
-			log.error("Error while expiring cache entry: " + cacheElement, e);
-		}
+		CacheService.expireCacheElement(site, cacheElement);
 	}
 
-	@SuppressWarnings("unchecked")
+	/**
+	 * Expires cache elements for a site by path prefix
+	 *
+	 * @param      siteId
+	 *                                the id of the {@link Site} to retrieve the cache for
+	 * @param      cacheElementPrefix
+	 *                                the prefix to use
+	 * 
+	 * @return                        always {@code 0}, as the execution is asynchronous
+	 * 
+	 * @throws     BusinessException
+	 * 
+	 * @deprecated                    Use {@link CacheService#expireCacheElementsByPrefix(javax.cache.Cache, String)} or
+	 *                                {@link CacheService#expireCacheElementsByPrefix(Site, String)}.
+	 */
+	@Deprecated
 	public int expireCacheElementsStartingWith(Integer siteId, String cacheElementPrefix) throws BusinessException {
 		Site site = getSite(siteId);
-		int count = 0;
-		try {
-			BlockingCache cache = CacheService.getBlockingCache(site);
-			List<String> keys = cache.getKeys();
-			for (String key : keys) {
-				if (key.startsWith(cacheElementPrefix)) {
-					if (cache.remove(key)) {
-						count++;
-					}
-				}
-			}
-		} catch (IllegalStateException e) {
-			log.error("Error while expiring cache entries starting with '" + cacheElementPrefix + "'", e);
-		}
-		return count;
+		return CacheService.expireCacheElementsStartingWith(site, cacheElementPrefix);
 	}
 
 	public void clearCacheStatistics(Integer siteId) {
@@ -2041,6 +2250,46 @@ public class CoreService {
 			siteApplication.getGrantedSites().addAll(grantedSites);
 		}
 		return siteApplication;
+	}
+
+	public void createEvent(Type type, String message, HttpServletRequest request) {
+		auditableListener.createEvent(type, message, request);
+	}
+
+	public void createEvent(Type type, String message, Object... args) {
+		auditableListener.createEvent(type, String.format(message, args));
+	}
+
+	public void setSiteReloadCount(SiteImpl site) {
+		siteRepository.findOne(site.getId()).setReloadCount(site.getReloadCount());
+	}
+
+	public void refreshTemplate(Site site, PlatformProperties platformConfig) {
+		refreshTemplate(site, platformConfig, true);
+	}
+
+	public void refreshTemplate(Site site, PlatformProperties platformConfig, boolean sendEvent) {
+		reloadTemplate(site, platformConfig);
+		if (sendEvent) {
+			ReloadTemplateEvent event = new ReloadTemplateEvent(site.getName());
+			LOGGER.debug("Sending {}", event);
+			site.sendEvent(event);
+		}
+	}
+
+	public void reloadTemplate(Site site, PlatformProperties platformConfig) {
+		LOGGER.debug("Refreshing template for '{}'", site);
+		Properties siteProps = site.getProperties();
+		Template template = templateService.getTemplateByDisplayName(siteProps.getString(SiteProperties.TEMPLATE));
+		if (null == template) {
+			String rootPath = platformConfig.getString(Platform.Property.PLATFORM_ROOT_PATH);
+			String templateFolder = platformConfig.getString(Platform.Property.TEMPLATE_FOLDER);
+			String templateRealPath = new File(rootPath, templateFolder).getAbsolutePath();
+			TemplateService.copyTemplate(platformConfig, siteProps, templateRealPath);
+		} else {
+			TemplateService.materializeTemplate(template, platformConfig, siteProps);
+		}
+		CacheService.expireCacheElementsByPrefix(site, "/template");
 	}
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,11 +35,9 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
 /**
- * 
  * Default {@link ResultService} implementation
  * 
  * @author Matthias Müller
- * 
  */
 public class ResultServiceImpl extends AdapterBase implements ResultService {
 
@@ -61,9 +59,10 @@ public class ResultServiceImpl extends AdapterBase implements ResultService {
 		final Result r = new Result();
 		setResultSelector(fp, r);
 		DatafieldOwner dataFieldOwner = getDataFieldOwner(r);
+		BeanWrapperImpl beanWrapper = new BeanWrapperImpl(object);
 		for (FieldDef fieldDef : fp.getFields()) {
 			Linkpanel linkpanel = fp.getLinkPanel(fieldDef.getName());
-			FieldWrapper fieldWrapper = new FieldWrapper(fieldDef, new BeanWrapperImpl(object));
+			FieldWrapper fieldWrapper = new FieldWrapper(fieldDef, beanWrapper);
 			fieldWrapper.backupFields();
 			fieldWrapper.setLinkpanel(linkpanel);
 			fieldConverter.addField(dataFieldOwner, fieldWrapper);
@@ -85,7 +84,7 @@ public class ResultServiceImpl extends AdapterBase implements ResultService {
 	public Resultset getResultset(FieldProcessor fp, Collection<?> items) {
 		int pageSize = (0 == items.size() ? 10 : items.size());
 		return getResultset(fp,
-				new PageImpl<Object>(new ArrayList<Object>(items), new PageRequest(0, pageSize), items.size()));
+				new PageImpl<Object>(new ArrayList<>(items), new PageRequest(0, pageSize), items.size()));
 	}
 
 	public final Resultset getResultset(FieldProcessor fp, Page<?> page) {

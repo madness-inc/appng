@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,18 @@
 package org.appng.core.controller.messaging;
 
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.appng.api.Environment;
 import org.appng.api.InvalidConfigurationException;
-import org.appng.api.Scope;
 import org.appng.api.messaging.Event;
 import org.appng.api.model.Site;
 import org.appng.api.model.Site.SiteState;
 
+import lombok.Getter;
+import lombok.Setter;
+
 /**
- * An {@link Event} to be fired when a {@link Site}'s {@link SiteState} changes. Triggers a {@link NodeEvent}.
+ * An {@link Event} to be fired when a {@link Site}'s {@link SiteState} changes.
  * 
  * @author Matthias Müller
  */
@@ -34,39 +35,30 @@ public class SiteStateEvent extends Event {
 
 	public static final String SITE_STATE = "siteState";
 
-	private SiteState state;
+	private @Getter @Setter SiteState state;
 
-	public SiteStateEvent(String siteName, SiteState state) {
+	public SiteStateEvent(String siteName, SiteState state, String nodeId) {
 		super(siteName);
 		this.state = state;
+		setNodeId(nodeId);
 	}
 
 	public void perform(Environment environment, Site site) throws InvalidConfigurationException {
-		Map<String, SiteState> stateMap = getStateMap(environment); 
-		stateMap.put(getSiteName(), this.state);
-		new RequestNodeState(getSiteName()).perform(environment, site);
+		handleSiteState(environment);
 	}
 
-	public SiteState getState() {
-		return state;
-	}
-
-	public void setState(SiteState state) {
-		this.state = state;
+	public void handleSiteState(Environment environment) {
+		Map<String, SiteState> siteState = NodeEvent.siteState(environment, getNodeId());
+		if (SiteState.DELETED.equals(this.state)) {
+			siteState.remove(getSiteName());
+		} else {
+			siteState.put(getSiteName(), this.state);
+		}
 	}
 
 	@Override
 	public String toString() {
 		return super.toString() + " - State: " + state;
-	}
-	
-	static Map<String, SiteState> getStateMap(Environment env) {
-		Map<String, SiteState> stateMap = env.getAttribute(Scope.PLATFORM, SITE_STATE);
-		if (null == stateMap) {
-			stateMap = new ConcurrentHashMap<String, SiteState>();
-			env.setAttribute(Scope.PLATFORM, SITE_STATE, stateMap);
-		}
-		return stateMap;
 	}
 
 }

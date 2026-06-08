@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import java.util.Set;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.EntityListeners;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
@@ -39,26 +40,25 @@ import org.appng.api.model.Role;
 import org.appng.api.model.Subject;
 
 /**
- * 
  * Default {@link Group}-implementation
  * 
  * @author Matthias Müller
- * 
  */
 @Entity
 @Table(name = "authgroup")
-public class GroupImpl implements Group {
+@EntityListeners(PlatformEventListener.class)
+public class GroupImpl implements Group, Auditable<Integer> {
 
 	private Integer id;
 	private String name;
 	private String description;
 	private Date version;
 	private boolean defaultAdmin;
-	private Set<Subject> subjects = new HashSet<Subject>();
-	private Set<Role> applicationRoles = new HashSet<Role>();
+	private Set<Subject> subjects = new HashSet<>();
+	private Set<Role> applicationRoles = new HashSet<>();
 
 	@Id
-	@GeneratedValue(strategy = GenerationType.AUTO)
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	public Integer getId() {
 		return id;
 	}

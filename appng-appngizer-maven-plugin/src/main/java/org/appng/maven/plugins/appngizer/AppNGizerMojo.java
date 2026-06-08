@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,11 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.FutureTask;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
@@ -46,6 +51,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.http.converter.xml.Jaxb2RootElementHttpMessageConverter;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -86,6 +92,9 @@ abstract class AppNGizerMojo extends AbstractMojo {
 	protected AppNGizerMojo() {
 		restTemplate = new RestTemplate();
 		this.jaxbConverter = new Jaxb2RootElementHttpMessageConverter();
+		StringHttpMessageConverter stringHttpMessageConverter = new StringHttpMessageConverter();
+		stringHttpMessageConverter.setSupportedMediaTypes(Arrays.asList(MediaType.TEXT_HTML));
+		restTemplate.getMessageConverters().add(stringHttpMessageConverter);
 		restTemplate.getMessageConverters().add(jaxbConverter);
 		restTemplate.setErrorHandler(new DefaultResponseErrorHandler() {
 			@Override
@@ -96,12 +105,22 @@ abstract class AppNGizerMojo extends AbstractMojo {
 	}
 
 	protected <T> ResponseEntity<T> send(Object requestObject, HttpHeaders header, HttpMethod method, String path,
-			Class<T> resultType) throws URISyntaxException {
-		return send(requestObject, header, method, new URI(endpoint + path), resultType);
+			Class<T> resultType) throws URISyntaxException, MojoExecutionException {
+		return send(requestObject, header, method, path, resultType, true);
+	}
+
+	protected <T> ResponseEntity<T> send(Object requestObject, HttpHeaders header, HttpMethod method, String path,
+			Class<T> resultType, boolean throwErrorOn4xx) throws URISyntaxException, MojoExecutionException {
+		return send(requestObject, header, method, new URI(endpoint + path), resultType, throwErrorOn4xx);
 	}
 
 	private <T> ResponseEntity<T> send(Object requestObject, HttpHeaders headers, HttpMethod method, URI path,
-			Class<T> resultType) throws URISyntaxException {
+			Class<T> resultType) throws MojoExecutionException {
+		return send(requestObject, headers, method, path, resultType, true);
+	}
+
+	private <T> ResponseEntity<T> send(Object requestObject, HttpHeaders headers, HttpMethod method, URI path,
+			Class<T> resultType, boolean throwErrorOn4xx) throws MojoExecutionException {
 		RequestEntity<?> req = new RequestEntity<>(requestObject, headers, method, path);
 		getLog().debug("out: " + req);
 		if (null != requestObject) {
@@ -109,9 +128,15 @@ abstract class AppNGizerMojo extends AbstractMojo {
 		}
 		ResponseEntity<T> response = restTemplate.exchange(req.getUrl(), req.getMethod(), req, resultType);
 		getLog().debug("in: " + response);
+		HttpStatus statusCode = response.getStatusCode();
 		if (null != response.getBody()) {
 			debugBody(response.getBody(), response.getHeaders().getContentType());
+		} else if ((throwErrorOn4xx && statusCode.is4xxClientError()) || statusCode.is5xxServerError()) {
+			String message = String.format("[%s] on %s returned HTTP status %s (%s)", method, path, statusCode,
+					statusCode.getReasonPhrase());
+			throw new MojoExecutionException(message);
 		}
+
 		List<String> cookies = response.getHeaders().get(HttpHeaders.SET_COOKIE);
 		if (null != cookies) {
 			cookie = cookies.stream().collect(Collectors.joining(";"));
@@ -154,38 +179,56 @@ abstract class AppNGizerMojo extends AbstractMojo {
 		return headers;
 	}
 
-	protected void login() throws URISyntaxException {
+	protected void login() throws URISyntaxException, MojoExecutionException {
 		HttpHeaders loginHeader = getHeader();
 		loginHeader.setContentType(MediaType.TEXT_PLAIN);
 		getLog().info("Connecting to " + endpoint);
 		send(sharedSecret, loginHeader, HttpMethod.POST, endpoint.toURI(), Home.class);
 	}
 
-	protected ResponseEntity<Repository> getRepository() throws URISyntaxException {
+	protected ResponseEntity<Repository> getRepository() throws URISyntaxException, MojoExecutionException {
 		ResponseEntity<Repository> repo = send(null, getHeader(), HttpMethod.GET, "repository/" + repository,
 				Repository.class);
 		getLog().info("Retrieved repo " + repo.getBody().getName() + " at " + repo.getBody().getSelf());
 		return repo;
 	}
 
-	protected ResponseEntity<Package> upload() throws URISyntaxException {
+	protected ResponseEntity<Package> upload() throws URISyntaxException, InterruptedException, ExecutionException {
+		return upload(false, false, false);
+	}
+
+	protected ResponseEntity<Package> upload(boolean install, boolean privileged, boolean hidden)
+			throws URISyntaxException, InterruptedException, ExecutionException {
 		MultiValueMap<String, Object> multipartRequest = new LinkedMultiValueMap<>();
 		multipartRequest.add("file", new FileSystemResource(file));
+		if (install) {
+			multipartRequest.add("install", String.valueOf(install));
+			multipartRequest.add("privileged", String.valueOf(privileged));
+			multipartRequest.add("hidden", String.valueOf(hidden));
+		}
 		HttpHeaders uploadHeader = getHeader();
 		uploadHeader.setContentType(MediaType.MULTIPART_FORM_DATA);
 
-		getLog().info("Uploading file " + file);
+		float sizeMB = file.length() / 1024 / 1024f;
+		getLog().info(String.format(Locale.ENGLISH, "Uploading %s (%.2fMB)", file, sizeMB));
 
-		return send(multipartRequest, uploadHeader, HttpMethod.POST, "repository/" + repository + "/upload",
-				Package.class);
-	}
+		FutureTask<ResponseEntity<Package>> futureTask = new FutureTask<ResponseEntity<Package>>(
+				new Callable<ResponseEntity<Package>>() {
+					public ResponseEntity<Package> call() throws Exception {
+						return send(multipartRequest, uploadHeader, HttpMethod.POST,
+								"repository/" + repository + "/upload", Package.class);
+					}
+				});
 
-	protected ResponseEntity<Void> install(Package uploadPackage, String cookie) throws URISyntaxException {
-		getLog().info(String.format("Installing %s %s %s", uploadPackage.getName(), uploadPackage.getVersion(),
-				uploadPackage.getTimestamp()));
-		HttpHeaders installHeader = getHeader();
-		installHeader.setContentType(MediaType.APPLICATION_XML);
-		return send(uploadPackage, installHeader, HttpMethod.PUT, "repository/" + repository + "/install", Void.class);
+		Executors.newFixedThreadPool(1).execute(futureTask);
+		long start = System.currentTimeMillis();
+		while (!futureTask.isDone()) {
+			Thread.sleep(1000);
+			getLog().info("Uploading since " + (System.currentTimeMillis() - start) / 1000 + "s");
+		}
+		long duration = (System.currentTimeMillis() - start) / 1000;
+		getLog().info(String.format(Locale.ENGLISH, "Upload took %ss (%.2fMB/s)", duration, sizeMB / duration));
+		return futureTask.get();
 	}
 
 	protected void determineFile() throws MojoExecutionException {
@@ -198,7 +241,7 @@ abstract class AppNGizerMojo extends AbstractMojo {
 			throw new MojoExecutionException(String.format("No archive file(s) starting with %s found in %s",
 					targetFile, targetFolder.getAbsolutePath()));
 		}
-		List<String> sortedFiles = new ArrayList<String>(Arrays.asList(files));
+		List<String> sortedFiles = new ArrayList<>(Arrays.asList(files));
 		Collections.sort(sortedFiles);
 		file = new File(targetFolder, sortedFiles.get(sortedFiles.size() - 1));
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,6 +51,7 @@ import org.appng.search.json.Part;
 import org.appng.search.json.Result;
 import org.appng.search.searcher.SearchFormatter;
 import org.appng.search.searcher.StandardSearcher;
+import org.appng.testsupport.validation.WritingJsonValidator;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.FixMethodOrder;
@@ -147,28 +148,28 @@ public class StandardSearcherTest {
 	@Test
 	public void testSearchEn() throws IOException, URISyntaxException {
 		Iterable<Document> doSearch = standardSearcher.doSearch(env, site, application, directory, "Hitchhiker", "en",
-				PARSE_FIELDS, new EnglishAnalyzer(), "span", new HashMap<String, String>());
+				PARSE_FIELDS, new EnglishAnalyzer(), "span", new HashMap<>());
 		validate("Hitchhiker", doSearch, "search_result_en.json", "search-en");
 	}
 
 	@Test
 	public void testSearchEnFoo() throws IOException, URISyntaxException {
 		Iterable<Document> doSearch = standardSearcher.doSearch(env, site, application, directory, "foo", "en",
-				PARSE_FIELDS, new EnglishAnalyzer(), "span", new HashMap<String, String>());
+				PARSE_FIELDS, new EnglishAnalyzer(), "span", new HashMap<>());
 		validate("foo", doSearch, "search_result_en_foo.json", "search-en");
 	}
 
 	@Test
 	public void testSearchEnNoResult() throws IOException, URISyntaxException {
 		Iterable<Document> doSearch = standardSearcher.doSearch(env, site, application, directory, "ACME", "en",
-				PARSE_FIELDS, new EnglishAnalyzer(), "span", new HashMap<String, String>());
+				PARSE_FIELDS, new EnglishAnalyzer(), "span", new HashMap<>());
 		validate("ACME", doSearch, "search_result_en_no_result.json", "search-en");
 	}
 
 	@Test
 	public void testSearchDe() throws IOException, URISyntaxException {
 		Iterable<Document> doSearch = standardSearcher.doSearch(env, site, application, directory, "Anhalter", "de",
-				PARSE_FIELDS, new GermanAnalyzer(), "span", new HashMap<String, String>());
+				PARSE_FIELDS, new GermanAnalyzer(), "span", new HashMap<>());
 		SearchFormatter searchFormatter = validate("Anhalter", doSearch, "search_result_de.json", "search-de");
 		ClassLoader classLoader = getClass().getClassLoader();
 		File xslStylesheet = new File(classLoader.getResource("transform.xsl").toURI());
@@ -221,6 +222,6 @@ public class StandardSearcherTest {
 			throws URISyntaxException, IOException {
 		File controlFile = new File(classLoader.getResource(controlPath).toURI());
 		String control = FileUtils.readFileToString(controlFile, StandardCharsets.UTF_8);
-		Assert.assertEquals(control, result);
+		Assert.assertEquals(WritingJsonValidator.normalizeLines(control), WritingJsonValidator.normalizeLines(result));
 	}
 }

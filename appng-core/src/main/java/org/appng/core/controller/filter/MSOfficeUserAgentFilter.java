@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,11 +26,10 @@ import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 
 import org.appng.core.controller.HttpHeaders;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
- * 
  * This {@link Filter} is a workaround for a bug in Microsoft Office which causes the http-session to get lost if a link
  * is being opened from inside a Microsoft Office document.<br/>
  * See <a href="http://support.microsoft.com/kb/899927">KB 899927</a> for details.
@@ -53,11 +52,9 @@ import org.slf4j.LoggerFactory;
  * </pre>
  * 
  * @author Matthias Müller
- * 
  */
+@Slf4j
 public class MSOfficeUserAgentFilter implements Filter {
-
-	private static final Logger LOGGER = LoggerFactory.getLogger(MSOfficeUserAgentFilter.class);
 
 	private static final String USER_AGENT_MS_OFFICE = "ms-office";
 	private static final String HTML_META_REFRESH = "<html><head><meta http-equiv='refresh' content='0'/></head><body></body></html>";
@@ -66,11 +63,11 @@ public class MSOfficeUserAgentFilter implements Filter {
 
 	}
 
-	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException,
-			ServletException {
+	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+			throws IOException, ServletException {
 		String userAgent = ((HttpServletRequest) request).getHeader(HttpHeaders.USER_AGENT);
-		if (userAgent.indexOf(USER_AGENT_MS_OFFICE) > 0) {
-			LOGGER.info(HttpHeaders.USER_AGENT + " was " + userAgent + ", sending meta-refresh");
+		if (userAgent.contains(USER_AGENT_MS_OFFICE)) {
+			LOGGER.info("{} was {}, sending meta-refresh", HttpHeaders.USER_AGENT, userAgent);
 			response.getWriter().write(HTML_META_REFRESH);
 			response.setContentType(HttpHeaders.CONTENT_TYPE_TEXT_XML);
 			return;

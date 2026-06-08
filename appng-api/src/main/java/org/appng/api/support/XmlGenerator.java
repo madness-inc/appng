@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,8 +29,8 @@ import java.util.TreeMap;
 
 import javax.xml.bind.JAXBException;
 import javax.xml.namespace.QName;
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 
@@ -41,6 +41,7 @@ import org.appng.api.DataProvider;
 import org.appng.api.model.Identifiable;
 import org.appng.api.model.Versionable;
 import org.appng.tools.locator.Coordinate;
+import org.appng.xml.BuilderFactory;
 import org.appng.xml.MarshallService;
 import org.appng.xml.MarshallService.AppNGSchema;
 import org.appng.xml.platform.Action;
@@ -104,7 +105,6 @@ import org.springframework.beans.BeanWrapperImpl;
  * </p>
  * 
  * @author Matthias Müller
- *
  */
 public class XmlGenerator {
 
@@ -130,8 +130,8 @@ public class XmlGenerator {
 
 	private MarshallService marshallService;
 	private boolean addPermissions;
-	private SortedMap<String, String> dictionary = new TreeMap<String, String>();
-	private SortedMap<String, String> permissionNames = new TreeMap<String, String>();
+	private SortedMap<String, String> dictionary = new TreeMap<>();
+	private SortedMap<String, String> permissionNames = new TreeMap<>();
 	private String datePattern = "yyyy-MM-dd HH:mm:ss";
 
 	/**
@@ -145,9 +145,9 @@ public class XmlGenerator {
 		 * Creates a new entity
 		 * 
 		 * @param type
-		 *            the type of the entity to create
+		 *                   the type of the entity to create
 		 * @param properties
-		 *            the properties to map when generating XML
+		 *                   the properties to map when generating XML
 		 */
 		public Entity(Class<?> type, String[] properties) {
 			this.type = type;
@@ -207,15 +207,16 @@ public class XmlGenerator {
 	 * </ul>
 	 * 
 	 * @param outPath
-	 *            the target folder for the files to be generated
+	 *                       the target folder for the files to be generated
 	 * @param name
-	 *            the name for the {@link ApplicationRootConfig}-file to be created
+	 *                       the name for the {@link ApplicationRootConfig}-file to be created
 	 * @param dictionaryName
-	 *            the name for the dictionary file to be created (&lt;dictionaryName>.properties)
+	 *                       the name for the dictionary file to be created (&lt;dictionaryName>.properties)
 	 * @param entities
-	 *            the list of {@link Entity}s to generate the source XML for
+	 *                       the list of {@link Entity}s to generate the source XML for
+	 * 
 	 * @throws Exception
-	 *             if something goes really wrong ;-)
+	 *                   if something goes really wrong ;-)
 	 */
 	public void generate(String outPath, String name, String dictionaryName, Entity... entities) throws Exception {
 		ApplicationRootConfig rootConfig = generateRootConfig(name);
@@ -245,24 +246,27 @@ public class XmlGenerator {
 	 * Creates a new XmlGenerator
 	 * 
 	 * @param addPermissions
-	 *            if {@link Permissions} should be generated and used when referencing {@link Action}s
+	 *                       if {@link Permissions} should be generated and used when referencing {@link Action}s
+	 * 
 	 * @throws JAXBException
-	 *             if creating a {@link MarshallService} fails
+	 *                                           if creating a {@link MarshallService} fails
+	 * @throws TransformerConfigurationException
+	 *                                           if an error occurs while configuring the {@link TransformerFactory}
 	 */
-	public XmlGenerator(boolean addPermissions) throws JAXBException {
+	public XmlGenerator(boolean addPermissions) throws JAXBException, TransformerConfigurationException {
 		this.addPermissions = addPermissions;
 		this.marshallService = new MarshallService();
 		marshallService.setSchema(AppNGSchema.PLATFORM);
 		marshallService.setPrettyPrint(true);
 		marshallService.setSchemaLocation("http://www.appng.org/schema/platform/appng-platform.xsd");
 		marshallService.setUseSchema(true);
-		marshallService.setCdataElements(new ArrayList<String>());
-		marshallService.setDocumentBuilderFactory(DocumentBuilderFactory.newInstance());
-		marshallService.setTransformerFactory(TransformerFactory.newInstance());
+		marshallService.setCdataElements(new ArrayList<>());
+		marshallService.setDocumentBuilderFactory(BuilderFactory.documentBuilderFactory());
+		marshallService.setTransformerFactory(BuilderFactory.transformerFactory());
 		marshallService.init();
 	}
 
-	public XmlGenerator() throws JAXBException {
+	public XmlGenerator() throws JAXBException, TransformerConfigurationException {
 		this(true);
 	}
 
@@ -562,7 +566,7 @@ public class XmlGenerator {
 		boolean skipVersion = true;
 		List<String> propertyNames;
 		if (null == properties || properties.length == 0) {
-			propertyNames = new ArrayList<String>();
+			propertyNames = new ArrayList<>();
 			PropertyDescriptor[] propertyDescriptors = beanWrapper.getPropertyDescriptors();
 			for (PropertyDescriptor propertyDescriptor : propertyDescriptors) {
 				propertyNames.add(propertyDescriptor.getName());

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,14 +78,16 @@ public class GuiHandlerTest {
 		Mockito.when(platformProperties.getString(Platform.Property.TEMPLATE_FOLDER)).thenReturn("template");
 		Environment initialEnv = DefaultEnvironment.get(servletContext);
 		initialEnv.setAttribute(Scope.PLATFORM, Platform.Environment.PLATFORM_CONFIG, platformProperties);
-		initialEnv.setAttribute(Scope.PLATFORM, Platform.Environment.SITES, new HashMap<String, Site>());
-		
-		DefaultEnvironment env = DefaultEnvironment.get(servletContext, servletRequest);
+		initialEnv.setAttribute(Scope.PLATFORM, Platform.Environment.SITES, new HashMap<>());
+
+		DefaultEnvironment env = DefaultEnvironment.get(servletRequest, servletResponse);
 		Mockito.when(siteProperties.getString(SiteProperties.TEMPLATE, null)).thenReturn("appng");
 		Mockito.when(siteProperties.getString(SiteProperties.DEFAULT_APPLICATION)).thenReturn("manager");
+		Mockito.when(siteProperties.getString(SiteProperties.MANAGER_PATH)).thenReturn("/manager");
 
+		Mockito.when(site.getName()).thenReturn("localhost");
 		Mockito.when(site.getProperties()).thenReturn(siteProperties);
-		Set<Application> applications = new HashSet<Application>();
+		Set<Application> applications = new HashSet<>();
 		applications.add(applicationB);
 		applications.add(application);
 		Mockito.when(site.getApplications()).thenReturn(applications);
@@ -94,11 +96,11 @@ public class GuiHandlerTest {
 		Mockito.when(subject.hasApplication(application)).thenReturn(true);
 		Mockito.when(subject.isAuthenticated()).thenReturn(true);
 		env.setSubject(subject);
-		Map<String, Site> siteMap = new HashMap<String, Site>();
+		Map<String, Site> siteMap = new HashMap<>();
 		env.setAttribute(Scope.PLATFORM, Platform.Environment.SITES, siteMap);
 		PathInfo pathInfo = new PathInfo("localhost", "http://localhost", "manager", "/gui", "/gui", "/service",
 				Arrays.asList("/assets"), Arrays.asList("/de"), "/repository", "jsp");
-		new GuiHandler().handle(servletRequest, servletResponse, env, site, pathInfo);
-		Mockito.verify(site).sendRedirect(env, application.getName());
+		new GuiHandler(null).handle(servletRequest, servletResponse, env, site, pathInfo);
+		Mockito.verify(site).sendRedirect(env, "/manager/localhost/someapp");
 	}
 }

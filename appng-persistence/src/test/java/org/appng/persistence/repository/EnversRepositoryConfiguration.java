@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,6 @@ import java.util.Properties;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 
-import org.appng.testsupport.persistence.ConnectionHelper;
-import org.appng.testsupport.persistence.HsqlServer;
 import org.hibernate.jpa.HibernatePersistenceProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan.Filter;
@@ -37,7 +35,6 @@ import org.springframework.transaction.PlatformTransactionManager;
  * TODO insert description
  * 
  * @author Claus Stümke, aiticon GmbH, 2016
- *
  */
 @Configuration
 @EnableJpaRepositories(basePackages = {
@@ -54,8 +51,6 @@ public class EnversRepositoryConfiguration {
 
 	@Bean
 	public EntityManagerFactory entityManagerFactory() {
-		int hsqlPort = ConnectionHelper.getHsqlPort();
-		HsqlServer.start(hsqlPort);
 		LocalContainerEntityManagerFactoryBean emfb = new LocalContainerEntityManagerFactoryBean();
 		emfb.setPersistenceUnitName("hsql-testdb");
 		emfb.setPackagesToScan("org.appng.persistence.model");

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,18 @@ package org.appng.core.service;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Properties;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.appng.core.domain.DatabaseConnection.DatabaseType;
 import org.hsqldb.Server;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Utility class responsible for starting and stopping a HSQL {@link Server} in case appNG is configured to use
@@ -32,9 +37,8 @@ import org.slf4j.LoggerFactory;
  * 
  * @author Matthias Müller
  */
+@Slf4j
 public class HsqlStarter {
-
-	private static final Logger LOGGER = LoggerFactory.getLogger(HsqlStarter.class);
 
 	private static final String APPNG_HSQL_LOG = "appng-hsql.log";
 	private static final String APPNG_HSQL_ERROR_LOG = "appng-hsql-error.log";
@@ -45,18 +49,35 @@ public class HsqlStarter {
 	public static final String CONTEXT = "hsqlContext";
 
 	/**
-	 * Starts a HSQL {@link Server}, but only if {@link DatabaseType#HSQL} is the configured type.
+	 * Checks if the database-type is hsql and if {@value #DATABASE_PORT} is set and not already in use.
+	 */
+	public static boolean mustStartServer(Properties platformProperties) {
+		return DatabaseType.HSQL.name().equalsIgnoreCase(platformProperties.getProperty(DatabaseService.DATABASE_TYPE))
+				&& StringUtils.isNotBlank(platformProperties.getProperty(DATABASE_PORT))
+				&& !testConnection(Integer.valueOf(platformProperties.getProperty(DATABASE_PORT)));
+	}
+
+	private static boolean testConnection(int port) {
+		return runStatement("select 1 from INFORMATION_SCHEMA.SYSTEM_USERS", port);
+	}
+
+	/**
+	 * Starts a HSQL {@link Server}, but only if {@link DatabaseType#HSQL} is the configured type and
+	 * {@value #DATABASE_PORT} is set and not already in use.
 	 * 
-	 * @param platformProperties
-	 *            the properties read from {@value org.appng.core.controller.PlatformStartup#CONFIG_LOCATION}
-	 * @param appngHome
-	 *            the home folder of appNG
-	 * @return a {@link Server}-instance, if {@link DatabaseType#HSQL} is the configured type.
+	 * @param  platformProperties
+	 *                            the properties read from
+	 *                            {@value org.appng.core.controller.PlatformStartup#CONFIG_LOCATION}
+	 * @param  appngHome
+	 *                            the home folder of appNG
+	 * 
+	 * @return                    a {@link Server}-instance, if {@link DatabaseType#HSQL} is the configured type.
+	 * 
 	 * @throws IOException
-	 *             in case the database folder or hsql logfiles could not be accessed
+	 *                            in case the database folder or hsql logfiles could not be accessed
 	 */
 	public static Server startHsql(Properties platformProperties, String appngHome) throws IOException {
-		if (DatabaseType.HSQL.name().equalsIgnoreCase(platformProperties.getProperty(DatabaseService.DATABASE_TYPE))) {
+		if (mustStartServer(platformProperties)) {
 			File databaseRootPath = new File(appngHome, FOLDER_DATABASE);
 			FileUtils.forceMkdir(databaseRootPath);
 
@@ -88,16 +109,29 @@ public class HsqlStarter {
 	 * Shuts down the given {@link Server}, if non-null.
 	 * 
 	 * @param server
-	 *            the {@link Server} to shut down, may be {@code null}
+	 *               the {@link Server} to shut down, may be {@code null}
 	 */
 	public static void shutdown(Server server) {
 		if (null != server) {
 			LOGGER.info("shutting down HSQL Server {} at {} on port {}", server.getProductVersion(),
 					server.getDatabasePath(0, false), server.getPort());
+			runStatement("SHUTDOWN", server.getPort());
 			server.shutdown();
 		} else {
 			LOGGER.debug("not running on HSQL, nothing to shutdown");
 		}
+	}
+
+	private static boolean runStatement(String sql, int port) {
+		String jdbcUrl = String.format("jdbc:hsqldb:hsql://localhost:%s/%s", port, DATABASE_NAME);
+		try (Connection connection = DriverManager.getConnection(jdbcUrl, "sa", "");
+				Statement statement = connection.createStatement()) {
+			statement.execute(sql);
+			return true;
+		} catch (SQLException e) {
+			// ignore
+		}
+		return false;
 	}
 
 }

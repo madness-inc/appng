@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,20 +20,24 @@ import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
 import org.appng.api.BusinessException;
+import org.appng.api.model.AuthSubject.PasswordChangePolicy;
 import org.appng.api.model.UserType;
 import org.appng.appngizer.model.Group;
 import org.appng.appngizer.model.Groups;
 import org.appng.appngizer.model.Subject;
 import org.appng.appngizer.model.Subjects;
+import org.appng.appngizer.model.Utils;
 import org.appng.core.domain.SubjectImpl;
 import org.appng.core.security.BCryptPasswordHandler;
 import org.slf4j.Logger;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.extern.slf4j.Slf4j;
@@ -42,9 +46,9 @@ import lombok.extern.slf4j.Slf4j;
 @RestController
 public class SubjectController extends ControllerBase {
 
-	@RequestMapping(value = "/subject", method = RequestMethod.GET)
+	@GetMapping(value = "/subject")
 	public ResponseEntity<Subjects> listSubjects() {
-		List<Subject> subjects = new ArrayList<Subject>();
+		List<Subject> subjects = new ArrayList<>();
 		for (org.appng.api.model.Subject g : getCoreService().getSubjects()) {
 			subjects.add(Subject.fromDomain(g, false));
 		}
@@ -53,7 +57,7 @@ public class SubjectController extends ControllerBase {
 		return ok(entity);
 	}
 
-	@RequestMapping(value = "/subject/{name}", method = RequestMethod.GET)
+	@GetMapping(value = "/subject/{name:.+}")
 	public ResponseEntity<Subject> getSubject(@PathVariable("name") String name) {
 		SubjectImpl subject = getCoreService().getSubjectByName(name, true);
 		if (null == subject) {
@@ -77,7 +81,7 @@ public class SubjectController extends ControllerBase {
 		return fromDomain;
 	}
 
-	@RequestMapping(value = "/subject", method = RequestMethod.POST)
+	@PostMapping(value = "/subject")
 	public ResponseEntity<Subject> createSubject(@RequestBody org.appng.appngizer.model.xml.Subject subject)
 			throws BusinessException {
 		SubjectImpl currentSubject = getCoreService().getSubjectByName(subject.getName(), false);
@@ -85,14 +89,14 @@ public class SubjectController extends ControllerBase {
 			return conflict();
 		}
 		SubjectImpl newSubject = Subject.toDomain(subject);
-		setDigest(subject.getDigest(), newSubject);
+		setOptionalFieldsForDomain(subject, newSubject, subject.getDigest());
 
 		getCoreService().createSubject(newSubject);
 		assignGroups(subject.getName(), subject);
 		return created(getSubject(subject.getName()).getBody());
 	}
 
-	@RequestMapping(value = "/subject/{name}", method = RequestMethod.PUT)
+	@PutMapping(value = "/subject/{name:.+}")
 	public ResponseEntity<Subject> updateSubject(@PathVariable("name") String name,
 			@RequestBody org.appng.appngizer.model.xml.Subject subject) throws BusinessException {
 		SubjectImpl subjectByName = getCoreService().getSubjectByName(name, true);
@@ -105,7 +109,7 @@ public class SubjectController extends ControllerBase {
 		subjectByName.setTimeZone(subject.getTimeZone());
 		subjectByName.setLanguage(subject.getLanguage());
 		subjectByName.setUserType(UserType.valueOf(subject.getType().name()));
-		setDigest(subject.getDigest(), subjectByName);
+		setOptionalFieldsForDomain(subject, subjectByName, subject.getDigest());
 		getCoreService().updateSubject(subjectByName);
 		assignGroups(name, subject);
 
@@ -115,18 +119,29 @@ public class SubjectController extends ControllerBase {
 		return ok(fromDomain);
 	}
 
-	void setDigest(String digest, SubjectImpl domainSubject) {
+	void setOptionalFieldsForDomain(org.appng.appngizer.model.xml.Subject subject, SubjectImpl subjectByName,
+			String digest) {
+		if (null != subject.isLocked()) {
+			subjectByName.setLocked(subject.isLocked());
+		}
+		subjectByName.setExpiryDate(Utils.getDate(subject.getExpiryDate()));
+
+		if (null != subject.getPasswordChangePolicy()) {
+			PasswordChangePolicy passwordChangePolicy = org.appng.api.model.AuthSubject.PasswordChangePolicy
+					.valueOf(subject.getPasswordChangePolicy().name());
+			subjectByName.setPasswordChangePolicy(passwordChangePolicy);
+		}
 		if (StringUtils.isNotBlank(digest)) {
 			if (digest.startsWith(BCryptPasswordHandler.getPrefix())) {
-				domainSubject.setDigest(digest);
+				subjectByName.setDigest(digest);
 			} else {
-				new BCryptPasswordHandler(domainSubject).savePassword(digest);
+				new BCryptPasswordHandler(subjectByName).applyPassword(digest);
 			}
 		}
 	}
 
 	public void assignGroups(String name, org.appng.appngizer.model.xml.Subject subject) throws BusinessException {
-		List<String> groupNames = new ArrayList<String>();
+		List<String> groupNames = new ArrayList<>();
 		if (null != subject.getGroups() && null != subject.getGroups().getGroup()) {
 			for (org.appng.appngizer.model.xml.Group group : subject.getGroups().getGroup()) {
 				groupNames.add(group.getName());
@@ -135,7 +150,7 @@ public class SubjectController extends ControllerBase {
 		getCoreService().addGroupsToSubject(name, groupNames, true);
 	}
 
-	@RequestMapping(value = "/subject/{name}", method = RequestMethod.DELETE)
+	@DeleteMapping(value = "/subject/{name:.+}")
 	public ResponseEntity<Void> deleteSubject(@PathVariable("name") String name) {
 		SubjectImpl currentSubject = getCoreService().getSubjectByName(name, false);
 		if (null == currentSubject) {
@@ -149,6 +164,6 @@ public class SubjectController extends ControllerBase {
 	}
 
 	Logger logger() {
-		return log;
+		return LOGGER;
 	}
 }

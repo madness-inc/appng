@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,22 +39,22 @@ import org.appng.api.model.Site;
 import org.appng.api.support.environment.EnvironmentKeys;
 import org.appng.core.Redirect;
 import org.appng.core.controller.Controller;
+import org.appng.core.controller.filter.MetricsFilter;
 import org.appng.core.model.CacheProvider;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
- * A {@link RequestHandler} responsible for serving static resources.<br/>Those resources may belong to a template or
- * reside inside a document-folder of a {@link Site} (see {@link SiteProperties#DOCUMENT_DIR} and
- * {@link org.appng.api.Path#isDocument()}).
+ * A {@link RequestHandler} responsible for serving static resources.<br/>
+ * Those resources may belong to a template or reside inside a document-folder of a {@link Site} (see
+ * {@link SiteProperties#DOCUMENT_DIR} and {@link org.appng.api.Path#isDocument()}).
  * 
  * @author Matthias Müller
  */
+@Slf4j
 public class StaticContentHandler implements RequestHandler {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(StaticContentHandler.class);
-
-	private static final List<String> TEMPLATE_FOLDERS = Arrays.asList("assets","resources");
+	private static final List<String> TEMPLATE_FOLDERS = Arrays.asList("assets", "resources");
 
 	private static final String SLASH = "/";
 
@@ -66,6 +66,7 @@ public class StaticContentHandler implements RequestHandler {
 
 	public void handle(HttpServletRequest servletRequest, HttpServletResponse servletResponse, Environment environment,
 			Site site, PathInfo pathInfo) throws ServletException, IOException {
+		servletRequest.setAttribute(MetricsFilter.SERVICE_TYPE, "static");
 		Properties platformProperties = environment.getAttribute(Scope.PLATFORM, Platform.Environment.PLATFORM_CONFIG);
 		String servletPath = pathInfo.getServletPath();
 		String repoPath = platformProperties.getString(Platform.Property.REPOSITORY_PATH);
@@ -83,9 +84,8 @@ public class StaticContentHandler implements RequestHandler {
 			serveStatic(servletRequest, servletResponse, resourcePath);
 		} else if (servletPath.startsWith(templatePrefix)) {
 			CacheProvider cacheProvider = new CacheProvider(platformProperties);
-			String applicationDir = platformProperties.getString(Platform.Property.APPLICATION_DIR);
-			serveTemplateResource(servletRequest, servletResponse, site, applicationDir, templatePrefix,
-					templateFolder, activeTemplate, defaultTemplate, repoPath, cacheProvider);
+			serveTemplateResource(servletRequest, servletResponse, site, templatePrefix, templateFolder, activeTemplate,
+					defaultTemplate, repoPath, cacheProvider);
 		} else if (pathInfo.isDocument()) {
 			if (pathInfo.isRootIgnoreTrailingSlash()) {
 				String target = pathInfo.getRootPath() + SLASH + defaultPage;
@@ -102,8 +102,8 @@ public class StaticContentHandler implements RequestHandler {
 	}
 
 	private void serveJsp(HttpServletRequest servletRequest, HttpServletResponse servletResponse,
-			Environment environment, Site site, PathInfo pathInfo, String wwwRootPath) throws ServletException,
-			IOException {
+			Environment environment, Site site, PathInfo pathInfo, String wwwRootPath)
+			throws ServletException, IOException {
 		File wwwRootFile = new File(servletRequest.getServletContext().getRealPath(wwwRootPath));
 		final String forwardPath = pathInfo.getForwardPath(wwwRootPath, wwwRootFile);
 		List<String> urlParameters = pathInfo.getJspUrlParameters();
@@ -128,13 +128,13 @@ public class StaticContentHandler implements RequestHandler {
 		};
 		controller.serveResource(requestWrapper, response);
 		int status = response.getStatus();
-		LOGGER.trace("returned " + status + " for static resource " + forwardPath);
+		LOGGER.trace("returned {} for static resource {}", status, forwardPath);
 		return status;
 	}
 
 	private int serveTemplateResource(HttpServletRequest servletRequest, HttpServletResponse response, Site site,
-			String applicationDir, String templatePrefix, String templateFolder, String templateName,
-			String defaultTemplate, String repoPath, CacheProvider cacheProvider) throws IOException, ServletException {
+			String templatePrefix, String templateFolder, String templateName, String defaultTemplate, String repoPath,
+			CacheProvider cacheProvider) throws IOException, ServletException {
 		String servletPath = servletRequest.getServletPath();
 		String[] splitted = servletPath.split(SLASH);
 		String[] splittedPrefix = splitted[1].split("_");
@@ -159,7 +159,8 @@ public class StaticContentHandler implements RequestHandler {
 					return null;
 				}
 			};
-			String relativePlatformCache = cacheProvider.getRelativePlatformCache(site, application);
+			String relativePlatformCache = cacheProvider.getRelativePlatformCache(site, application).replaceAll("\\\\",
+					SLASH);
 			String resourcePath = relativePlatformCache + SLASH + ResourceType.RESOURCE.getFolder();
 			path = servletPath.replaceFirst(templatePrefix, resourcePath);
 		} else {

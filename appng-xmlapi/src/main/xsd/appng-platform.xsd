@@ -180,6 +180,20 @@
 				</xs:appinfo>
 			</xs:annotation>
 		</xs:attribute>
+		<xs:attribute name="id" type="xs:string">
+			<xs:annotation>
+				<xs:documentation>
+<![CDATA[The ID of the section, must be unique within the page.]]>
+				</xs:documentation>
+				<xs:appinfo>
+					<jxb:property>
+						<jxb:javadoc>
+<![CDATA[The ID of the section, must be unique within the page.]]>
+						</jxb:javadoc>
+					</jxb:property>
+				</xs:appinfo>
+			</xs:annotation>
+		</xs:attribute>
 	</xs:complexType>
 
 	<xs:complexType name="sectionConfig">
@@ -305,6 +319,20 @@ If evaluating to 'true', the resulting &lt;sectionelement&gt; will not determine
 					<jxb:property>
 						<jxb:javadoc>
 <![CDATA[The time in milliseconds it took to process this {@code Section}.]]>
+						</jxb:javadoc>
+					</jxb:property>
+				</xs:appinfo>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="id" type="xs:string">
+			<xs:annotation>
+				<xs:documentation>
+<![CDATA[The ID of the section, must be unique within the page.]]>
+				</xs:documentation>
+				<xs:appinfo>
+					<jxb:property>
+						<jxb:javadoc>
+<![CDATA[The ID of the section, must be unique within the page.]]>
 						</jxb:javadoc>
 					</jxb:property>
 				</xs:appinfo>
@@ -772,6 +800,7 @@ Therefore, several {@link Template}s are used, which contain the nessecarry XSL 
 		</xs:annotation>
 		<xs:sequence>
 			<xs:element name="config" type="dataConfig" />
+			<xs:element name="messages" type="messages" minOccurs="0" />
 			<xs:choice>
 				<xs:element name="bean" type="bean" />
 				<xs:element name="data" type="data" />
@@ -790,12 +819,12 @@ Therefore, several {@link Template}s are used, which contain the nessecarry XSL 
 		<xs:attribute name="mode" type="xs:string" use="optional">
 			<xs:annotation>
 				<xs:documentation>
-<![CDATA[If the appNG-template or the application's custom XSL supports some custom display mode(s), this property can be used to control this custom behavior.]]>
+<![CDATA[If the appNG-template or the application's custom templating supports some custom display mode(s), the mode can be used to control this custom behavior.]]>
 				</xs:documentation>
 				<xs:appinfo>
 					<jxb:property>
 						<jxb:javadoc>
-<![CDATA[If the appNG-template or the application's custom XSL supports some custom display mode(s), this property can be used to control this custom behavior.]]>
+<![CDATA[If the appNG-template or the application's custom templating supports some custom display mode(s), the mode can be used to control this custom behavior.]]>
 						</jxb:javadoc>
 					</jxb:property>
 				</xs:appinfo>
@@ -995,6 +1024,20 @@ Therefore, several {@link Template}s are used, which contain the nessecarry XSL 
 				</xs:appinfo>
 			</xs:annotation>
 		</xs:attribute>
+		<xs:attribute name="mode" type="xs:string" use="optional">
+			<xs:annotation>
+				<xs:documentation>
+<![CDATA[If the appNG-template or the application's custom templating supports some custom display mode(s), the mode can be used to control this custom behavior.]]>
+				</xs:documentation>
+				<xs:appinfo>
+					<jxb:property>
+						<jxb:javadoc>
+<![CDATA[If the appNG-template or the application's custom templating supports some custom display mode(s), the mode can be used to control this custom behavior.]]>
+						</jxb:javadoc>
+					</jxb:property>
+				</xs:appinfo>
+			</xs:annotation>
+		</xs:attribute>
 		<xs:attribute name="async" type="booleanValue" default="false">
 			<xs:annotation>
 				<xs:documentation>If evaluating to 'true', the &lt;action&gt; will be executed asynchronously.
@@ -1156,7 +1199,10 @@ Therefore, several {@link Template}s are used, which contain the nessecarry XSL 
 		<xs:sequence>
 			<xs:element name="condition" type="condition" minOccurs="0" maxOccurs="1" />
 			<xs:element type="permissions" minOccurs="0" name="permissions" />
-			<xs:element name="link" type="link" minOccurs="0" maxOccurs="unbounded" />
+			<xs:choice minOccurs="0" maxOccurs="unbounded">
+        		<xs:element name="link" type="link" minOccurs="0" maxOccurs="unbounded" />
+				<xs:element name="action" type="openapi-action" minOccurs="0" maxOccurs="unbounded" />
+      		</xs:choice>			
 		</xs:sequence>
 		<xs:attribute name="id" type="xs:string" use="required">
 			<xs:annotation>
@@ -1180,58 +1226,25 @@ Therefore, several {@link Template}s are used, which contain the nessecarry XSL 
 		</xs:attribute>
 	</xs:complexType>
 
-	<xs:complexType name="link">
+	<xs:complexType name="linkable" abstract="true">
 		<xs:annotation>
-			<xs:documentation>Links to an (internal) page/webservice, or to an external location.</xs:documentation>
+			<xs:documentation></xs:documentation>
 			<xs:appinfo>
 				<jxb:class>
 					<jxb:javadoc>
-<![CDATA[Links to an (internal) page/webservice, or to an external location.]]>
+<![CDATA[]]>
 					</jxb:javadoc>
 				</jxb:class>
 			</xs:appinfo>
 		</xs:annotation>
-		<xs:all>
+		<xs:sequence>
 			<xs:element name="condition" type="condition" minOccurs="0" maxOccurs="1" />
 			<xs:element type="permissions" minOccurs="0" name="permissions" />
 			<xs:element name="label" type="label" />
 			<xs:element name="icon" type="icon" minOccurs="0" />
 			<xs:element name="confirmation" type="label" minOccurs="0" />
 			<xs:element name="textelements" type="textelements" minOccurs="0" />
-		</xs:all>
-		<xs:attribute name="id" type="xs:string" use="optional">
-			<xs:annotation>
-				<xs:documentation>The unqiue id of this &lt;link&gt; within the owning &lt;linkpanel&gt;</xs:documentation>
-				<xs:appinfo>
-					<jxb:property>
-						<jxb:javadoc>The unqiue id of this {@code Link} within the owning {@link Linkpanel}</jxb:javadoc>
-					</jxb:property>
-				</xs:appinfo>
-			</xs:annotation>
-		</xs:attribute>
-		<xs:attribute name="mode" type="linkmode" use="required">
-			<xs:annotation>
-				<xs:documentation>The &lt;linkmode&gt; used when displaying this link.</xs:documentation>
-				<xs:appinfo>
-					<jxb:property>
-						<jxb:javadoc>The {@link Linkmode} used when displaying this link.</jxb:javadoc>
-					</jxb:property>
-				</xs:appinfo>
-			</xs:annotation>
-		</xs:attribute>
-		<xs:attribute name="target" type="xs:string" use="required">
-			<xs:annotation>
-				<xs:documentation>The URI of the link, may be relative to the application (linkmode 'inline' or 'intern') or absolute (linkmode 'extern')
-				</xs:documentation>
-				<xs:appinfo>
-					<jxb:property>
-						<jxb:javadoc>The URI of the link, may be relative to the application ({@link Linkmode#INTERN} or {@link
-							Linkmode#INTERN}) or absolute ({@link Linkmode#EXTERN})
-						</jxb:javadoc>
-					</jxb:property>
-				</xs:appinfo>
-			</xs:annotation>
-		</xs:attribute>
+		</xs:sequence>
 		<xs:attribute name="default" type="booleanValue" use="optional">
 			<xs:annotation>
 				<xs:documentation>If evaluating to 'true', the link will be the default for the current &lt;result&gt;
@@ -1277,6 +1290,96 @@ Therefore, several {@link Template}s are used, which contain the nessecarry XSL 
 			</xs:annotation>
 		</xs:attribute>
 	</xs:complexType>
+
+	<xs:complexType name="openapi-action">
+        <xs:complexContent>
+            <xs:extension base="linkable">
+                <xs:sequence>
+                    <xs:element name="params" type="params" minOccurs="0" maxOccurs="1" />
+                </xs:sequence>
+                <xs:attribute name="target" type="xs:string">
+					<xs:annotation>
+						<xs:documentation>The URI of the OpenAPI action</xs:documentation>
+						<xs:appinfo>
+							<jxb:property>
+								<jxb:javadoc>The URI of the OpenAPI action</jxb:javadoc>
+							</jxb:property>
+						</xs:appinfo>
+					</xs:annotation>
+				</xs:attribute>
+                <xs:attribute name="id" type="xs:string" use="required">
+					<xs:annotation>
+						<xs:documentation>The ID of the action.</xs:documentation>
+						<xs:appinfo>
+							<jxb:property>
+								<jxb:javadoc>The ID of the action.</jxb:javadoc>
+							</jxb:property>
+						</xs:appinfo>
+					</xs:annotation>
+				</xs:attribute>
+				<xs:attribute name="event-id" type="xs:string" use="required">
+					<xs:annotation>
+						<xs:documentation>The Event-ID of the action.</xs:documentation>
+						<xs:appinfo>
+							<jxb:property>
+								<jxb:javadoc>The Event-ID of the action.</jxb:javadoc>
+							</jxb:property>
+						</xs:appinfo>
+					</xs:annotation>
+				</xs:attribute>
+				<xs:attribute name="interactive" type="xs:boolean" default="true">
+					<xs:annotation>
+						<xs:documentation>Wether or not this action requires additional user-input.</xs:documentation>
+						<xs:appinfo>
+							<jxb:property>
+								<jxb:javadoc>Wether or not this action requires additional user-input.</jxb:javadoc>
+							</jxb:property>
+						</xs:appinfo>
+					</xs:annotation>
+				</xs:attribute>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+	<xs:complexType name="link">
+        <xs:complexContent>
+            <xs:extension base="linkable">
+            	<xs:attribute name="id" type="xs:string" use="optional">
+            		<xs:annotation>
+            			<xs:documentation>The unqiue id of this &lt;link&gt; within the owning &lt;linkpanel&gt;</xs:documentation>
+            			<xs:appinfo>
+            				<jxb:property>
+            					<jxb:javadoc>The unqiue id of this {@code Link} within the owning {@link Linkpanel}</jxb:javadoc>
+            				</jxb:property>
+            			</xs:appinfo>
+            		</xs:annotation>
+            	</xs:attribute>
+            	<xs:attribute name="target" type="xs:string" use="required">
+					<xs:annotation>
+						<xs:documentation>The URI of the link, may be relative to the application (linkmode 'inline' or 'intern') or absolute (linkmode 'extern')
+						</xs:documentation>
+						<xs:appinfo>
+							<jxb:property>
+								<jxb:javadoc>The URI of the link, may be relative to the application ({@link Linkmode#INTERN} or {@link
+									Linkmode#INTERN}) or absolute ({@link Linkmode#EXTERN})
+								</jxb:javadoc>
+							</jxb:property>
+						</xs:appinfo>
+					</xs:annotation>
+				</xs:attribute>
+            	<xs:attribute name="mode" type="linkmode" use="required">
+					<xs:annotation>
+						<xs:documentation>The &lt;linkmode&gt; used when displaying this link.</xs:documentation>
+						<xs:appinfo>
+							<jxb:property>
+								<jxb:javadoc>The {@link Linkmode} used when displaying this link.</jxb:javadoc>
+							</jxb:property>
+						</xs:appinfo>
+					</xs:annotation>
+				</xs:attribute>    
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
 
 	<xs:complexType name="icon" mixed="true">
 		<xs:annotation>
@@ -1360,6 +1463,23 @@ Therefore, several {@link Template}s are used, which contain the nessecarry XSL 
 					</xs:documentation>
 				</xs:annotation>
 			</xs:enumeration>
+			<xs:enumeration value="rest">
+				<xs:annotation>
+					<xs:documentation>A link to a RESTful service.</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>			
+			<!--xs:enumeration value="action-modal">
+				<xs:annotation>
+					<xs:documentation><![CDATA[Links to an OpenAPI-based action whose input-form should be displayed in a modal dialog. <strong>Must not</strong> use a confirmation.<br/>
+Target must be in format {@code /action/<event-id>/<action-id>?param=value}]]></xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="action">
+				<xs:annotation>
+					<xs:documentation><![CDATA[Links to an OpenAPI-based action that does <strong>not</strong> require an input-form, but <strong>can</strong> use a confirmation.<br/>
+Target must be in format {@code /action/<event-id>/<action-id>?param=value}]]></xs:documentation>
+				</xs:annotation>
+			</xs:enumeration-->
 		</xs:restriction>
 	</xs:simpleType>
 
@@ -1713,12 +1833,12 @@ Note that only those POST-parameters which are being used in a {@link Condition}
 		<xs:attribute name="mode" type="xs:string" use="optional">
 			<xs:annotation>
 				<xs:documentation>
-<![CDATA[If the appNG-template or the application's custom XSL supports some custom display mode(s), this property can be used to control this custom behavior.]]>
+<![CDATA[If the appNG-template or the application's custom templating supports some custom display mode(s), the mode can be used to control this custom behavior.]]>
 				</xs:documentation>
 				<xs:appinfo>
 					<jxb:property>
 						<jxb:javadoc>
-<![CDATA[If the appNG-template or the application's custom XSL supports some custom display mode(s), this property can be used to control this custom behavior.]]>
+<![CDATA[If the appNG-template or the application's custom templating supports some custom display mode(s), the mode can be used to control this custom behavior.]]>
 						</jxb:javadoc>
 					</jxb:property>
 				</xs:appinfo>
@@ -1787,6 +1907,20 @@ Note that only those POST-parameters which are being used in a {@link Condition}
 				<xs:appinfo>
 					<jxb:property>
 						<jxb:javadoc>The URI to forward to after successfully performing the action.</jxb:javadoc>
+					</jxb:property>
+				</xs:appinfo>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="mode" type="xs:string" use="optional">
+			<xs:annotation>
+				<xs:documentation>
+<![CDATA[If the appNG-template or the application's custom templating supports some custom display mode(s), the mode can be used to control this custom behavior.]]>
+				</xs:documentation>
+				<xs:appinfo>
+					<jxb:property>
+						<jxb:javadoc>
+<![CDATA[If the appNG-template or the application's custom templating supports some custom display mode(s), the mode can be used to control this custom behavior.]]>
+						</jxb:javadoc>
 					</jxb:property>
 				</xs:appinfo>
 			</xs:annotation>
@@ -2379,6 +2513,18 @@ If empty, the template is being applied to any output-type.]]>
 				</xs:appinfo>
 			</xs:annotation>
 		</xs:attribute>
+		<xs:attribute name="code" type="xs:string" use="optional">
+			<xs:annotation>
+				<xs:documentation>A code for this message.
+				</xs:documentation>
+				<xs:appinfo>
+					<jxb:property>
+						<jxb:javadoc>A code for this message.
+						</jxb:javadoc>
+					</jxb:property>
+				</xs:appinfo>
+			</xs:annotation>
+		</xs:attribute>
 	</xs:complexType>
 
 
@@ -2473,6 +2619,7 @@ If empty, the template is being applied to any output-type.]]>
 		</xs:annotation>
 		<xs:sequence>
 			<xs:element name="title" type="label" maxOccurs="1" />
+			<xs:element name="tooltip" type="label" minOccurs="0"/>
 			<xs:element name="option" type="option" minOccurs="0" maxOccurs="unbounded" />
 			<xs:element name="optionGroup" type="optionGroup" minOccurs="0" maxOccurs="unbounded" />
 		</xs:sequence>
@@ -2597,6 +2744,16 @@ If empty, the template is being applied to any output-type.]]>
 				</xs:appinfo>
 			</xs:annotation>
 		</xs:attribute>
+		<xs:attribute name="hits" type="xs:int" use="optional">
+			<xs:annotation>
+				<xs:documentation>Tells how many hits there are for this option.</xs:documentation>
+				<xs:appinfo>
+					<jxb:property>
+						<jxb:javadoc>Tells how many hits there are for this option.</jxb:javadoc>
+					</jxb:property>
+				</xs:appinfo>
+			</xs:annotation>
+		</xs:attribute>
 		<xs:attribute name="disabled" type="xs:boolean">
 			<xs:annotation>
 				<xs:documentation>Used for marking the option as disabled.</xs:documentation>
@@ -2690,6 +2847,7 @@ If empty, the template is being applied to any output-type.]]>
 		<xs:sequence>
 			<xs:element name="sort" type="sort" minOccurs="0" />
 			<xs:element name="label" type="label" minOccurs="0" />
+			<xs:element name="tooltip" type="label" minOccurs="0"/>
 			<xs:element name="icon" type="icon" minOccurs="0" maxOccurs="unbounded" />
 			<xs:element name="condition" type="condition" minOccurs="0" />
 			<xs:element name="permissions" type="fieldPermissions" minOccurs="0" maxOccurs="2" />

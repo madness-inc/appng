@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,15 +25,21 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import javax.persistence.CollectionTable;
 import javax.persistence.Column;
+import javax.persistence.ElementCollection;
 import javax.persistence.Entity;
+import javax.persistence.EntityListeners;
 import javax.persistence.FetchType;
+import javax.persistence.ForeignKey;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.JoinColumn;
 import javax.persistence.OneToMany;
 import javax.persistence.Table;
 import javax.persistence.Transient;
@@ -45,11 +51,13 @@ import javax.validation.constraints.Size;
 
 import org.appng.api.Environment;
 import org.appng.api.Path;
+import org.appng.api.Platform;
 import org.appng.api.Scope;
 import org.appng.api.SiteProperties;
 import org.appng.api.ValidationMessages;
 import org.appng.api.auth.PasswordPolicy;
 import org.appng.api.messaging.Event;
+import org.appng.api.messaging.Messaging;
 import org.appng.api.messaging.Sender;
 import org.appng.api.model.Application;
 import org.appng.api.model.Named;
@@ -62,21 +70,20 @@ import org.appng.core.Redirect;
 import org.appng.core.controller.HttpHeaders;
 import org.appng.core.controller.messaging.SiteStateEvent;
 import org.appng.core.model.AccessibleApplication;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
- * 
  * Default {@link Site}-implementation
  * 
  * @author Matthias Müller
- * 
  */
+@Slf4j
 @Entity
 @Table(name = "site")
-public class SiteImpl implements Site {
+@EntityListeners(PlatformEventListener.class)
+public class SiteImpl implements Site, Auditable<Integer> {
 
-	private static final Logger log = LoggerFactory.getLogger(SiteImpl.class);
 	private static final String SLASH = "/";
 	private static final String TAB_PARAM_NAME = "tab";
 	private static final String AGENT_MSIE = "MSIE";
@@ -85,17 +92,19 @@ public class SiteImpl implements Site {
 	private static final char AMPERSAND = '&';
 	private static final char ANCHOR = '#';
 	private Integer id;
+	private int reloadCount;
 	private String name;
 	private String description;
 	private Date version;
 	private String host;
+	private Set<String> hostAliases = new HashSet<>();
 	private String domain;
-	private Set<SiteApplication> applications = new HashSet<SiteApplication>();
+	private Set<SiteApplication> applications = new HashSet<>();
 	private boolean active;
 	private boolean createRepository = false;
 	private SiteClassLoader siteClassLoader;
 	private Properties properties;
-	private Set<Named<Integer>> groups = new HashSet<Named<Integer>>();
+	private Set<Named<Integer>> groups = new HashSet<>();
 	private File siteRootDirectory;
 	private PasswordPolicy policy;
 	private Date startupTime;
@@ -105,7 +114,7 @@ public class SiteImpl implements Site {
 	private AtomicInteger requests = new AtomicInteger(0);
 
 	@Id
-	@GeneratedValue(strategy = GenerationType.AUTO)
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	public Integer getId() {
 		return id;
 	}
@@ -156,7 +165,7 @@ public class SiteImpl implements Site {
 
 	@Transient
 	public Set<Application> getApplications() {
-		Set<Application> applicationList = new HashSet<Application>();
+		Set<Application> applicationList = new HashSet<>();
 		for (SiteApplication application : applications) {
 			applicationList.add(application.getApplication());
 		}
@@ -172,6 +181,19 @@ public class SiteImpl implements Site {
 
 	public void setHost(String host) {
 		this.host = host;
+	}
+
+	// Sites are fetched in different transactions and reused all over the place. Since there is no performance gain
+	// in lazy-fetching the small amount of aliases, we agreed on eager fetching with MM.
+	@ElementCollection(fetch = FetchType.EAGER)
+	@CollectionTable(name = "site_hostalias", joinColumns = @JoinColumn(name = "site_id", referencedColumnName = "id"), foreignKey = @ForeignKey(name = "FK__SITE_HOSTALIAS__SITE"))
+	@Column(name = "hostname", unique = true)
+	public Set<String> getHostAliases() {
+		return hostAliases;
+	}
+
+	public void setHostAliases(Set<String> hostAliases) {
+		this.hostAliases = hostAliases;
 	}
 
 	@NotNull(message = ValidationMessages.VALIDATION_NOT_NULL)
@@ -202,9 +224,18 @@ public class SiteImpl implements Site {
 		this.createRepository = createRepository;
 	}
 
+	@Column(name = "reload_count")
+	public int getReloadCount() {
+		return reloadCount;
+	}
+
+	public void setReloadCount(int reloadCount) {
+		this.reloadCount = reloadCount;
+	}
+
 	@Transient
 	public Map<String, Application> getApplicationMap() {
-		Map<String, Application> map = new HashMap<String, Application>();
+		Map<String, Application> map = new HashMap<>();
 		for (SiteApplication p : applications) {
 			map.put(p.getApplication().getName(), p.getApplication());
 		}
@@ -258,7 +289,7 @@ public class SiteImpl implements Site {
 
 	public boolean sendEvent(Event event) {
 		if (null == sender) {
-			log.debug("messaging is disabled, not sending event {}", event);
+			LOGGER.debug("messaging is disabled, not sending event {}", event);
 			return false;
 		}
 		return sender.send(event);
@@ -324,7 +355,7 @@ public class SiteImpl implements Site {
 	}
 
 	public void closeSiteContext() {
-		log.info("closing context for site {}", this);
+		LOGGER.info("closing context for site {}", this);
 		for (SiteApplication p : getSiteApplications()) {
 			((AccessibleApplication) p.getApplication()).closeContext();
 		}
@@ -335,7 +366,7 @@ public class SiteImpl implements Site {
 		try {
 			siteClassLoader.close();
 		} catch (IOException e) {
-			log.error("error while closing classloader", e);
+			LOGGER.error("error while closing classloader", e);
 		}
 		siteClassLoader = null;
 	}
@@ -386,10 +417,27 @@ public class SiteImpl implements Site {
 	}
 
 	public void setState(SiteState state) {
+		setState(state, null);
+	}
+
+	public void setState(SiteState state, Environment env) {
 		SiteState oldState = getState();
 		this.state.set(state);
-		log.debug("set state for site {} (was: {})", toString(), oldState);
-		sendEvent(new SiteStateEvent(getName(), state));
+		LOGGER.debug("set state for site {} (was: {})", toString(), oldState);
+		SiteStateEvent event = new SiteStateEvent(getName(), state, Messaging.getNodeId());
+		if (null != env) {
+			event.handleSiteState(env);
+			if (SiteState.STARTED.equals(this.state.get())) {
+				Properties cfg = env.getAttribute(Scope.PLATFORM, Platform.Environment.PLATFORM_CONFIG);
+				Integer setSiteStartedDelay = cfg.getInteger("setSiteStateStartedDelay", 10);
+				try {
+					Thread.sleep(TimeUnit.SECONDS.toMillis(setSiteStartedDelay));
+				} catch (InterruptedException e) {
+					// ignore
+				}
+			}
+		}
+		sendEvent(event);
 	}
 
 	public boolean hasState(SiteState... states) {

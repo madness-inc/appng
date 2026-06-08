@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,28 +17,27 @@ package org.appng.persistence.repository;
 
 import java.io.Serializable;
 
-import org.springframework.data.envers.repository.support.EnversRevisionRepository;
 import org.springframework.data.repository.NoRepositoryBean;
+import org.springframework.data.repository.history.RevisionRepository;
 
 /**
- * 
  * A {@link SearchRepository} that additionally offers Spring Data Envers functionality
  * 
  * @author Claus Stuemke
  * 
  * @param <T>
- *            the domain class
+ *             the domain class
  * @param <ID>
- *            the type of the Id of the domain class
+ *             the type of the Id of the domain class
  * @param <N>
- *            the type of the revision
+ *             the type of the revision
  * 
  * @see SearchRepository
- * @see EnversRevisionRepository
+ * @see RevisionRepository
  */
 
 @NoRepositoryBean
-public interface EnversSearchRepository<T, ID extends Serializable, N extends Number & Comparable<N>> extends
-		EnversRevisionRepository<T, ID, N>, SearchRepository<T, ID> {
+public interface EnversSearchRepository<T, ID extends Serializable, N extends Number & Comparable<N>>
+		extends RevisionRepository<T, ID, N>, SearchRepository<T, ID> {
 
 }

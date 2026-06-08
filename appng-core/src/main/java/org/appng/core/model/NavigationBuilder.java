@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
@@ -34,8 +35,8 @@ import org.appng.api.model.Site;
 import org.appng.xml.platform.ItemType;
 import org.appng.xml.platform.Navigation;
 import org.appng.xml.platform.NavigationItem;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Utility-class for ehlping to build a {@link Navigation}-object, based on the current {@link Environment} and
@@ -43,9 +44,10 @@ import org.slf4j.LoggerFactory;
  * 
  * @author Matthias Müller
  */
+@Slf4j
 class NavigationBuilder {
 
-	private static Logger log = LoggerFactory.getLogger(NavigationBuilder.class);
+	static final String CHANGE_PASSWORD = "changePassword";
 	private static final String SLASH = "/";
 
 	private PathInfo pathInfo;
@@ -56,10 +58,10 @@ class NavigationBuilder {
 		this.env = environment;
 	}
 
-	void processNavigation(Navigation navigation, ParameterSupport parameterSupport) {
+	void processNavigation(Navigation navigation, ParameterSupport parameterSupport, boolean allowChangePassword) {
 
 		List<NavigationItem> items = navigation.getItem();
-		List<NavigationItem> sites = new ArrayList<NavigationItem>();
+		List<NavigationItem> sites = new ArrayList<>();
 		NavigationItem siteTemplate = null;
 
 		for (NavigationItem navItem : items) {
@@ -91,7 +93,11 @@ class NavigationBuilder {
 		if (null != siteTemplate) {
 			int siteTemplateIdx = items.indexOf(siteTemplate);
 			items.addAll(siteTemplateIdx, sites);
-			items.remove(siteTemplate);
+			removeItem(navigation, siteTemplate);
+		}
+		Optional<NavigationItem> changePassword = getNavItem(navigation, CHANGE_PASSWORD);
+		if (!allowChangePassword && changePassword.isPresent()) {
+			removeItem(navigation, changePassword.get());
 		}
 		sort(items);
 		sort(sites);
@@ -137,7 +143,7 @@ class NavigationBuilder {
 	}
 
 	private List<NavigationItem> processSiteTemplate(NavigationItem siteTemplate) {
-		List<NavigationItem> siteItems = new ArrayList<NavigationItem>();
+		List<NavigationItem> siteItems = new ArrayList<>();
 		org.appng.api.model.Subject subject = env.getSubject();
 
 		Map<String, Site> sites = env.getAttribute(PLATFORM, Platform.Environment.SITES);
@@ -177,7 +183,7 @@ class NavigationBuilder {
 	}
 
 	void selectNavigationItem(NavigationItem item) {
-		log.debug("selecting NavigationItem @ref='" + item.getRef() + "'");
+		LOGGER.debug("selecting NavigationItem @ref='{}'", item.getRef());
 		item.setSelected(true);
 		String site = item.getSite();
 		String application = item.getApplication();
@@ -188,10 +194,9 @@ class NavigationBuilder {
 		if (StringUtils.isNotEmpty(application) && StringUtils.isNotEmpty(site) && StringUtils.isNotEmpty(page)) {
 			pathInfo.setApplicationName(application);
 			pathInfo.setPage(page);
-			log.debug("NavigationItem @ref='" + item.getRef() + "' points to page " + site + SLASH + application
-					+ SLASH + page);
+			LOGGER.debug("NavigationItem @ref='{}' points to page {}/{}/{}", item.getRef(), site, application, page);
 			if (StringUtils.isNotEmpty(actionName) && StringUtils.isNotEmpty(actionValue)) {
-				log.debug("NavigationItem @ref='" + item.getRef() + " has action " + actionName + "=" + actionValue);
+				LOGGER.debug("NavigationItem @ref='{}' has action {}={}", item.getRef(), actionName, actionValue);
 				pathInfo.setAction(actionName, actionValue);
 			}
 		}
@@ -199,7 +204,7 @@ class NavigationBuilder {
 
 	private List<NavigationItem> addSiteNavigation(Site navSite, NavigationItem siteTemplate) {
 
-		List<NavigationItem> navItems = new ArrayList<NavigationItem>();
+		List<NavigationItem> navItems = new ArrayList<>();
 		List<NavigationItem> tplItems = siteTemplate.getItem();
 
 		for (NavigationItem tplItem : tplItems) {
@@ -273,6 +278,20 @@ class NavigationBuilder {
 		}
 
 		return newItem;
+	}
+
+	public Optional<NavigationItem> getNavItem(Navigation navigation, String actionValue) {
+		return navigation.getItem().stream()
+				.filter(i -> i.getType().equals(ItemType.ANCHOR) && i.getActionValue().equals(actionValue)).findAny();
+	}
+
+	public void removeItems(Navigation navigation, ItemType type) {
+		new ArrayList<>(navigation.getItem()).stream().filter(i -> i.getType().equals(type))
+				.forEach(i -> removeItem(navigation, i));
+	}
+
+	public boolean removeItem(Navigation navigation, NavigationItem item) {
+		return null == item ? false : navigation.getItem().remove(item);
 	}
 
 }

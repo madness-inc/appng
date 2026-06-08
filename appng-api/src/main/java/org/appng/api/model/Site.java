@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,6 @@ import org.appng.api.auth.PasswordPolicy;
 import org.appng.api.messaging.Event;
 
 /**
- * 
  * A {@link Site} is the highest level entry-point to the platform. Besides a unique name, it needs to have a domain and
  * a host. A site can use any of the several {@link Application}s which have been deployed to the platform.
  * 
@@ -39,7 +38,7 @@ public interface Site extends Named<Integer> {
 	 * The different states a site can have
 	 */
 	enum SiteState {
-		STARTING, STARTED, STOPPING, STOPPED, INACTIVE;
+		STARTING, STARTED, SUSPENDED, STOPPING, STOPPED, INACTIVE, DELETED;
 	}
 
 	/**
@@ -55,6 +54,7 @@ public interface Site extends Named<Integer> {
 	 * 
 	 * @param name
 	 *            the name of the {@link Application}
+	 * 
 	 * @return the {@link Application}, if such a {@link Application} is assigned to this {@link Site}, {@code null}
 	 *         otherwise
 	 */
@@ -65,17 +65,25 @@ public interface Site extends Named<Integer> {
 	 * 
 	 * @param name
 	 *            the name of the {@link Application}
+	 * 
 	 * @return {@code true} if the {@link Application} with the given name is assigned to this {@link Site},
 	 *         {@code false} otherwise
 	 */
 	boolean hasApplication(String name);
 
 	/**
-	 * Returns the host for this site
+	 * Returns the main hostname for this site
 	 * 
 	 * @return the host
 	 */
 	String getHost();
+
+	/**
+	 * Returns alias hostnames for ths {@link Site}
+	 *
+	 * @return the alias names
+	 */
+	Set<String> getHostAliases();
 
 	/**
 	 * Returns the domain for this {@link Site}.
@@ -88,15 +96,14 @@ public interface Site extends Named<Integer> {
 	 * Returns the {@link Properties} for this {@link Site}.
 	 * 
 	 * @return the {@link Properties} for this {@link Site}
+	 * 
 	 * @see org.appng.api.SiteProperties
 	 */
 	Properties getProperties();
 
 	/**
 	 * Returns the {@link URLClassLoader} for this {@link Site}, which contains all the jars provided by the
-	 * {@link Application}s that are assigned to this
-	 * 
-	 * {@link Site}.
+	 * {@link Application}s that are assigned to this {@link Site}.
 	 * 
 	 * @return the {@link URLClassLoader}
 	 */
@@ -142,6 +149,7 @@ public interface Site extends Named<Integer> {
 	 * 
 	 * @param relativePath
 	 *            the relative path of the file
+	 * 
 	 * @return the {@link File}, if such a path exists
 	 */
 	File readFile(String relativePath);
@@ -172,12 +180,13 @@ public interface Site extends Named<Integer> {
 	 * 
 	 * @param event
 	 *            the event to send
+	 * 
 	 * @return {@code true} if the event was sent successfully
 	 */
 	boolean sendEvent(Event event);
-	
+
 	SiteState getState();
-	
+
 	boolean hasState(SiteState... states);
 
 }

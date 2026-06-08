@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,7 @@ package org.appng.tools.locator;
 /**
  * Entity which represents a geo-coordinate
  * 
-* @author Matthias Müller
- * 
+ * @author Matthias Müller
  */
 public class Coordinate {
 
@@ -76,13 +75,15 @@ public class Coordinate {
 		if (latitude == null) {
 			if (other.latitude != null)
 				return false;
-		} else if (!latitude.equals(other.latitude))
+		} else if (!latitude.equals(other.latitude)) {
 			return false;
+		}
 		if (longitude == null) {
 			if (other.longitude != null)
 				return false;
-		} else if (!longitude.equals(other.longitude))
+		} else if (!longitude.equals(other.longitude)) {
 			return false;
+		}
 		return true;
 	}
 }

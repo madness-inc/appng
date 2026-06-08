@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,18 +35,17 @@ import org.appng.xml.MarshallService;
 import org.appng.xml.application.ApplicationInfo;
 import org.appng.xml.application.PackageInfo;
 import org.appng.xml.application.Template;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * A {@link PackageArchive}.
  * 
  * @author Matthias Herlitzius
- * 
  */
+@Slf4j
 public class PackageArchiveImpl implements PackageArchive {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(PackageArchiveImpl.class);
 	private static final String ZIP = ".zip";
 	private static final char SEPARATOR = '-';
 
@@ -90,7 +89,7 @@ public class PackageArchiveImpl implements PackageArchive {
 				this.checksum = DigestUtils.sha256Hex(FileUtils.readFileToByteArray(file));
 			}
 		} catch (IOException e) {
-			LOGGER.warn("invalid archive: " + toString(), e);
+			LOGGER.warn(String.format("invalid archive: %s", toString()), e);
 		}
 	}
 
@@ -132,17 +131,10 @@ public class PackageArchiveImpl implements PackageArchive {
 	}
 
 	public <T> T processZipFile(ZipFileProcessor<T> processor) throws IOException {
-		ZipFile zipFile = null;
-		try {
-			zipFile = new ZipFile(file);
+		try (ZipFile zipFile = new ZipFile(file)) {
 			return processor.process(zipFile);
-		} catch (IOException e) {
-			throw e;
 		} finally {
-			if (null == packageInfo) {
-				isValid = false;
-			}
-			ZipFile.closeQuietly(zipFile);
+			isValid = null != packageInfo;
 		}
 	}
 
@@ -162,6 +154,10 @@ public class PackageArchiveImpl implements PackageArchive {
 		return FileUtils.readFileToByteArray(file);
 	}
 
+	public File getFile() {
+		return file;
+	}
+
 	public static String getFilePrefix(String applicationName, String applicationVersion) {
 		return applicationName + SEPARATOR + applicationVersion;
 	}
@@ -174,7 +170,8 @@ public class PackageArchiveImpl implements PackageArchive {
 	 * Validates the filename against information in {@code application-info.xml}.
 	 * 
 	 * @param applicationInfo
-	 *            a {@link ApplicationInfo}
+	 *                        a {@link ApplicationInfo}
+	 * 
 	 * @return {@code true} if the file name of this {@link PackageArchive} matches the expected one, {@code false}
 	 *         otherwise
 	 */

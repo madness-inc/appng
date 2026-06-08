@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,23 +15,23 @@
  */
 package org.appng.core.service;
 
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
+import java.io.IOException;
+import java.net.URISyntaxException;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Properties;
 
-import javax.sql.DataSource;
+import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
 
 import org.appng.api.model.Application;
 import org.appng.api.model.Site;
 import org.appng.core.domain.DatabaseConnection;
 import org.appng.core.domain.DatabaseConnection.DatabaseType;
+import org.appng.core.domain.SiteImpl;
 import org.appng.core.repository.DatabaseConnectionRepository;
-import org.appng.core.repository.config.HikariCPConfigurer;
-import org.appng.testsupport.persistence.ConnectionHelper;
+import org.flywaydb.core.api.MigrationInfo;
+import org.flywaydb.core.api.MigrationState;
 import org.hsqldb.jdbc.JDBCDriver;
 import org.junit.Assert;
 import org.junit.Ignore;
@@ -39,13 +39,20 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
+import org.springframework.orm.jpa.vendor.HibernateJpaDialect;
+import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.testcontainers.containers.JdbcDatabaseContainer;
+import org.testcontainers.containers.MSSQLServerContainer;
+import org.testcontainers.containers.MariaDBContainer;
+import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.containers.PostgreSQLContainer;
 
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(locations = "classpath:platformContext.xml", initializers = DatabaseServiceTest.class)
+@ContextConfiguration(classes = PlatformTestConfig.class, initializers = TestInitializer.class)
 @DirtiesContext
 public class DatabaseServiceTest extends TestInitializer {
 
@@ -55,26 +62,20 @@ public class DatabaseServiceTest extends TestInitializer {
 	@Autowired
 	DatabaseConnectionRepository databaseConnectionRepository;
 
-	@Override
-	protected Properties getProperties() {
-		Properties properties = super.getProperties();
-		properties.setProperty("hibernate.hbm2ddl.auto", "");
-		String targetFolder = "target/hsql/hsql-testdb/DatabaseServiceTest";
-		properties.setProperty("hsqlPath", "file:" + targetFolder);
-		return properties;
-	}
-
 	@Test
 	public void testInitDatabase() throws Exception {
-		Properties platformProperties = getPlatformProperties();
-
+		String jdbcUrl = "jdbc:hsqldb:mem:testInitDatabase";
+		Properties platformProperties = getProperties(DatabaseType.HSQL, jdbcUrl, "sa", "", JDBCDriver.class.getName());
 		DatabaseConnection platformConnection = databaseService.initDatabase(platformProperties);
 		StringBuilder dbInfo = new StringBuilder();
-		Assert.assertTrue(platformConnection.testConnection(dbInfo));
+		Assert.assertTrue(platformConnection.testConnection(dbInfo, true));
 		Assert.assertTrue(dbInfo.toString().startsWith("HSQL Database Engine"));
+		Assert.assertEquals(Integer.valueOf(3), platformConnection.getMinConnections());
+		Assert.assertEquals(Integer.valueOf(25), platformConnection.getMaxConnections());
 		String rootName = "appNG Root Database";
 		Assert.assertEquals(rootName, platformConnection.getDescription());
 		Assert.assertEquals(DatabaseType.HSQL, platformConnection.getType());
+		validateSchemaVersion(platformConnection, "4.5");
 
 		DatabaseConnection mssql = new DatabaseConnection(DatabaseType.MSSQL, rootName, "", "".getBytes());
 		mssql.setName(rootName);
@@ -84,17 +85,17 @@ public class DatabaseServiceTest extends TestInitializer {
 		databaseService.setActiveConnection(platformConnection, false);
 
 		List<DatabaseConnection> connections = databaseConnectionRepository.findAll();
-		Assert.assertEquals(3, connections.size());
+		Assert.assertEquals(4, connections.size());
 
 		for (DatabaseConnection connection : connections) {
 			switch (connection.getType()) {
 			case HSQL:
 				Assert.assertTrue(connection.isActive());
+				connection.testConnection(new StringBuilder());
+				Assert.assertEquals("HSQL Database Engine", connection.getProductName());
+				Assert.assertEquals("2.5.0", connection.getProductVersion());
 				break;
-			case MSSQL:
-				Assert.assertFalse(connection.isActive());
-				break;
-			case MYSQL:
+			default:
 				Assert.assertFalse(connection.isActive());
 				break;
 			}
@@ -102,49 +103,161 @@ public class DatabaseServiceTest extends TestInitializer {
 
 	}
 
-	private Properties getPlatformProperties() {
-		int hsqlPort = ConnectionHelper.getHsqlPort();
-		String jdbcUrl = "jdbc:hsqldb:hsql://localhost:" + hsqlPort + "/hsql-testdb";
-		Properties platformProperties = getProperties(DatabaseType.HSQL, jdbcUrl, "sa", "", JDBCDriver.class.getName());
-		platformProperties.setProperty("database.port", String.valueOf(hsqlPort));
-		return platformProperties;
+	@Test
+	@Ignore("uses testcontainers, which needs docker")
+	public void testInitDatabaseMySql() throws Exception {
+		try (MySQLContainer<?> mysql = new MySQLContainer<>("mysql:8")) {
+			mysql.withUsername("root").withPassword("")
+					.withCommand("mysqld --default-authentication-plugin=mysql_native_password").start();
+			validateConnectionType(mysql, DatabaseType.MYSQL, "MySQL", "8", "", "4.5", true, true);
+		}
 	}
 
 	@Test
-	@Ignore("run locally")
-	public void testInitDatabaseMysql() throws Exception {
-		String jdbcUrl = "jdbc:mysql://localhost:3306/appng_migration";
-		String password = "user";
-		String user = "password";
-		Properties platformProperties = getProperties(DatabaseType.MYSQL, jdbcUrl, user, password,
-				DatabaseType.MYSQL.getDefaultDriver());
-		DatabaseConnection platformConnection = databaseService.initDatabase(platformProperties);
-		StringBuilder dbInfo = new StringBuilder();
-		Assert.assertTrue(platformConnection.testConnection(dbInfo));
-		Assert.assertTrue(dbInfo.toString().startsWith("MySQL 5.6"));
-		Assert.assertEquals("appNG Root Database", platformConnection.getDescription());
-		Assert.assertEquals(DatabaseType.MYSQL, platformConnection.getType());
-		validateSchemaVersion(platformConnection, "2.9.2");
+	@Ignore("run with profile 'mariadb', uses testcontainers, which needs docker")
+	public void testInitDatabaseMariaDB104() throws Exception {
+		testInitDatabaseMariaDB("10.4");
 	}
 
 	@Test
-	@Ignore("run locally")
-	public void testInitDatabaseMssql() throws Exception {
-		String jdbcUrl = "jdbc:sqlserver://localhost\\TEST;databaseName=appng_migration";
-		String user = "user";
-		String password = "password";
-		Properties platformProperties = getProperties(DatabaseType.MSSQL, jdbcUrl, user, password,
-				DatabaseType.MSSQL.getDefaultDriver());
+	@Ignore("run with profile 'mariadb', uses testcontainers, which needs docker")
+	public void testInitDatabaseMariaDB105() throws Exception {
+		testInitDatabaseMariaDB("10.5");
+	}
+
+	@Test
+	@Ignore("run with profile 'mariadb', uses testcontainers, which needs docker")
+	public void testInitDatabaseMariaDB106() throws Exception {
+		testInitDatabaseMariaDB("10.6");
+	}
+
+	private void testInitDatabaseMariaDB(String version) throws Exception {
+		try (MariaDBContainer<?> mariadb = new MariaDBContainer<>("mariadb:" + version)) {
+			mariadb.withUsername("root").withPassword("").start();
+			System.err.println(mariadb.getJdbcUrl());
+			validateConnectionType(mariadb, DatabaseType.MYSQL, "MariaDB", version, "", "4.5", true, true);
+		}
+	}
+
+	@Test
+	@Ignore("uses testcontainers, which needs docker")
+	public void testInitDatabasePostgreSQL10() throws Exception {
+		testInitDatabasePostgreSQL("10.8");
+	}
+
+	@Test
+	@Ignore("uses testcontainers, which needs docker")
+	public void testInitDatabasePostgreSQL11() throws Exception {
+		testInitDatabasePostgreSQL("11.3");
+	}
+
+	@Test
+	@Ignore("uses testcontainers, which needs docker")
+	public void testInitDatabasePostgreSQL12() throws Exception {
+		testInitDatabasePostgreSQL("12.1");
+	}
+
+	void testInitDatabasePostgreSQL(String version) throws Exception {
+		try (PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:" + version)) {
+			postgres.start();
+			validateConnectionType(postgres, DatabaseType.POSTGRESQL, "PostgreSQL", version, "", "4.5", true, true);
+		}
+	}
+
+	@Test
+	@Ignore("uses testcontainers, which needs docker")
+	public void testInitDatabaseMsSql2017() throws Exception {
+		testInitDatabaseMsSql("2017-latest", "14.00");
+	}
+
+	@Test
+	@Ignore("uses testcontainers, which needs docker")
+	public void testInitDatabaseMsSql2019() throws Exception {
+		testInitDatabaseMsSql("2019-latest", "15.00");
+	}
+
+	protected void testInitDatabaseMsSql(String imageVersion, String productVersion)
+			throws SQLException, IOException, URISyntaxException, Exception {
+		try (MSSQLServerContainer<?> mssql = new MSSQLServerContainer<>(
+				"mcr.microsoft.com/mssql/server:" + imageVersion)) {
+			mssql.start();
+			validateConnectionType(mssql, DatabaseType.MSSQL, "Microsoft SQL Server", productVersion, "", "4.5", false,
+					false);
+		}
+	}
+
+	private void validateConnectionType(JdbcDatabaseContainer<?> container, DatabaseType databaseType,
+			String productName, String productVersion, String connectionParams, String schemaVersion, boolean checksize,
+			boolean checkConnection) throws SQLException, IOException, URISyntaxException {
+		String jdbcUrl = container.getJdbcUrl();
+		jdbcUrl += connectionParams;
+		Properties platformProperties = getProperties(databaseType, jdbcUrl, container.getUsername(),
+				container.getPassword(), databaseType.getDefaultDriver());
 		DatabaseConnection platformConnection = databaseService.initDatabase(platformProperties);
 		StringBuilder dbInfo = new StringBuilder();
-		Assert.assertTrue(platformConnection.testConnection(dbInfo));
-		Assert.assertTrue(dbInfo.toString().startsWith("Microsoft SQL Server"));
+		Assert.assertTrue(platformConnection.testConnection(dbInfo, true));
+		Assert.assertTrue(dbInfo.toString(), dbInfo.toString().contains(productName));
+		Assert.assertTrue(dbInfo.toString(), dbInfo.toString().contains(productVersion));
 		Assert.assertEquals("appNG Root Database", platformConnection.getDescription());
-		Assert.assertEquals(DatabaseType.MSSQL, platformConnection.getType());
-		validateSchemaVersion(platformConnection, "2.9.2");
-		DataSource sqlDataSource = new HikariCPConfigurer(platformConnection).getDataSource();
-		DatabaseMetaData metaData = sqlDataSource.getConnection().getMetaData();
-		Assert.assertTrue(metaData.getDatabaseProductName().startsWith("Microsoft SQL Server"));
+		Assert.assertEquals(databaseType, platformConnection.getType());
+		if (checksize) {
+			Assert.assertTrue(platformConnection.getDatabaseSize() > 0.0d);
+		}
+		validateSchemaVersion(platformConnection, schemaVersion);
+
+		testRootConnectionJPA(platformConnection);
+		if (checkConnection) {
+			validateCreateAndDropApplicationConnection(platformConnection, container.getFirstMappedPort(),
+					checkConnection);
+		}
+	}
+
+	private void testRootConnectionJPA(DatabaseConnection platformConnection) {
+		LocalContainerEntityManagerFactoryBean lcemf = new LocalContainerEntityManagerFactoryBean();
+		lcemf.setDataSource(platformConnection.getDataSource());
+		lcemf.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
+		lcemf.setPackagesToScan(SiteImpl.class.getPackage().getName());
+		lcemf.setJpaDialect(new HibernateJpaDialect());
+		lcemf.setPersistenceUnitName("appng-" + platformConnection.getType().name());
+		lcemf.afterPropertiesSet();
+
+		EntityManagerFactory emf = lcemf.getObject();
+		EntityManager em = emf.createEntityManager();
+		em.getTransaction().begin();
+		SiteImpl site = new SiteImpl();
+		site.setName("localhost");
+		site.setHost("localhost");
+		site.setDomain("http://localhost:8080");
+		em.persist(site);
+		em.getTransaction().commit();
+		em.close();
+		Assert.assertNotNull(site.getId());
+		Assert.assertNotNull(site.getVersion());
+
+		em = emf.createEntityManager();
+		em.getTransaction().begin();
+		SiteImpl loadedSite = em.find(SiteImpl.class, site.getId());
+		Assert.assertEquals(site.getVersion(), loadedSite.getVersion());
+
+		emf.close();
+		lcemf.destroy();
+	}
+
+	private void validateCreateAndDropApplicationConnection(DatabaseConnection platformConnection, Integer port,
+			boolean checkConnection) throws IOException, URISyntaxException {
+		DatabaseType type = platformConnection.getType();
+		String jdbcUrl = type.getTemplateUrl().replace("<name>", "appng_database")
+				.replace(type.getDefaultPort().toString(), port.toString());
+		DatabaseConnection applicationConnection = new DatabaseConnection(type, jdbcUrl, type.getDefaultDriver(),
+				"appng_user", "appng_password42".getBytes(), type.getDefaultValidationQuery());
+		applicationConnection.setName("appng_database");
+		databaseService.initApplicationConnection(applicationConnection, platformConnection.getDataSource());
+		if (checkConnection) {
+			Assert.assertTrue(applicationConnection.testConnection(null));
+		}
+
+		databaseService.dropApplicationConnection(applicationConnection, platformConnection.getDataSource());
+		Assert.assertFalse(applicationConnection.testConnection(null));
 	}
 
 	private Properties getProperties(DatabaseType databaseType, String jdbcUrl, String user, String password,
@@ -157,22 +270,15 @@ public class DatabaseServiceTest extends TestInitializer {
 		platformProperties.setProperty(DatabaseService.DATABASE_VALIDATION_QUERY, "");
 		platformProperties.setProperty(DatabaseService.DATABASE_VALIDATION_PERIOD, "15");
 		platformProperties.setProperty(DatabaseService.HIBERNATE_CONNECTION_DRIVER_CLASS, driverClass);
+		platformProperties.setProperty(DatabaseService.DATABASE_MIN_CONNECTIONS, "3");
+		platformProperties.setProperty(DatabaseService.DATABASE_MAX_CONNECTIONS, "25");
 		return platformProperties;
 	}
 
 	private void validateSchemaVersion(DatabaseConnection connection, String version) throws SQLException {
-		DataSource dataSource = new DriverManagerDataSource(connection.getJdbcUrl(), connection.getUserName(),
-				new String(connection.getPassword()));
-
-		Connection conn = dataSource.getConnection();
-		PreparedStatement st = conn.prepareStatement("select * from schema_version order by version desc");
-		ResultSet rs = st.executeQuery();
-		rs.next();
-		String currentVersion = rs.getString("version");
-		Assert.assertEquals(version, currentVersion);
-		rs.close();
-		st.close();
-		conn.close();
+		MigrationInfo status = databaseService.status(connection);
+		Assert.assertEquals(version, status.getVersion().toString());
+		Assert.assertEquals(MigrationState.SUCCESS, status.getState());
 	}
 
 	@Test

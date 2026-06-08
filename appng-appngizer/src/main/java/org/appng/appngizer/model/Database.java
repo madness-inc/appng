@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,6 @@
 package org.appng.appngizer.model;
 
 import java.util.Date;
-import java.util.GregorianCalendar;
-
-import javax.xml.datatype.DatatypeConfigurationException;
-import javax.xml.datatype.DatatypeFactory;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -33,17 +29,12 @@ import org.springframework.security.crypto.bcrypt.BCrypt;
 
 public class Database extends org.appng.appngizer.model.xml.Database implements UriAware {
 
-	private static DatatypeFactory dtf;
-
-	static {
-		try {
-			dtf = DatatypeFactory.newInstance();
-		} catch (DatatypeConfigurationException e) {
-			throw new IllegalStateException("error creating DatatypeFactory", e);
-		}
+	public static Database fromDomain(DatabaseConnection dbc, MigrationInfoService status, String salt) {
+		return fromDomain(dbc, status, salt, false);
 	}
 
-	public static Database fromDomain(DatabaseConnection dbc, MigrationInfoService status, String salt) {
+	public static Database fromDomain(DatabaseConnection dbc, MigrationInfoService status, String salt,
+			boolean withManagedState) {
 		Database db = new org.appng.appngizer.model.Database();
 		StringBuilder dbInfo = new StringBuilder();
 		boolean isOK = dbc.testConnection(dbInfo);
@@ -58,11 +49,7 @@ public class Database extends org.appng.appngizer.model.xml.Database implements 
 				schemaVersion.setVersion(migrationInfo.getVersion().getVersion());
 				schemaVersion.setState(migrationInfo.getState().getDisplayName());
 				Date installedOn = migrationInfo.getInstalledOn();
-				if (null != installedOn) {
-					GregorianCalendar cal = new GregorianCalendar();
-					cal.setTime(installedOn);
-					schemaVersion.setInstalled(dtf.newXMLGregorianCalendar(cal));
-				}
+				schemaVersion.setInstalled(Utils.getCal(installedOn));
 				db.getVersions().getVersion().add(schemaVersion);
 			}
 			db.setDbVersion(dbInfo.toString());
@@ -77,7 +64,12 @@ public class Database extends org.appng.appngizer.model.xml.Database implements 
 		db.setDriver(dbc.getDriverClass());
 		db.setUrl(dbc.getJdbcUrl());
 		db.setType(dbc.getType().name());
-
+		if (withManagedState) {
+			db.setManaged(dbc.isManaged());
+		}
+		if (null != dbc.getDatabaseSize()) {
+			db.setSize(dbc.getDatabaseSize());
+		}
 		return db;
 	}
 

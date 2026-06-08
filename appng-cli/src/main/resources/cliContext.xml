@@ -16,11 +16,22 @@
         http://www.springframework.org/schema/data/jpa
         http://www.springframework.org/schema/data/jpa/spring-jpa.xsd">
 
-	<context:component-scan base-package="org.appng.core" />
+	<context:component-scan base-package="org.appng.core">
+		<context:exclude-filter type="regex" expression="org.appng.core.controller.rest.*" />
+		<context:exclude-filter type="regex" expression="org.appng.core.controller.PlatformConfig" />
+	</context:component-scan>
+
 	<jpa:repositories base-package="org.appng.core.repository" entity-manager-factory-ref="entityManagerFactory"
 		factory-class="org.appng.persistence.repository.SearchRepositoryFactoryBean" transaction-manager-ref="coreTxManager" />
 
 	<tx:annotation-driven transaction-manager="coreTxManager" />
+
+	<bean class="org.appng.core.domain.PlatformEventListener">
+		<property name="auditUser" value="appNG CLI" />
+		<property name="eventProvider" ref="cliEventProvider" />
+	</bean>
+
+	<bean id="cliEventProvider" class="org.appng.cli.CliEventProvider" />
 
 	<bean id="coreTxManager" class="org.springframework.orm.jpa.JpaTransactionManager">
 		<property name="entityManagerFactory" ref="entityManagerFactory" />
@@ -28,7 +39,7 @@
 	</bean>
 
 	<bean id="entityManagerFactory" class="org.springframework.orm.jpa.LocalEntityManagerFactoryBean">
-		<property name="persistenceUnitName" value="appng" />
+		<property name="persistenceUnitName" value="appNG CLI" />
 		<property name="persistenceProviderClass" value="org.hibernate.jpa.HibernatePersistenceProvider" />
 		<property name="jpaProperties">
 			<props>
@@ -40,7 +51,6 @@
 				<prop key="hibernate.show_sql">${hibernate.show_sql:false}</prop>
 				<prop key="hibernate.format_sql">${hibernate.format_sql:false}</prop>
 				<prop key="hibernate.hbm2ddl.auto">${hibernate.hbm2ddl.auto:}</prop>
-				<prop key="hibernate.id.new_generator_mappings">false</prop>
 			</props>
 		</property>
 	</bean>

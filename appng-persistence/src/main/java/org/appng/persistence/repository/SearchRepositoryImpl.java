@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,13 +54,12 @@ import org.springframework.data.jpa.repository.support.SimpleJpaRepository;
  * "http://docs.spring.io/spring-data/jpa/docs/1.11.0.RELEASE/reference/html/#repositories.custom-behaviour-for-all-repositories">
  * 4.6.2. Adding custom behavior to all repositories</a> from the reference Documentation for further details.
  *
- * 
  * @author Matthias Müller
  * 
  * @param <T>
- *            the domain class
+ *             the domain class
  * @param <ID>
- *            the type of the Id of the domain class
+ *             the type of the Id of the domain class
  */
 public class SearchRepositoryImpl<T, ID extends Serializable> extends SimpleJpaRepository<T, ID>
 		implements SearchRepository<T, ID> {
@@ -130,6 +129,16 @@ public class SearchRepositoryImpl<T, ID extends Serializable> extends SimpleJpaR
 		return new PageImpl<T>(content, pageable, total);
 	}
 
+	public List<T> search(String queryString, Object... args) {
+		TypedQuery<T> query = entityManager.createQuery(queryString, domainClass);
+		if (null != args) {
+			for (int i = 1; i <= args.length; i++) {
+				query.setParameter(i, args[i - 1]);
+			}
+		}
+		return query.getResultList();
+	}
+
 	public Page<T> search(SearchQuery<T> searchQuery, Pageable pageable) {
 		return searchQuery.execute(pageable, entityManager);
 	}
@@ -144,7 +153,7 @@ public class SearchRepositoryImpl<T, ID extends Serializable> extends SimpleJpaR
 		AuditQuery auditQuery = auditReader.createQuery().forRevisionsOfEntity(domainClass, false, false);
 		auditQuery.add(AuditEntity.id().eq(id));
 		List<Object[]> revisions = auditQuery.getResultList();
-		List<T> result = new ArrayList<T>();
+		List<T> result = new ArrayList<>();
 		// take all revision except the last (latest) one
 		for (int index = 0; index < revisions.size() - 1; index++) {
 			T t = (T) revisions.get(index)[0];
@@ -182,8 +191,8 @@ public class SearchRepositoryImpl<T, ID extends Serializable> extends SimpleJpaR
 		AuditQuery auditQuery = auditReader.createQuery().forRevisionsOfEntity(domainClass, true, false);
 		auditQuery.add(AuditEntity.id().eq(id));
 
-		Set<Number> revisionNumbers = new HashSet<Number>(auditReader.getRevisions(domainClass, id));
-		final Number number = (new ArrayList<Number>(revisionNumbers)).get(revisionNumbers.size() - 1);
+		Set<Number> revisionNumbers = new HashSet<>(auditReader.getRevisions(domainClass, id));
+		final Number number = (new ArrayList<>(revisionNumbers)).get(revisionNumbers.size() - 1);
 		return number;
 	}
 

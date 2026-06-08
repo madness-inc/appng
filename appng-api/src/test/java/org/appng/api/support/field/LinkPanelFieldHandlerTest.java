@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import org.appng.xml.platform.Icon;
 import org.appng.xml.platform.Icontype;
 import org.appng.xml.platform.Label;
 import org.appng.xml.platform.Link;
+import org.appng.xml.platform.Linkable;
 import org.appng.xml.platform.Linkmode;
 import org.appng.xml.platform.Linkpanel;
 import org.appng.xml.platform.PanelLocation;
@@ -41,22 +42,20 @@ public class LinkPanelFieldHandlerTest extends AbstractFieldConverterTest {
 
 	@Before
 	public void setup() throws Exception {
-		Map<String, Object> params = new HashMap<String, Object>();
+		Map<String, Object> params = new HashMap<>();
 		params.put("param1", 5);
 		super.setup(FieldType.LINKPANEL, params);
 		fieldWrapper.setLinkpanel(getLinkPanel());
-		Mockito.when(
-				messageSource.getMessage(LABEL_WITH_PARAM, new Object[] { "5", "7" }, LABEL_WITH_PARAM,
-						environment.getLocale())).thenReturn("label-with-param-5-7");
-		Mockito.when(
-				messageSource.getMessage(LABEL_WITH_PARAM, new Object[] { "5", "foobar" }, LABEL_WITH_PARAM,
-						environment.getLocale())).thenReturn("5 - foobar");
+		Mockito.when(messageSource.getMessage(LABEL_WITH_PARAM, new Object[] { "5", "7" }, LABEL_WITH_PARAM,
+				environment.getLocale())).thenReturn("label-with-param-5-7");
+		Mockito.when(messageSource.getMessage(LABEL_WITH_PARAM, new Object[] { "5", "foobar" }, LABEL_WITH_PARAM,
+				environment.getLocale())).thenReturn("5 - foobar");
 	}
 
 	@Test
 	public void testParamWithDot() {
 		Linkpanel linkPanel = getLinkPanel();
-		Link link = linkPanel.getLinks().get(0);
+		Linkable link = linkPanel.getLinks().get(0);
 		link.getConfirmation().setParams("${param1},#{field.with.dot}");
 
 		DatafieldOwner datafieldOwner = getDatafieldOwner();
@@ -148,7 +147,7 @@ public class LinkPanelFieldHandlerTest extends AbstractFieldConverterTest {
 		Assert.assertEquals(original.getId(), linkpanel.getId());
 		Assert.assertEquals(2, linkpanel.getLinks().size());
 
-		Link link1 = linkpanel.getLinks().get(0);
+		Link link1 = (Link) linkpanel.getLinks().get(0);
 		Assert.assertEquals("/foo/5/7", link1.getTarget());
 		Assert.assertEquals("label-with-param-5-7", link1.getConfirmation().getValue());
 		Assert.assertEquals("true", link1.getDefault());
@@ -157,7 +156,7 @@ public class LinkPanelFieldHandlerTest extends AbstractFieldConverterTest {
 		Assert.assertEquals("edit", link1.getIcon().getContent());
 		Assert.assertEquals("label-with-param-5-7", link1.getLabel().getValue());
 
-		Link link3 = linkpanel.getLinks().get(1);
+		Link link3 = (Link) linkpanel.getLinks().get(1);
 		Assert.assertEquals("", link3.getTarget());
 		Assert.assertTrue(link3.isDisabled());
 	}

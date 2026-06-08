@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,20 @@
  */
 package org.appng.testsupport.persistence;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
+
 import org.hsqldb.Server;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.beans.factory.InitializingBean;
 
-public class HsqlServerFactoryBean implements FactoryBean<Server>, InitializingBean {
+import lombok.extern.slf4j.Slf4j;
 
-	private static final Logger LOG = LoggerFactory.getLogger(HsqlServerFactoryBean.class);
+@Slf4j
+public class HsqlServerFactoryBean implements FactoryBean<Server>, InitializingBean, DisposableBean {
 
 	private String databaseName = "hsql-testdb";
 	private int port = 9001;
@@ -43,13 +48,23 @@ public class HsqlServerFactoryBean implements FactoryBean<Server>, InitializingB
 	}
 
 	public void destroy() {
-		server.stop();
-		LOG.debug("Server stopped:" + toString());
+		LOGGER.debug("shutting down HSQL Server {} at {} on port {}", server.getProductVersion(),
+				server.getDatabasePath(0, false), server.getPort());
+		String jdbcUrl = String.format("jdbc:hsqldb:hsql://localhost:%s/%s", server.getPort(), databaseName);
+		try (Connection connection = DriverManager.getConnection(jdbcUrl, "sa", "")) {
+			try (Statement statement = connection.createStatement()) {
+				statement.execute("SHUTDOWN");
+			}
+		} catch (SQLException e) {
+			LOGGER.warn("error while shutting down server", e);
+		}
+		server.shutdown();
 	}
 
 	public void init() {
+		LOGGER.debug("starting HSQL Server {} at {} on port {}", server.getProductVersion(),
+				server.getDatabasePath(0, false), server.getPort());
 		server.start();
-		LOG.debug("Server started:" + toString());
 	}
 
 	public void afterPropertiesSet() throws Exception {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,6 +52,15 @@ public class WritingJsonValidatorTest {
 	}
 
 	@Test
+	public void testValidateObjectStrictOrder() throws Exception {
+		WritingJsonValidator.sortPropertiesAlphabetically = true;
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+		Person p = getPerson(sdf);
+		WritingJsonValidator.validate(p, "json/WritingJsonValidatorTest-testValidateObjectStrictOrder.json");
+		WritingJsonValidator.sortPropertiesAlphabetically = false;
+	}
+
+	@Test
 	public void testValidateObjectWithMapper() throws Exception {
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 		Person p = getPerson(sdf);
@@ -66,8 +75,8 @@ public class WritingJsonValidatorTest {
 	class Person {
 
 		private Date birthDate;
-		private String firstName;
 		private String name;
+		private String firstName;
 		private Object nullValue;
 
 		public Person(String firstName, String name, Date birthDate) {

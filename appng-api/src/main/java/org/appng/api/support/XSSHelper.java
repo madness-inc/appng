@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,14 +19,13 @@ import org.apache.commons.lang3.StringUtils;
 import org.appng.api.Platform;
 import org.appng.api.model.Properties;
 import org.appng.forms.XSSUtil;
-import org.jsoup.safety.Whitelist;
+import org.jsoup.safety.Safelist;
 import org.owasp.esapi.ESAPI;
 
 /**
  * Utility class for creating {@link XSSUtil}-instances.
  * 
  * @author Matthias Müller
- *
  */
 public class XSSHelper {
 
@@ -49,24 +48,25 @@ public class XSSHelper {
 	 * 
 	 * @param platformProps
 	 * @param exceptions
+	 * 
 	 * @return
 	 */
 	public static XSSUtil getXssUtil(Properties platformProps, String... exceptions) {
 		XSSUtil util = null;
 		if (platformProps.getBoolean(Platform.Property.XSS_PROTECT)) {
-			Whitelist whitelist = Whitelist.basic();
+			Safelist safelist = Safelist.basic();
 			for (String tag : platformProps.getList(Platform.Property.XSS_ALLOWED_TAGS, StringUtils.EMPTY, "\\|")) {
 				String[] splitted = tag.split(StringUtils.SPACE);
 				String name = splitted[0];
 				if (splitted.length > 1) {
 					for (int i = 1; i < splitted.length; i++) {
-						whitelist.addAttributes(name, splitted[i]);
+						safelist.addAttributes(name, splitted[i]);
 					}
 				} else {
-					whitelist.addTags(name);
+					safelist.addTags(name);
 				}
 			}
-			util = new XSSUtil(ESAPI.encoder(), whitelist, exceptions);
+			util = new XSSUtil(ESAPI.encoder(), safelist, exceptions);
 		}
 		return util;
 	}

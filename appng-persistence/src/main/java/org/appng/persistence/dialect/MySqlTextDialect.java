@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,29 +15,9 @@
  */
 package org.appng.persistence.dialect;
 
-import java.sql.Types;
-
-import org.hibernate.HibernateException;
-import org.hibernate.dialect.MySQL5Dialect;
-
 /**
- * A {@link MySQL5Dialect} which converts varchar-fields with a length of >=1024 to mysql-type 'text'
- * 
- * @author Matthias Müller
- * 
+ * @deprecated Use {@link org.appng.persistence.hibernate.dialect.MySql57DialectUTF8} instead.
  */
-public class MySqlTextDialect extends MySQL5Dialect {
-
-	private static final String TEXT_TYPE = "text";
-
-	private static final long MAX_LENGTH = 1024;
-
-	@Override
-	public String getTypeName(int code, long length, int precision, int scale) throws HibernateException {
-		if (Types.VARCHAR == code && length >= MAX_LENGTH) {
-			return TEXT_TYPE;
-		}
-		return super.getTypeName(code, length, precision, scale);
-	}
-
+@Deprecated
+public class MySqlTextDialect extends org.appng.persistence.hibernate.dialect.MySql57DialectUTF8 {
 }

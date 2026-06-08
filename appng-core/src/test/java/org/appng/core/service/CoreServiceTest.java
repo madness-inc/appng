@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,12 +23,14 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.security.Principal;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -36,14 +38,22 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
 
 import javax.persistence.EntityManager;
 
+import org.apache.commons.lang3.time.DateUtils;
 import org.appng.api.BusinessException;
 import org.appng.api.FieldProcessor;
 import org.appng.api.Platform;
 import org.appng.api.Scope;
 import org.appng.api.SiteProperties;
+import org.appng.api.auth.PasswordPolicy;
+import org.appng.api.auth.PasswordPolicy.ValidationResult;
+import org.appng.api.messaging.Sender;
+import org.appng.api.messaging.TestReceiver;
+import org.appng.api.messaging.TestReceiver.TestSerializer;
 import org.appng.api.model.Application;
 import org.appng.api.model.AuthSubject;
 import org.appng.api.model.Group;
@@ -52,18 +62,26 @@ import org.appng.api.model.Properties;
 import org.appng.api.model.Property;
 import org.appng.api.model.Role;
 import org.appng.api.model.Site;
+import org.appng.api.model.Site.SiteState;
 import org.appng.api.model.Subject;
+import org.appng.api.model.UserType;
 import org.appng.api.support.FieldProcessorImpl;
 import org.appng.api.support.PropertyHolder;
 import org.appng.api.support.SiteClassLoader;
 import org.appng.api.support.environment.DefaultEnvironment;
+import org.appng.core.controller.messaging.NodeEvent;
+import org.appng.core.controller.messaging.NodeEvent.NodeState;
+import org.appng.core.controller.messaging.SiteStateEvent;
 import org.appng.core.domain.ApplicationImpl;
 import org.appng.core.domain.DatabaseConnection;
 import org.appng.core.domain.DatabaseConnection.DatabaseType;
 import org.appng.core.domain.GroupImpl;
+import org.appng.core.domain.PlatformEvent.Type;
+import org.appng.core.domain.PlatformEventListener;
 import org.appng.core.domain.PropertyImpl;
 import org.appng.core.domain.RepositoryImpl;
 import org.appng.core.domain.RoleImpl;
+import org.appng.core.domain.SiteApplication;
 import org.appng.core.domain.SiteImpl;
 import org.appng.core.domain.SubjectImpl;
 import org.appng.core.model.AccessibleApplication;
@@ -71,7 +89,9 @@ import org.appng.core.model.Repository;
 import org.appng.core.model.RepositoryCacheFactory;
 import org.appng.core.model.RepositoryMode;
 import org.appng.core.model.RepositoryType;
+import org.appng.core.repository.DatabaseConnectionRepository;
 import org.appng.core.security.BCryptPasswordHandler;
+import org.appng.core.security.ConfigurablePasswordPolicy;
 import org.appng.core.security.DefaultPasswordPolicy;
 import org.appng.core.security.DigestUtil;
 import org.appng.core.security.PasswordHandler;
@@ -101,10 +121,13 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.transaction.annotation.Transactional;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Transactional(rollbackFor = BusinessException.class)
 @Rollback(false)
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(locations = "classpath:platformContext.xml", initializers = TestInitializer.class)
+@ContextConfiguration(classes = PlatformTestConfig.class, initializers = TestInitializer.class)
 @DirtiesContext
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class CoreServiceTest {
@@ -127,6 +150,8 @@ public class CoreServiceTest {
 	private String rootPath = "target/ROOT";
 	private Properties platformConfig;
 
+	private Subject envSubject;
+
 	static {
 		RepositoryCacheFactory.init(null, null, null, null, false);
 	}
@@ -138,10 +163,18 @@ public class CoreServiceTest {
 			context.getBean(TestDataProvider.class).writeTestData(entityManager);
 			init = false;
 		}
-		platformConfig = coreService.initPlatformConfig(new java.util.Properties(), rootPath, false, true, true);
+		java.util.Properties defaultOverrides = new java.util.Properties();
+		defaultOverrides.put(PropertySupport.PREFIX_PLATFORM + Platform.Property.INACTIVE_LOCK_PERIOD, "90");
+		defaultOverrides.put(PropertySupport.PREFIX_PLATFORM + Platform.Property.MAX_LOGIN_ATTEMPTS, "3");
+		platformConfig = coreService.initPlatformConfig(defaultOverrides, rootPath, false, true, false);
 		Mockito.when(environment.getAttribute(Scope.PLATFORM, Platform.Environment.PLATFORM_CONFIG))
 				.thenReturn(platformConfig);
-		Map<String, Site> siteMap = new HashMap<String, Site>();
+		Mockito.doAnswer(i -> {
+			envSubject = i.getArgumentAt(0, Subject.class);
+			return null;
+		}).when(environment).setSubject(Mockito.any());
+		Mockito.when(environment.getSubject()).thenReturn(envSubject);
+		Map<String, Site> siteMap = new HashMap<>();
 		for (Integer siteId : coreService.getSiteIds()) {
 			SiteImpl site = coreService.getSite(siteId);
 			site.setSiteClassLoader(new SiteClassLoader(new URL[0], getClass().getClassLoader(), site.getName()));
@@ -152,7 +185,7 @@ public class CoreServiceTest {
 
 	@Test
 	public void testAddGroupsToSubject() throws BusinessException {
-		List<String> groupNames = new ArrayList<String>(Arrays.asList("group-1", "group-2", "group-3"));
+		List<String> groupNames = new ArrayList<>(Arrays.asList("group-1", "group-2", "group-3"));
 		coreService.addGroupsToSubject("subject-1", groupNames, true);
 		SubjectImpl subject = coreService.getSubjectByName("subject-1", true);
 		for (Group group : subject.getGroups()) {
@@ -172,7 +205,7 @@ public class CoreServiceTest {
 
 	@Test
 	public void testAssignGroupsToSubject() {
-		List<Integer> groupIds = new ArrayList<Integer>(Arrays.asList(1, 2, 3));
+		List<Integer> groupIds = new ArrayList<>(Arrays.asList(1, 2, 3));
 		coreService.assignGroupsToSubject(1, groupIds, true);
 		Subject subject = coreService.getSubjectById(1, true);
 		for (Group group : subject.getGroups()) {
@@ -204,18 +237,41 @@ public class CoreServiceTest {
 		Application application = coreService.findApplicationByName("foobar");
 		MigrationStatus state = coreService.assignApplicationToSite(site, application, true);
 		assertEquals(MigrationStatus.NO_DB_SUPPORTED, state);
-		Iterable<PropertyImpl> properties = coreService.getProperties(1, application.getId());
+		Iterable<PropertyImpl> properties = coreService.getPropertiesList(1, application.getId());
+		String prefix = "platform.site." + site.getName() + ".application." + application.getName() + ".";
+		PropertyHolder propertyHolder = new PropertyHolder(prefix, properties);
+		assertEquals("foobaz", propertyHolder.getString("foobar"));
+		Property prop = propertyHolder.getProperty("foobar");
+		assertEquals(Property.Type.TEXT, prop.getType());
+		assertEquals(prefix + "foobar", prop.getName());
+	}
 
-		PropertyImpl prop = properties.iterator().next();
-		assertEquals("foobaz", prop.getString());
-		assertEquals("platform.site." + site.getName() + ".application." + application.getName() + ".foobar",
-				prop.getName());
+	@Test
+	public void testAssignApplicationToSiteErroneous() {
+		SiteImpl site = coreService.getSite(1);
+		Application application = coreService.findApplicationByName("foobar");
+		DatabaseConnection dbc = new DatabaseConnection();
+		CoreService mockedCoreService = new CoreService() {
+			protected MigrationStatus createDatabaseConnection(SiteApplication siteApplication) {
+				siteApplication.setDatabaseConnection(dbc);
+				return MigrationStatus.ERROR;
+			}
+		};
+		mockedCoreService.databaseConnectionRepository = Mockito.mock(DatabaseConnectionRepository.class);
+		mockedCoreService.auditableListener = Mockito.mock(PlatformEventListener.class);
+		mockedCoreService.databaseService = Mockito.mock(DatabaseService.class);
+		MigrationStatus state = mockedCoreService.assignApplicationToSite(site, application, true);
+		assertEquals(MigrationStatus.ERROR, state);
+		Mockito.verify(mockedCoreService.databaseService).dropDataBaseAndUser(dbc);
+		Mockito.verify(mockedCoreService.databaseConnectionRepository).delete(dbc);
+		Mockito.verify(mockedCoreService.auditableListener).createEvent(Mockito.eq(Type.ERROR), Mockito.anyString());
 	}
 
 	@Test
 	public void testCreateApplicationProperty() {
-		coreService.createProperty(null, null, new PropertyImpl("foobaz", "foobar"));
+		PropertyImpl property = coreService.createProperty((Integer) null, (Integer) null, new PropertyImpl("foobaz", "foobar"));
 		assertTrue(coreService.checkPropertyExists(null, null, new PropertyImpl("foobaz", "foobar")));
+		assertEquals(Property.Type.TEXT, property.getType());
 	}
 
 	@Test
@@ -263,8 +319,9 @@ public class CoreServiceTest {
 
 	@Test
 	public void testCreatePropertyForSite() {
-		coreService.createProperty(1, null, new PropertyImpl("foo", "bar"));
+		PropertyImpl property = coreService.createProperty(1, null, new PropertyImpl("foo", "bar"));
 		assertTrue(coreService.checkPropertyExists(1, null, new PropertyImpl("foo", "bar")));
+		assertEquals(Property.Type.TEXT, property.getType());
 	}
 
 	@Test
@@ -290,6 +347,7 @@ public class CoreServiceTest {
 		subject.setRealname("John Doe");
 		subject.setLanguage("de");
 		subject.setName("john");
+		subject.setUserType(UserType.LOCAL_USER);
 		Subject savedSubject = coreService.createSubject(subject);
 		assertNotNull(savedSubject);
 		assertNotNull(savedSubject.getId());
@@ -354,9 +412,40 @@ public class CoreServiceTest {
 	}
 
 	@Test
-	public void testDeleteSiteWithEnvironment() throws BusinessException {
+	public void testDeleteSiteWithEnvironment() throws BusinessException, IOException, InterruptedException {
 		SiteImpl site = coreService.getSite(2);
-		coreService.deleteSite(environment, site, new FieldProcessorImpl("delete"), null, null, null);
+		Map<String, Site> siteMap = environment.getAttribute(Scope.PLATFORM, Platform.Environment.SITES);
+		TestReceiver receiver = new TestReceiver();
+		receiver.runWith(Executors.newSingleThreadExecutor());
+		String nodeId = "test";
+		receiver.configure(new TestSerializer(environment, nodeId));
+		Sender sender = receiver.createSender();
+		Mockito.when(environment.getAttribute(Scope.PLATFORM, Platform.Environment.MESSAGE_SENDER)).thenReturn(sender);
+		Mockito.when(environment.getAttribute(Scope.PLATFORM, Platform.Environment.CORE_PLATFORM_CONTEXT))
+				.thenReturn(context);
+		Map<String, NodeState> nodeStates = new ConcurrentHashMap<>();
+		Map<String, SiteState> stateMap = new ConcurrentHashMap<>();
+		Mockito.when(environment.getAttribute(Scope.PLATFORM, NodeEvent.NODE_STATE)).thenReturn(nodeStates);
+		Mockito.when(environment.getAttribute(Scope.PLATFORM, SiteStateEvent.SITE_STATE)).thenReturn(stateMap);
+		SiteImpl realSite = (SiteImpl) siteMap.get(site.getName());
+		realSite.setSender(sender);
+		realSite.setState(SiteState.STARTING);
+		realSite.setState(SiteState.STARTED);
+		while (null == nodeStates.get(nodeId)) {
+			Thread.sleep(100);
+		}
+		CacheService.createCacheManager(HazelcastConfigurer.getInstance(null), false);
+
+		coreService.deleteSite(environment, site);
+		// 5x SiteStateEvent(STARTING, STARTED, STOPPING, STOPPED, DELETED)
+		// 1x SiteDeletedEvent
+		while (6 != receiver.getProcessed().size()) {
+			Thread.sleep(100);
+		}
+		LOGGER.info("Processed {} events", receiver.getProcessed().size());
+		Thread.sleep(1000);
+		Assert.assertNull(stateMap.get(realSite.getName()));
+		receiver.close();
 	}
 
 	@Test
@@ -452,7 +541,7 @@ public class CoreServiceTest {
 
 	@Test
 	public void testGetPropertiesIntegerInteger() {
-		Iterable<PropertyImpl> properties = coreService.getProperties(1, 1);
+		Iterable<PropertyImpl> properties = coreService.getPropertiesList(1, 1);
 		Iterator<PropertyImpl> iterator = properties.iterator();
 		PropertyImpl prop = iterator.next();
 		assertEquals("platform.site.site-1.application.manager.foo", prop.getName());
@@ -463,7 +552,7 @@ public class CoreServiceTest {
 
 	@Test
 	public void testGetPropertiesStringString() {
-		Iterable<PropertyImpl> properties = coreService.getProperties("site-1", "manager");
+		Iterable<PropertyImpl> properties = coreService.getPropertiesList("site-1", "manager");
 		Iterator<PropertyImpl> iterator = properties.iterator();
 		PropertyImpl prop = iterator.next();
 		assertEquals("platform.site.site-1.application.manager.foo", prop.getName());
@@ -619,7 +708,86 @@ public class CoreServiceTest {
 		boolean success = coreService.login(null, environment, "subject-3", "test");
 		assertTrue(success);
 		Mockito.verify(environment).setSubject(Mockito.any(SubjectImpl.class));
+
+		SubjectImpl subject = coreService.getSubjectByName("subject-3", true);
+		assertNotNull(subject.getLastLogin());
+		assertFalse(subject.isLocked());
+		assertNotNull(envSubject);
+		assertFalse(envSubject.isLocked());
 		logout();
+	}
+
+	@Test
+	public void testLoginFailedAttempts() {
+		for (int i = 1; i <= 3; i++) {
+			assertFalse(coreService.login(null, environment, "subject-3", "wrong"));
+			SubjectImpl subject = coreService.getSubjectByName("subject-3", true);
+			if (i < 3) {
+				assertFalse(subject.isLocked());
+			}
+			assertEquals(Integer.valueOf(i), subject.getFailedLoginAttempts());
+		}
+		Mockito.verify(environment, Mockito.times(2)).setAttribute(Scope.REQUEST, "subject.locked", false);
+		Mockito.verify(environment, Mockito.times(1)).setAttribute(Scope.REQUEST, "subject.locked", true);
+
+		SubjectImpl subject = coreService.getSubjectByName("subject-3", false);
+		assertFalse(subject.isExpired(new Date()));
+		assertTrue(subject.isLocked());
+		Mockito.verify(environment, Mockito.never()).setSubject(Mockito.any());
+		resetSubject("subject-3");
+	}
+
+	@Test
+	public void testLoginSubjectIsExpired() {
+		SubjectImpl subject = coreService.getSubjectByName("subject-3", false);
+		subject.setExpiryDate(new Date());
+		coreService.updateSubject(subject);
+		assertFalse(coreService.login(null, environment, "subject-3", "test"));
+
+		Mockito.verify(environment).setAttribute(Scope.REQUEST, "subject.locked", true);
+
+		subject = coreService.getSubjectByName("subject-3", false);
+		assertTrue(subject.isExpired(new Date()));
+		assertTrue(subject.isLocked());
+
+		Mockito.verify(environment, Mockito.never()).setSubject(Mockito.any());
+		resetSubject("subject-3");
+	}
+
+	@Test
+	public void testLoginSubjectIsLocked() {
+		SubjectImpl subject = coreService.getSubjectByName("subject-3", false);
+		subject.setLocked(true);
+		coreService.updateSubject(subject);
+		assertFalse(coreService.login(null, environment, "subject-3", "test"));
+
+		Mockito.verify(environment).setAttribute(Scope.REQUEST, "subject.locked", true);
+		Mockito.verify(environment, Mockito.never()).setSubject(Mockito.any());
+		resetSubject("subject-3");
+	}
+
+	@Test
+	public void testLoginSubjectIsInactive() {
+		SubjectImpl subject = coreService.getSubjectByName("subject-3", false);
+		subject.setLastLogin(DateUtils.addDays(new Date(), -91));
+		coreService.updateSubject(subject);
+		assertFalse(coreService.login(null, environment, "subject-3", "test"));
+
+		Mockito.verify(environment).setAttribute(Scope.REQUEST, "subject.locked", true);
+		subject = coreService.getSubjectByName("subject-3", false);
+		assertTrue(subject.isLocked());
+		assertFalse(subject.isExpired(new Date()));
+		assertTrue(subject.getFailedLoginAttempts() == 0);
+		Mockito.verify(environment, Mockito.never()).setSubject(Mockito.any());
+		resetSubject("subject-3");
+	}
+
+	private void resetSubject(String name) {
+		SubjectImpl subject = coreService.getSubjectByName(name, false);
+		subject.setLocked(false);
+		subject.setExpiryDate(null);
+		subject.setFailedLoginAttempts(0);
+		coreService.updateSubject(subject);
 	}
 
 	@Test
@@ -660,8 +828,11 @@ public class CoreServiceTest {
 		validateApplication(appngVersion, applicationName, applicationVersion, applicationTimestamp, application);
 
 		assertEquals("bar", application.getProperties().getString("foo"));
-		String description = ((PropertyHolder) application.getProperties()).getProperty("foo").getDescription();
-		assertEquals("a foo property", description);
+		Property property = ((PropertyHolder) application.getProperties()).getProperty("foo");
+		assertEquals("a foo property", property.getDescription());
+		assertEquals(Property.Type.TEXT, property.getType());
+		Property multiline = ((PropertyHolder) application.getProperties()).getProperty("clobValue");
+		assertEquals(Property.Type.MULTILINE, multiline.getType());
 		assertEquals("a\nb\nc", application.getProperties().getClob("clobValue"));
 	}
 
@@ -686,7 +857,7 @@ public class CoreServiceTest {
 
 		FieldProcessor fp = new FieldProcessorImpl("REF_TEST");
 		coreService.installPackage(repository.getId(), applicationName, applicationVersion, applicationTimestamp, true,
-				false, true, fp);
+				false, true, fp, false);
 
 		Messages messages = fp.getMessages();
 		assertEquals(1, messages.getMessageList().size());
@@ -722,12 +893,15 @@ public class CoreServiceTest {
 		validatePermissionsPresent(application, new ArrayList(Arrays.asList("testPermission")));
 		validateRolesPresent(application, new ArrayList(Arrays.asList("Tester")));
 
-		// the clob property has been updated in the platform, therefore it is the new clob value
+		// the clob property has been updated in the platform, therefore it is the new
+		// clob value
 		// of the latest package
 		validateProperties((PropertyHolder) application.getProperties(), "d\ne\nf");
 
-		// the clob property, configured in the site was not updated by updating the package. It is still
-		// the old one which has been defined initially when the application has been assigned to the site
+		// the clob property, configured in the site was not updated by updating the
+		// package. It is still
+		// the old one which has been defined initially when the application has been
+		// assigned to the site
 		coreService.initApplicationProperties(site, currentApplication);
 		validateProperties((PropertyHolder) currentApplication.getProperties(), "a\nb\nc");
 
@@ -736,11 +910,15 @@ public class CoreServiceTest {
 
 	private void validateProperties(PropertyHolder propertyHolder, String ecpectedClobValue) {
 		assertEquals("foobar", propertyHolder.getString("foo"));
-		assertEquals("a foo property [UPDATED]", propertyHolder.getProperty("foo").getDescription());
+		Property foo = propertyHolder.getProperty("foo");
+		assertEquals(Property.Type.TEXT, foo.getType());
+		assertEquals("a foo property [UPDATED]", foo.getDescription());
 
 		assertEquals("foobaz", propertyHolder.getString("bar"));
 		assertEquals("a new property", propertyHolder.getProperty("bar").getDescription());
 		assertEquals(ecpectedClobValue, propertyHolder.getClob("clobValue"));
+		Property clobValue = propertyHolder.getProperty("clobValue");
+		assertEquals(Property.Type.MULTILINE, clobValue.getType());
 	}
 
 	@Test
@@ -788,7 +966,7 @@ public class CoreServiceTest {
 
 	@Test
 	public void testSaveProperties() {
-		List<Property> props = new ArrayList<Property>();
+		List<Property> props = new ArrayList<>();
 		PropertyImpl a = new PropertyImpl("foobaz.a", "a");
 		PropertyImpl b = new PropertyImpl("foobaz.b", "b");
 		props.add(a);
@@ -836,8 +1014,25 @@ public class CoreServiceTest {
 	@Test
 	public void testUpdatePassword() throws BusinessException {
 		SubjectImpl subject = coreService.getSubjectByName("subject-3", false);
-		char[] password = "foobar".toCharArray();
-		assertTrue(coreService.updatePassword(password, password, subject));
+		PasswordPolicy dummyPolicy = new ConfigurablePasswordPolicy() {
+
+			public ValidationResult validatePassword(String username, char[] currentPassword, char[] password) {
+				return new ValidationResult(true, null);
+			}
+		};
+		ValidationResult updatePassword = coreService.updatePassword(dummyPolicy, "test".toCharArray(),
+				"foobar".toCharArray(), subject);
+		assertTrue(updatePassword.isValid());
+	}
+
+	@Test
+	public void testUpdatePasswordFail() throws BusinessException {
+		SubjectImpl subject = coreService.getSubjectByName("subject-3", false);
+		PasswordPolicy policy = new ConfigurablePasswordPolicy();
+		policy.configure(null);
+		ValidationResult updatePassword = coreService.updatePassword(policy, "test".toCharArray(),
+				"foobar".toCharArray(), subject);
+		assertFalse(updatePassword.isValid());
 	}
 
 	@Test
@@ -896,16 +1091,22 @@ public class CoreServiceTest {
 		subject.setRealname("Deve Loper");
 		subject.setLanguage("en");
 		subject.setName("deve");
+		subject.setUserType(UserType.LOCAL_USER);
 		subject.setDigest(AppNGTestDataProvider.DIGEST);
 		subject.setSalt(AppNGTestDataProvider.SALT);
 		Subject persistedSubject = coreService.createSubject(subject);
 		assertFalse(subject.getDigest().startsWith(BCryptPasswordHandler.getPrefix()));
+		Date changedOnCreation = subject.getPasswordLastChanged();
+		assertNotNull(changedOnCreation);
 
 		PasswordHandler handler = new Sha1PasswordHandler(persistedSubject);
 		handler.migrate(coreService, "veryStrongPassword");
 
 		assertNull(subject.getSalt());
 		assertTrue(subject.getDigest().startsWith(BCryptPasswordHandler.getPrefix()));
+		assertNotNull(subject.getPasswordLastChanged());
+		assertNotEquals(changedOnCreation, subject.getPasswordLastChanged());
+		assertTrue(changedOnCreation.before(subject.getPasswordLastChanged()));
 
 		coreService.deleteSubject(persistedSubject);
 	}

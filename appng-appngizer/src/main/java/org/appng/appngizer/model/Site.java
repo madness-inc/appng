@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 package org.appng.appngizer.model;
 
+import java.util.HashSet;
 import org.appng.core.domain.SiteImpl;
 
 public class Site extends org.appng.appngizer.model.xml.Site implements UriAware {
@@ -30,6 +31,11 @@ public class Site extends org.appng.appngizer.model.xml.Site implements UriAware
 		Site site = new Site(siteImpl.getName());
 		site.setActive(siteImpl.isActive());
 		site.setHost(siteImpl.getHost());
+		if (siteImpl.getHostAliases().size() > 0) {
+			Site.HostAliases hostAliases = new Site.HostAliases();
+			siteImpl.getHostAliases().stream().sorted().forEach(ha -> hostAliases.getAlias().add(ha));
+			site.setHostAliases(hostAliases);
+		}
 		site.setDomain(siteImpl.getDomain());
 		site.setDescription(siteImpl.getDescription());
 		site.setSelf("/site/" + site.getName());
@@ -42,6 +48,8 @@ public class Site extends org.appng.appngizer.model.xml.Site implements UriAware
 		site.setName(s.getName());
 		site.setActive(s.isActive());
 		site.setHost(s.getHost());
+		if (null != s.getHostAliases())
+			site.setHostAliases(new HashSet<>(s.getHostAliases().getAlias()));
 		site.setDomain(s.getDomain());
 		site.setDescription(s.getDescription());
 		site.setCreateRepository(s.isCreateRepositoryPath());

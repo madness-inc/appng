@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,8 +24,8 @@ import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.time.FastDateFormat;
 import org.appng.api.auth.AuthTools;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Utility class to validate a digest.
@@ -35,9 +35,9 @@ import org.slf4j.LoggerFactory;
  *
  * @see DigestUtil
  */
+@Slf4j
 public class DigestValidator {
 
-	private static Logger log = LoggerFactory.getLogger(DigestValidator.class);
 	private final int maxOffsetMinutes;
 	private boolean errors = false;
 	private Calendar clientDate;
@@ -53,7 +53,7 @@ public class DigestValidator {
 	 * Validate the digest, assuming a maximum age of 3 minutes.
 	 * 
 	 * @param digest
-	 *            the digest to validate
+	 *               the digest to validate
 	 */
 	public DigestValidator(String digest) {
 		this(digest, 3);
@@ -63,9 +63,9 @@ public class DigestValidator {
 	 * Validate the digest.
 	 * 
 	 * @param digest
-	 *            the digest to validate
+	 *                         the digest to validate
 	 * @param maxOffsetMinutes
-	 *            the maximum age of the digest in minutes
+	 *                         the maximum age of the digest in minutes
 	 */
 	public DigestValidator(String digest, int maxOffsetMinutes) {
 		this.maxOffsetMinutes = maxOffsetMinutes;
@@ -77,7 +77,7 @@ public class DigestValidator {
 			hashedPart = checkDigestPart(digestParts[3]);
 		} else {
 			errors = true;
-			log.error("Digest is invalid. It must have 4 segments, but {} segments are detected: {}",
+			LOGGER.error("Digest is invalid. It must have 4 segments, but {} segments are detected: {}",
 					digestParts.length, digest);
 			username = "";
 			timestamp = "";
@@ -102,7 +102,7 @@ public class DigestValidator {
 			clientDate.setTime(parsed);
 			return true;
 		} catch (ParseException e) {
-			log.error("Invalid date format: {}", timestamp);
+			LOGGER.error("Invalid date format: {}", timestamp);
 			return false;
 		}
 	}
@@ -117,7 +117,7 @@ public class DigestValidator {
 		if (diff <= maxOffset) {
 			return true;
 		} else {
-			log.error("Invalid date offset [millis]: {}, maximum is {}", diff, maxOffset);
+			LOGGER.error("Invalid date offset [millis]: {}, maximum is {}", diff, maxOffset);
 			return false;
 		}
 	}
@@ -128,7 +128,7 @@ public class DigestValidator {
 		if (hashedDigest.equals(hashedPart)) {
 			return true;
 		} else {
-			log.error("Encrypted part does not match. Encrypted part is {}, but should be {}", hashedPart,
+			LOGGER.error("Encrypted part does not match. Encrypted part is {}, but should be {}", hashedPart,
 					hashedDigest);
 			return false;
 		}
@@ -138,7 +138,8 @@ public class DigestValidator {
 	 * Validates the digest using the given shared secret.
 	 * 
 	 * @param sharedSecret
-	 *            the shared secret
+	 *                     the shared secret
+	 * 
 	 * @return
 	 *         <ul>
 	 *         <li>{@code true} if the digest is syntactically and semantically correct, i.e. if it not exceeds the
@@ -147,17 +148,11 @@ public class DigestValidator {
 	 *         </ul>
 	 */
 	public boolean validate(String sharedSecret) {
-		if (!errors) {
-			if (setClientDate()) {
-				if (validateTimestamp()) {
-					if (validateHashedPart(sharedSecret)) {
-						log.info("Digest successfully validated.");
-						return true;
-					}
-				}
-			}
+		if (!errors && setClientDate() && validateTimestamp() && validateHashedPart(sharedSecret)) {
+			LOGGER.info("Digest successfully validated.");
+			return true;
 		}
-		log.error("Digest validation failed.");
+		LOGGER.error("Digest validation failed.");
 		return false;
 	}
 

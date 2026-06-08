@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,26 +29,17 @@ import org.appng.tools.os.Command.StreamConsumer;
  * result in a {@link List} of {@link String}s.
  * 
  * @author Matthias Müller
- * 
  */
 public class StringConsumer implements StreamConsumer<List<String>> {
 
 	private List<String> lines;
 
 	public void consume(InputStream is) throws IOException {
-		BufferedReader reader = null;
-		try {
-			reader = new BufferedReader(new InputStreamReader(is));
-			lines = new ArrayList<String>();
+		try (BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
+			lines = new ArrayList<>();
 			String line = null;
 			while ((line = reader.readLine()) != null) {
 				lines.add(line);
-			}
-		} catch (IOException e) {
-			throw e;
-		} finally {
-			if (null != reader) {
-				reader.close();
 			}
 		}
 	}

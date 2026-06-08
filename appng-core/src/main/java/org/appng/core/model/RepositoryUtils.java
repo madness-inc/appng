@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,19 +17,24 @@ package org.appng.core.model;
 
 import java.io.File;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.util.Comparator;
 import java.util.Date;
 
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.time.FastDateFormat;
 import org.appng.core.domain.PackageArchiveImpl;
 import org.appng.xml.application.PackageInfo;
+
+import de.skuzzle.semantic.Version;
 
 /**
  * Utility class offering methods that help dealing with {@link PackageVersion}s and {@link PackageInfo}rmations.
  * 
  * @author Matthias Herlitzius
- * 
  */
 public class RepositoryUtils {
+
+	private static FastDateFormat FDF = FastDateFormat.getInstance("yyyyMMdd-HHmm");
 
 	/** The {@value #SNAPSHOT}-suffix */
 	public static final String SNAPSHOT = "-SNAPSHOT";
@@ -44,49 +49,71 @@ public class RepositoryUtils {
 	}
 
 	/**
-	 * Checks whether {@code currentPackage} is newer than {@code latestPackage}
+	 * Checks whether {@code versionA} is newer than {@code versionB}
 	 * 
-	 * @param currentPackage
-	 * @param latestPackage
-	 * @return {@code true} if {@code currentPackage} is newer than {@code latestPackage}, {@code false} otherwise
+	 * @param versionA
+	 * @param versionB
+	 * 
+	 * @return {@code true} if {@code versionA} is newer than {@code versionB}, {@code false} otherwise
+	 * 
 	 * @see #isNewer(PackageInfo, PackageInfo)
 	 */
-	public static boolean isNewer(PackageVersion currentPackage, PackageVersion latestPackage) {
-		if (null == latestPackage) {
+	public static boolean isNewer(PackageVersion versionA, PackageVersion versionB) {
+		if (null == versionB) {
 			return true;
 		} else {
-			return isNewer(currentPackage.getPackageInfo(), latestPackage.getPackageInfo());
+			return isNewer(versionA.getPackageInfo(), versionB.getPackageInfo());
 		}
 	}
 
 	/**
-	 * Checks whether {@code currentPackage} is newer than {@code latestPackage}
+	 * Checks whether {@code packageA} is newer than {@code packageB}. Comparison is first done by the version and then
+	 * by the timestamp of the {@link PackageInfo}.
 	 * 
-	 * @param currentPackage
-	 * @param latestPackage
-	 * @return {@code true} if {@code currentPackage} is newer than {@code latestPackage}, {@code false} otherwise
+	 * @param packageA
+	 * @param packageB
+	 * 
+	 * @return {@code true} if {@code packageA} is newer than {@code packageB}, {@code false} otherwise
+	 * 
 	 * @see #getDate(PackageInfo)
 	 */
-	public static boolean isNewer(PackageInfo currentPackage, PackageInfo latestPackage) {
-		if (null == latestPackage) {
+	public static boolean isNewer(PackageInfo packageA, PackageInfo packageB) {
+		if (null == packageB) {
 			return true;
 		} else {
-			Long currentTimestamp = getDate(currentPackage).getTime();
-			Long latestTimestamp = getDate(latestPackage).getTime();
-			return (currentTimestamp > latestTimestamp);
+			return getVersionComparator().compare(packageA, packageB) < 0;
 		}
+	}
+
+	public static Comparator<PackageInfo> getVersionComparator() {
+		return (p1, p2) -> {
+			int compared = 0;
+			if (Version.isValidVersion(p1.getVersion()) && Version.isValidVersion(p2.getVersion())) {
+				compared = Version.parseVersion(p1.getVersion(), true)
+						.compareTo(Version.parseVersion(p2.getVersion(), true));
+			}
+			if (compared == 0) {
+				compared = StringUtils.compare(p1.getVersion(), p2.getVersion());
+			}
+			if (compared == 0) {
+				compared = getDate(p1).compareTo(getDate(p2));
+			}
+			// sort descending
+			return compared * -1;
+		};
 	}
 
 	/**
 	 * Retrieves the {@link Date} from the given {@link PackageInfo} by parsing its timestamp
 	 * 
 	 * @param packageInfo
-	 *            the {@link PackageInfo}
+	 *                    the {@link PackageInfo}
+	 * 
 	 * @return the date (never {@code null}, in case of a {@link ParseException}, the "zero-time" is used)
 	 */
 	public static Date getDate(PackageInfo packageInfo) {
 		try {
-			return new SimpleDateFormat("yyyyMMdd-HHmm").parse(packageInfo.getTimestamp());
+			return FDF.parse(packageInfo.getTimestamp());
 		} catch (ParseException e) {
 			return new Date(0L);
 		}
@@ -96,7 +123,8 @@ public class RepositoryUtils {
 	 * Check whether the given name represent a snapshot version
 	 * 
 	 * @param name
-	 *            the name
+	 *             the name
+	 * 
 	 * @return {@code true} if the given name contains {@value #SNAPSHOT}, {@code false} otherwise
 	 */
 	public static boolean isSnapshot(String name) {
@@ -111,13 +139,14 @@ public class RepositoryUtils {
 	 * {@link Repository}.
 	 * 
 	 * @param repo
-	 *            the {@link Repository}
+	 *                    the {@link Repository}
 	 * @param file
-	 *            the file containing the archive
+	 *                    the file containing the archive
 	 * @param archiveName
-	 *            the name of the archive
-	 * @return the {@link PackageArchive}, if the given file is a valid archive and matches the {@link RepositoryMode} of
-	 *         the {@link Repository}.
+	 *                    the name of the archive
+	 * 
+	 * @return the {@link PackageArchive}, if the given file is a valid archive and matches the {@link RepositoryMode}
+	 *         of the {@link Repository}.
 	 */
 	public static PackageArchive getPackage(Repository repo, File file, String archiveName) {
 		PackageArchive packageArchive = new PackageArchiveImpl(file, archiveName);

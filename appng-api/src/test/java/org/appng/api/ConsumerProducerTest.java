@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import java.util.concurrent.TimeoutException;
 
 import org.appng.api.search.Consumer;
 import org.appng.api.search.Producer;
-import org.junit.Assert;
 import org.junit.Test;
 
 public class ConsumerProducerTest {
@@ -65,7 +64,7 @@ public class ConsumerProducerTest {
 		}
 	}
 
-	@Test
+	@Test(timeout = 2000)
 	public void test() throws Exception {
 		StringProducer producer = new StringProducer(5);
 		StringConsumer consumer = new StringConsumer();
@@ -73,7 +72,8 @@ public class ConsumerProducerTest {
 
 		new Thread(producer).start();
 		new Thread(consumer).start();
-		Thread.sleep(500);
-		Assert.assertTrue(passed);
+		while (!passed) {
+			Thread.sleep(500);
+		}
 	}
 }

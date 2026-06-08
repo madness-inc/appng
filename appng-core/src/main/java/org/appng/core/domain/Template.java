@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import java.util.List;
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.EntityListeners;
 import javax.persistence.EnumType;
 import javax.persistence.Enumerated;
 import javax.persistence.GeneratedValue;
@@ -42,11 +43,11 @@ import org.appng.xml.application.TemplateType;
  * The persistent representation of an appNG template
  * 
  * @author Matthias Müller
- *
  */
 @Entity
 @Table(name = "template")
-public class Template implements Identifier {
+@EntityListeners(PlatformEventListener.class)
+public class Template implements Identifier, Auditable<Integer> {
 
 	private Integer id;
 	private String name;
@@ -72,7 +73,7 @@ public class Template implements Identifier {
 		setPackageVersion(template.getVersion());
 		setType(template.getType());
 		setTimestamp(template.getTimestamp());
-		setResources(new ArrayList<TemplateResource>());
+		setResources(new ArrayList<>());
 	}
 
 	public void update(Template template) {
@@ -91,7 +92,7 @@ public class Template implements Identifier {
 	}
 
 	@Id
-	@GeneratedValue(strategy = GenerationType.AUTO)
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	public Integer getId() {
 		return id;
 	}

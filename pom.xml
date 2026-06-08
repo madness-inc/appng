@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.appng</groupId>
 	<artifactId>appng-parent</artifactId>
-	<version>1.15.0</version>
+	<version>1.26.6-SNAPSHOT</version>
 	<packaging>pom</packaging>
 	<name>appNG Parent</name>
 	<description>Parent project for all appNG modules</description>
@@ -47,35 +47,41 @@
 	</developers>
 
 	<properties>
-		<appNGVersion>${project.version}</appNGVersion>
-		<maven.build.timestamp.format>yyyyMMdd-HHmm</maven.build.timestamp.format>
-		<timestamp>${maven.build.timestamp}</timestamp>
-		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<springVersion>4.3.12.RELEASE</springVersion>
-		<springWSVersion>2.4.0.RELEASE</springWSVersion>
-		<springSecurityVersion>4.2.3.RELEASE</springSecurityVersion>
-		<springDataVersion>1.13.8.RELEASE</springDataVersion>
-		<springDataJpaVersion>1.11.8.RELEASE</springDataJpaVersion>
-		<springDataEnversVersion>1.1.8.RELEASE</springDataEnversVersion>
-		<queryDslVersion>4.1.4</queryDslVersion>
-		<luceneVersion>6.6.2</luceneVersion>
-		<tikaVersion>1.16</tikaVersion>
-		<hibernateVersion>5.2.12.Final</hibernateVersion>
-		<slf4jVersion>1.7.25</slf4jVersion>
-		<poiVersion>3.17</poiVersion>
-		<jacksonVersion>2.9.2</jacksonVersion>
-		<jackson1Version>1.9.13</jackson1Version>
-		<tomcat.version>8.5.23</tomcat.version>
-		<servlet.version>3.1.0</servlet.version>
-		<esapi.version>2.1.0.1</esapi.version>
+		<appNG.version>${project.version}</appNG.version>
+		<argLine>-Xms512m -Xmx1g -XX:MaxMetaspaceSize=256m -Dfile.encoding=${project.build.sourceEncoding}</argLine>
 		<docDir>./target/generated-docs</docDir>
-		<outFolder>target</outFolder>
 		<license.licenseName>apache_v2</license.licenseName>
-		<manager.version>1.12.3</manager.version>
-		<scheduler.version>1.11.3</scheduler.version>
-		<authentication.version>1.11.1</authentication.version>
+		<maven.build.timestamp.format>yyyyMMdd-HHmm</maven.build.timestamp.format>
+		<outFolder>target</outFolder>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<template.name>appng-template</template.name>
-		<template.version>1.14.3</template.version>
+		<timestamp>${maven.build.timestamp}</timestamp>
+		<!-- dependency versions -->
+		<appNG.manager.version>1.20.0</appNG.manager.version>
+		<appNG.scheduler.version>1.16.2</appNG.scheduler.version>
+		<appNG.authentication.version>1.13.2</appNG.authentication.version>
+		<appNG.template.version>1.14.4</appNG.template.version>
+		<bouncycastle.version>1.69</bouncycastle.version>
+		<esapi.version>2.2.3.1</esapi.version>
+		<flyway.version>8.5.13</flyway.version>
+		<hazelcast.version>5.3.0</hazelcast.version>
+		<hibernate.version>5.4.32.Final</hibernate.version>
+		<jackson.version>2.14.1</jackson.version>
+		<junrar.version>1.0.1</junrar.version>
+		<lucene.version>8.10.0</lucene.version>
+		<pdfBox.version>2.0.24</pdfBox.version>
+		<poi.version>3.17</poi.version>
+		<queryDsl.version>5.0.0</queryDsl.version>
+		<servlet.version>3.1.0</servlet.version>
+		<slf4j.version>1.7.26</slf4j.version>
+		<spring.version>4.3.30.RELEASE</spring.version>
+		<springData.version>1.13.23.RELEASE</springData.version>
+		<springDataEnvers.version>1.1.23.RELEASE</springDataEnvers.version>
+		<springDataJpa.version>1.11.23.RELEASE</springDataJpa.version>
+		<springSecurity.version>4.2.17.RELEASE</springSecurity.version>
+		<springWS.version>2.4.6.RELEASE</springWS.version>
+		<tika.version>1.18</tika.version>
+		<tomcat.version>9.0.31</tomcat.version>
 	</properties>
 	<scm>
 		<connection>scm:git:ssh://git@github.com:appNG/appng.git</connection>
@@ -101,34 +107,6 @@
 		</snapshotRepository>
 	</distributionManagement>
 
-	<modules>
-		<module>appng-tools</module>
-		<module>appng-mail</module>
-		<module>appng-forms</module>
-		<module>appng-formtags</module>
-		<module>appng-xmlapi</module>
-		<module>appng-testsupport</module>
-		<module>appng-api</module>
-		<module>appng-persistence</module>
-		<module>appng-search</module>
-		<module>appng-core</module>
-		<module>appng-tomcat7</module>
-		<module>appng-tomcat8</module>
-		<module>appng-cli</module>
-		<module>appng-taglib</module>
-		<module>appng-application</module>
-		<module>appng-application-bom</module>
-		<module>appng-documentation</module>
-		<module>appng-template-assembly</module>
-		<module>appng-template-parent</module>
-		<module>appng-application-assembly</module>
-		<module>appng-application-parent</module>
-		<module>appng-archetype-application</module>
-		<module>appng-appngizer-jaxb</module>
-		<module>appng-appngizer</module>
-		<module>appng-appngizer-maven-plugin</module>
-	</modules>
-
 	<profiles>
 		<profile>
 			<id>maven-central</id>
@@ -137,7 +115,7 @@
 					<plugin>
 						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-gpg-plugin</artifactId>
-						<version>1.6</version>
+						<version>3.0.1</version>
 						<executions>
 							<execution>
 								<id>sign-artifacts</id>
@@ -145,6 +123,12 @@
 								<goals>
 									<goal>sign</goal>
 								</goals>
+								<configuration>
+									<gpgArguments>
+										<arg>--pinentry-mode</arg>
+										<arg>loopback</arg>
+									</gpgArguments>
+								</configuration>
 							</execution>
 						</executions>
 					</plugin>
@@ -197,6 +181,53 @@
 		</profile>
 
 		<profile>
+			<id>ci</id>
+			<distributionManagement>
+				<snapshotRepository>
+					<id>appng-ci-builds</id>
+					<name>appNG CI Builds</name>
+					<url>https://appng.org/nexus/repository/appng-ci-builds/</url>
+				</snapshotRepository>
+			</distributionManagement>
+		</profile>
+
+		<profile>
+			<id>sonar</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.jacoco</groupId>
+						<artifactId>jacoco-maven-plugin</artifactId>
+						<configuration>
+							<append>true</append>
+						</configuration>
+						<executions>
+							<execution>
+								<id>agent</id>
+								<goals>
+									<goal>prepare-agent</goal>
+								</goals>
+							</execution>
+							<execution>
+								<id>jacoco-site</id>
+								<phase>verify</phase>
+								<goals>
+									<goal>report</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+					<plugin>
+						<artifactId>maven-surefire-plugin</artifactId>
+						<configuration>
+							<forkCount>0</forkCount>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+
+		<profile>
 			<!-- a profile for local development -->
 			<!-- copies the appNG jars to ${env.CATALINA_HOME}/webapps/ROOT/WEB-INF/lib/ -->
 			<id>local</id>
@@ -213,15 +244,14 @@
 				<module>appng-forms</module>
 				<module>appng-formtags</module>
 				<module>appng-xmlapi</module>
-				<module>appng-testsupport</module>
 				<module>appng-api</module>
+				<module>appng-rest-api</module>
 				<module>appng-persistence</module>
 				<module>appng-search</module>
 				<module>appng-core</module>
-				<module>appng-tomcat7</module>
-				<module>appng-tomcat8</module>
 				<module>appng-cli</module>
 				<module>appng-taglib</module>
+				<module>appng-appngizer-jaxb</module>
 				<module>appng-appngizer</module>
 			</modules>
 			<build>
@@ -244,6 +274,7 @@
 												<exclude name="appng-appngizer-maven-plugin-*" />
 												<exclude name="appng-archetype-application-*" />
 												<exclude name="appng-documentation-*" />
+												<exclude name="appng-maven-plugin-*" />
 												<exclude name="appng-template-assembly-*" />
 												<exclude name="appng-testsupport-*" />
 												<exclude name="*-sources.jar" />
@@ -256,6 +287,41 @@
 					</plugin>
 				</plugins>
 			</build>
+		</profile>
+		<profile>
+			<id>default</id>
+			<activation>
+				<activeByDefault>true</activeByDefault>
+			</activation>
+			<modules>
+				<module>appng-tools</module>
+				<module>appng-mail</module>
+				<module>appng-forms</module>
+				<module>appng-formtags</module>
+				<module>appng-xmlapi</module>
+				<module>appng-testsupport</module>
+				<module>appng-api</module>
+				<module>appng-rest-api</module>
+				<module>appng-persistence</module>
+				<module>appng-search</module>
+				<module>appng-core</module>
+				<module>appng-cli</module>
+				<module>appng-taglib</module>
+				<module>appng-application</module>
+				<module>appng-application-bom</module>
+				<module>appng-documentation</module>
+				<module>appng-template-assembly</module>
+				<module>appng-template-parent</module>
+				<module>appng-application-assembly</module>
+				<module>appng-application-parent</module>
+				<module>appng-archetype-application</module>
+				<module>appng-appngizer-jaxb</module>
+				<module>appng-appngizer</module>
+				<module>appng-appngizer-maven-plugin</module>
+				<module>appng-camunda</module>
+				<module>appng-application-camunda</module>
+				<module>appng-maven-plugin</module>
+			</modules>
 		</profile>
 	</profiles>
 
@@ -391,11 +457,11 @@
 				</plugin>
 				<plugin>
 					<artifactId>maven-surefire-plugin</artifactId>
-					<version>2.20</version>
+					<version>3.0.0-M5</version>
 				</plugin>
 				<plugin>
 					<artifactId>maven-surefire-report-plugin</artifactId>
-					<version>2.20</version>
+					<version>3.0.0-M5</version>
 				</plugin>
 				<plugin>
 					<groupId>org.codehaus.mojo</groupId>
@@ -415,7 +481,7 @@
 				<plugin>
 					<groupId>org.asciidoctor</groupId>
 					<artifactId>asciidoctor-maven-plugin</artifactId>
-					<version>1.5.5</version>
+					<version>1.5.6</version>
 					<dependencies>
 						<dependency>
 							<groupId>org.asciidoctor</groupId>
@@ -425,9 +491,14 @@
 					</dependencies>
 				</plugin>
 				<plugin>
-					<groupId>com.versioneye</groupId>
-					<artifactId>versioneye-maven-plugin</artifactId>
-					<version>3.11.4</version>
+					<groupId>org.sonarsource.scanner.maven</groupId>
+					<artifactId>sonar-maven-plugin</artifactId>
+					<version>3.7.0.1746</version>
+				</plugin>
+				<plugin>
+					<groupId>org.jacoco</groupId>
+					<artifactId>jacoco-maven-plugin</artifactId>
+					<version>0.8.5</version>
 				</plugin>
 			</plugins>
 		</pluginManagement>
@@ -476,11 +547,11 @@
 					<detectOfflineLinks>true</detectOfflineLinks>
 					<aggregate>true</aggregate>
 					<links>
-						<link>http://docs.spring.io/spring/docs/${springVersion}/javadoc-api/</link>
-						<link>http://docs.spring.io/spring-data/data-jpa/docs/${springDataJpaVersion}/api/</link>
-						<link>http://docs.spring.io/spring-data/data-commons/docs/${springDataVersion}/api/</link>
-						<link>http://docs.spring.io/spring-ws/docs/${springWSVersion}/api/</link>
-						<link>http://lucene.apache.org/core/6_6_0/core/</link>
+						<link>http://docs.spring.io/spring/docs/${spring.version}/javadoc-api/</link>
+						<link>http://docs.spring.io/spring-data/data-jpa/docs/${springDataJpa.version}/api/</link>
+						<link>http://docs.spring.io/spring-data/data-commons/docs/${springData.version}/api/</link>
+						<link>http://docs.spring.io/spring-ws/docs/${springWS.version}/api/</link>
+						<link>http://lucene.apache.org/core/8_5_0/core/</link>
 						<link>http://docs.oracle.com/javaee/7/api/</link>
 						<link>http://xmlunit.sourceforge.net/api/</link>
 					</links>
@@ -529,16 +600,17 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-checkstyle-plugin</artifactId>
 			</plugin>
-			<plugin>
-				<groupId>com.versioneye</groupId>
-				<artifactId>versioneye-maven-plugin</artifactId>
-				<configuration>
-					<organisation>appNG</organisation>
-					<team>Owners</team>
-				</configuration>
-			</plugin>
 		</plugins>
 	</build>
+
+	<dependencies>
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<version>1.16.22</version>
+			<scope>provided</scope>
+		</dependency>
+	</dependencies>
 
 	<dependencyManagement>
 		<dependencies>
@@ -546,83 +618,130 @@
 			<dependency>
 				<groupId>org.springframework</groupId>
 				<artifactId>spring-aop</artifactId>
-				<version>${springVersion}</version>
+				<version>${spring.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.springframework</groupId>
 				<artifactId>spring-beans</artifactId>
-				<version>${springVersion}</version>
+				<version>${spring.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.springframework</groupId>
 				<artifactId>spring-context</artifactId>
-				<version>${springVersion}</version>
+				<version>${spring.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.springframework</groupId>
 				<artifactId>spring-context-support</artifactId>
-				<version>${springVersion}</version>
+				<version>${spring.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.springframework</groupId>
 				<artifactId>spring-core</artifactId>
-				<version>${springVersion}</version>
+				<version>${spring.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.springframework</groupId>
 				<artifactId>spring-jdbc</artifactId>
-				<version>${springVersion}</version>
+				<version>${spring.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.springframework</groupId>
 				<artifactId>spring-orm</artifactId>
-				<version>${springVersion}</version>
+				<version>${spring.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.springframework</groupId>
 				<artifactId>spring-oxm</artifactId>
-				<version>${springVersion}</version>
+				<version>${spring.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.springframework</groupId>
 				<artifactId>spring-tx</artifactId>
-				<version>${springVersion}</version>
+				<version>${spring.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.springframework</groupId>
 				<artifactId>spring-web</artifactId>
-				<version>${springVersion}</version>
+				<version>${spring.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.springframework</groupId>
 				<artifactId>spring-webmvc</artifactId>
-				<version>${springVersion}</version>
+				<version>${spring.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.springframework.ws</groupId>
 				<artifactId>spring-ws-core</artifactId>
-				<version>${springWSVersion}</version>
+				<version>${springWS.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.springframework.data</groupId>
 				<artifactId>spring-data-jpa</artifactId>
-				<version>${springDataJpaVersion}</version>
+				<version>${springDataJpa.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.springframework.data</groupId>
 				<artifactId>spring-data-envers</artifactId>
-				<version>${springDataEnversVersion}</version>
+				<version>${springDataEnvers.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.springframework.data</groupId>
 				<artifactId>spring-data-commons</artifactId>
-				<version>${springDataVersion}</version>
+				<version>${springData.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>com.querydsl</groupId>
 				<artifactId>querydsl-jpa</artifactId>
-				<version>${queryDslVersion}</version>
+				<version>${queryDsl.version}</version>
 			</dependency>
+			<!-- BEGIN Jakarta Dependencies -->
+			<dependency>
+				<groupId>com.sun.mail</groupId>
+				<artifactId>jakarta.mail</artifactId>
+				<version>1.6.7</version>
+			</dependency>
+			<dependency>
+				<groupId>jakarta.activation</groupId>
+				<artifactId>jakarta.activation-api</artifactId>
+				<version>1.2.2</version>
+			</dependency>
+			<dependency>
+				<groupId>jakarta.annotation</groupId>
+				<artifactId>jakarta.annotation-api</artifactId>
+				<version>1.3.5</version>
+			</dependency>
+			<dependency>
+				<groupId>jakarta.inject</groupId>
+				<artifactId>jakarta.inject-api</artifactId>
+				<version>1.0.3</version>
+			</dependency>
+			<dependency>
+				<groupId>jakarta.persistence</groupId>
+				<artifactId>jakarta.persistence-api</artifactId>
+				<version>2.2.3</version>
+			</dependency>
+			<dependency>
+				<groupId>jakarta.validation</groupId>
+				<artifactId>jakarta.validation-api</artifactId>
+				<version>2.0.2</version>
+			</dependency>
+			<dependency>
+				<groupId>jakarta.ws.rs</groupId>
+				<artifactId>jakarta.ws.rs-api</artifactId>
+				<version>2.1.6</version>
+			</dependency>
+			<dependency>
+				<groupId>jakarta.xml.soap</groupId>
+				<artifactId>jakarta.xml.soap-api</artifactId>
+				<version>1.4.2</version>
+			</dependency>
+			<dependency>
+				<groupId>jakarta.xml.ws</groupId>
+				<artifactId>jakarta.xml.ws-api</artifactId>
+				<version>2.3.3</version>
+			</dependency>
+			<!-- END Jakarta Dependencies -->
 			<!-- BEGIN FRAMEWORK DEPENDENCIES -->
 			<dependency>
 				<groupId>org.tuckey</groupId>
@@ -652,6 +771,11 @@
 			<dependency>
 				<groupId>org.appng</groupId>
 				<artifactId>appng-api</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.appng</groupId>
+				<artifactId>appng-rest-api</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>
@@ -690,47 +814,57 @@
 			<dependency>
 				<groupId>org.freemarker</groupId>
 				<artifactId>freemarker</artifactId>
-				<version>2.3.23</version>
+				<version>2.3.31</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.lucene</groupId>
 				<artifactId>lucene-core</artifactId>
-				<version>${luceneVersion}</version>
+				<version>${lucene.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.lucene</groupId>
 				<artifactId>lucene-highlighter</artifactId>
-				<version>${luceneVersion}</version>
+				<version>${lucene.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.lucene</groupId>
 				<artifactId>lucene-analyzers-common</artifactId>
-				<version>${luceneVersion}</version>
+				<version>${lucene.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.lucene</groupId>
 				<artifactId>lucene-queryparser</artifactId>
-				<version>${luceneVersion}</version>
+				<version>${lucene.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.lucene</groupId>
 				<artifactId>lucene-facet</artifactId>
-				<version>${luceneVersion}</version>
+				<version>${lucene.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.lucene</groupId>
 				<artifactId>lucene-backward-codecs</artifactId>
-				<version>${luceneVersion}</version>
+				<version>${lucene.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.tika</groupId>
 				<artifactId>tika-core</artifactId>
-				<version>${tikaVersion}</version>
+				<version>${tika.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.pdfbox</groupId>
+				<artifactId>pdfbox</artifactId>
+				<version>${pdfBox.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.github.junrar</groupId>
+				<artifactId>junrar</artifactId>
+				<version>${junrar.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.tika</groupId>
 				<artifactId>tika-parsers</artifactId>
-				<version>${tikaVersion}</version>
+				<version>${tika.version}</version>
 				<exclusions>
 					<exclusion>
 						<groupId>jdom</groupId>
@@ -745,22 +879,42 @@
 			<dependency>
 				<groupId>org.apache.poi</groupId>
 				<artifactId>poi</artifactId>
-				<version>${poiVersion}</version>
+				<version>${poi.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.poi</groupId>
 				<artifactId>poi-ooxml</artifactId>
-				<version>${poiVersion}</version>
+				<version>${poi.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.poi</groupId>
 				<artifactId>poi-scratchpad</artifactId>
-				<version>${poiVersion}</version>
+				<version>${poi.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.bouncycastle</groupId>
+				<artifactId>bcmail-jdk15on</artifactId>
+				<version>${bouncycastle.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.bouncycastle</groupId>
+				<artifactId>bcpkix-jdk15on</artifactId>
+				<version>${bouncycastle.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.bouncycastle</groupId>
+				<artifactId>bcprov-jdk15on</artifactId>
+				<version>${bouncycastle.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.jsoup</groupId>
 				<artifactId>jsoup</artifactId>
-				<version>1.11.1</version>
+				<version>1.15.3</version>
+			</dependency>
+			<dependency>
+				<groupId>commons-beanutils</groupId>
+				<artifactId>commons-beanutils</artifactId>
+				<version>1.9.4</version>
 			</dependency>
 			<dependency>
 				<groupId>commons-logging</groupId>
@@ -777,27 +931,27 @@
 			<dependency>
 				<groupId>commons-fileupload</groupId>
 				<artifactId>commons-fileupload</artifactId>
-				<version>1.3.3</version>
+				<version>1.5</version>
 			</dependency>
 			<dependency>
 				<groupId>commons-io</groupId>
 				<artifactId>commons-io</artifactId>
-				<version>2.6</version>
+				<version>2.9.0</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.commons</groupId>
 				<artifactId>commons-lang3</artifactId>
-				<version>3.6</version>
+				<version>3.12.0</version>
 			</dependency>
 			<dependency>
 				<groupId>commons-codec</groupId>
 				<artifactId>commons-codec</artifactId>
-				<version>1.11</version>
+				<version>1.15</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.commons</groupId>
 				<artifactId>commons-compress</artifactId>
-				<version>1.15</version>
+				<version>1.21</version>
 			</dependency>
 			<dependency>
 				<groupId>commons-collections</groupId>
@@ -807,54 +961,38 @@
 			<dependency>
 				<groupId>org.apache.commons</groupId>
 				<artifactId>commons-text</artifactId>
-				<version>1.1</version>
+				<version>1.10.0</version>
+			</dependency>
+			<dependency>
+				<groupId>org.dom4j</groupId>
+				<artifactId>dom4j</artifactId>
+				<version>2.1.3</version>
 			</dependency>
 			<dependency>
 				<groupId>org.quartz-scheduler</groupId>
 				<artifactId>quartz</artifactId>
-				<version>2.3.0</version>
+				<version>2.3.2</version>
 			</dependency>
 
 			<!-- BEGIN HIBERNATE + JPA -->
 			<dependency>
 				<groupId>org.hibernate</groupId>
-				<artifactId>hibernate-entitymanager</artifactId>
-				<version>${hibernateVersion}</version>
-				<exclusions>
-					<exclusion>
-						<groupId>xml-apis</groupId>
-						<artifactId>xml-apis</artifactId>
-					</exclusion>
-					<exclusion>
-						<groupId>javax.el</groupId>
-						<artifactId>el-api</artifactId>
-					</exclusion>
-				</exclusions>
+				<artifactId>hibernate-core</artifactId>
+				<version>${hibernate.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.hibernate</groupId>
 				<artifactId>hibernate-envers</artifactId>
-				<version>${hibernateVersion}</version>
+				<version>${hibernate.version}</version>
 			</dependency>
 			<dependency>
-				<groupId>org.hibernate.javax.persistence</groupId>
-				<artifactId>hibernate-jpa-2.1-api</artifactId>
-				<version>1.0.0.Final</version>
-			</dependency>
-			<dependency>
-    			<groupId>org.hibernate.validator</groupId>
-   				<artifactId>hibernate-validator</artifactId>
-    			<version>6.0.4.Final</version>
-			</dependency>
-			<dependency>
-				<groupId>javax.validation</groupId>
-				<artifactId>validation-api</artifactId>
-				<version>2.0.0.Final</version>
+				<groupId>org.hibernate.validator</groupId>
+				<artifactId>hibernate-validator</artifactId>
+				<version>6.2.0.Final</version>
 			</dependency>
 			<!-- END HIBERNATE + JPA -->
 
 			<!-- BEGIN SERVLET ET AL -->
-			<!-- TODO: org.apache.tomcat.catalina darf keine Abhängigkeit sein -->
 			<dependency>
 				<groupId>javax.servlet</groupId>
 				<artifactId>javax.servlet-api</artifactId>
@@ -877,32 +1015,32 @@
 			<dependency>
 				<groupId>com.zaxxer</groupId>
 				<artifactId>HikariCP</artifactId>
-				<version>2.7.2</version>
+				<version>4.0.3</version>
 			</dependency>
 			<dependency>
 				<groupId>com.google.guava</groupId>
 				<artifactId>guava</artifactId>
-				<version>23.3-jre</version>
+				<version>31.0.1-jre</version>
 			</dependency>
 			<dependency>
 				<groupId>net.sf.saxon</groupId>
 				<artifactId>Saxon-HE</artifactId>
-				<version>9.6.0-6</version>
+				<version>10.6</version>
 			</dependency>
 			<dependency>
 				<groupId>org.slf4j</groupId>
 				<artifactId>slf4j-api</artifactId>
-				<version>${slf4jVersion}</version>
+				<version>${slf4j.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.slf4j</groupId>
 				<artifactId>slf4j-log4j12</artifactId>
-				<version>${slf4jVersion}</version>
+				<version>${slf4j.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.slf4j</groupId>
 				<artifactId>jcl-over-slf4j</artifactId>
-				<version>${slf4jVersion}</version>
+				<version>${slf4j.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>log4j</groupId>
@@ -912,7 +1050,7 @@
 			<dependency>
 				<groupId>mysql</groupId>
 				<artifactId>mysql-connector-java</artifactId>
-				<version>5.1.43</version>
+				<version>8.0.28</version>
 			</dependency>
 			<dependency>
 				<groupId>org.im4java</groupId>
@@ -930,34 +1068,39 @@
 				<version>1.72</version>
 			</dependency>
 			<dependency>
-				<groupId>org.codehaus.jackson</groupId>
-				<artifactId>jackson-jaxrs</artifactId>
-				<version>${jackson1Version}</version>
-			</dependency>
-			<dependency>
-				<groupId>org.codehaus.jackson</groupId>
-				<artifactId>jackson-xc</artifactId>
-				<version>${jackson1Version}</version>
-			</dependency>
-			<dependency>
 				<groupId>com.fasterxml.jackson.core</groupId>
 				<artifactId>jackson-core</artifactId>
-				<version>${jacksonVersion}</version>
+				<version>${jackson.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>com.fasterxml.jackson.core</groupId>
 				<artifactId>jackson-databind</artifactId>
-				<version>${jacksonVersion}</version>
+				<version>${jackson.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.fasterxml.jackson.datatype</groupId>
+				<artifactId>jackson-datatype-jsr310</artifactId>
+				<version>${jackson.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>com.fasterxml.jackson.core</groupId>
 				<artifactId>jackson-annotations</artifactId>
-				<version>${jacksonVersion}</version>
+				<version>${jackson.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.flywaydb</groupId>
 				<artifactId>flyway-core</artifactId>
-				<version>4.2.0</version>
+				<version>${flyway.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.flywaydb</groupId>
+				<artifactId>flyway-mysql</artifactId>
+				<version>${flyway.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.flywaydb</groupId>
+				<artifactId>flyway-sqlserver</artifactId>
+				<version>${flyway.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>net.sf.ehcache</groupId>
@@ -965,19 +1108,24 @@
 				<version>2.6.11</version>
 			</dependency>
 			<dependency>
-				<groupId>net.sf.ehcache</groupId>
-				<artifactId>ehcache-web</artifactId>
-				<version>2.0.4</version>
+				<groupId>com.hazelcast</groupId>
+				<artifactId>hazelcast</artifactId>
+				<version>${hazelcast.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.hazelcast</groupId>
+				<artifactId>hazelcast-spring</artifactId>
+				<version>${hazelcast.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.httpcomponents</groupId>
 				<artifactId>httpcore</artifactId>
-				<version>4.4.8</version>
+				<version>4.4.14</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.httpcomponents</groupId>
 				<artifactId>httpclient</artifactId>
-				<version>4.5.3</version>
+				<version>4.5.13</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.tomcat</groupId>
@@ -986,14 +1134,19 @@
 				<scope>provided</scope>
 			</dependency>
 			<dependency>
-				<groupId>net.sf.jmimemagic</groupId>
-				<artifactId>jmimemagic</artifactId>
-				<version>0.1.5</version>
+				<groupId>com.j256.simplemagic</groupId>
+				<artifactId>simplemagic</artifactId>
+				<version>1.16</version>
 			</dependency>
 			<dependency>
 				<groupId>joda-time</groupId>
 				<artifactId>joda-time</artifactId>
-				<version>2.9.9</version>
+				<version>2.10.11</version>
+			</dependency>
+			<dependency>
+				<groupId>org.owasp.antisamy</groupId>
+				<artifactId>antisamy</artifactId>
+				<version>1.6.7</version>
 			</dependency>
 			<dependency>
 				<groupId>org.owasp.esapi</groupId>
@@ -1012,6 +1165,10 @@
 						<artifactId>xml-apis</artifactId>
 						<groupId>xml-apis</groupId>
 					</exclusion>
+					<exclusion>
+						<groupId>org.slf4j</groupId>
+						<artifactId>slf4j-simple</artifactId>
+					</exclusion>
 				</exclusions>
 			</dependency>
 			<!-- END OTHERS -->
@@ -1020,19 +1177,19 @@
 			<dependency>
 				<groupId>org.springframework</groupId>
 				<artifactId>spring-test</artifactId>
-				<version>${springVersion}</version>
+				<version>${spring.version}</version>
 				<scope>test</scope>
 			</dependency>
 			<dependency>
 				<groupId>junit</groupId>
 				<artifactId>junit</artifactId>
-				<version>4.12</version>
+				<version>4.13.2</version>
 				<scope>test</scope>
 			</dependency>
 			<dependency>
 				<groupId>org.hsqldb</groupId>
 				<artifactId>hsqldb</artifactId>
-				<version>2.4.0</version>
+				<version>2.5.0</version>
 			</dependency>
 			<dependency>
 				<groupId>xmlunit</groupId>
@@ -1049,7 +1206,7 @@
 			<dependency>
 				<groupId>org.dbunit</groupId>
 				<artifactId>dbunit</artifactId>
-				<version>2.5.2</version>
+				<version>2.6.0</version>
 				<scope>test</scope>
 			</dependency>
 

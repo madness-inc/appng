@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,7 +75,7 @@ public class PermissionProcessorTest {
 		site = new SiteImpl();
 		site.setName("site");
 
-		List<Group> groups = new ArrayList<Group>();
+		List<Group> groups = new ArrayList<>();
 		GroupImpl group = new GroupImpl();
 		group.setName("admingroup");
 		groups.add(group);
@@ -163,7 +163,7 @@ public class PermissionProcessorTest {
 	}
 
 	@Test
-	public void testAnonymous(){
+	public void testAnonymous() {
 		Config config = new Config();
 		Permissions permissions = new Permissions();
 		config.setPermissions(permissions);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 the original author or authors.
+ * Copyright 2011-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,15 +18,24 @@ package org.appng.core.model;
 import static org.appng.api.Scope.REQUEST;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormatSymbols;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.time.FastDateFormat;
+import org.apache.commons.text.StringEscapeUtils;
 import org.appng.api.Environment;
 import org.appng.api.InvalidConfigurationException;
 import org.appng.api.Path;
@@ -37,12 +46,14 @@ import org.appng.api.Scope;
 import org.appng.api.Session;
 import org.appng.api.SiteProperties;
 import org.appng.api.model.Application;
+import org.appng.api.model.AuthSubject.PasswordChangePolicy;
 import org.appng.api.model.Properties;
 import org.appng.api.model.Site;
 import org.appng.api.support.ApplicationRequest;
 import org.appng.api.support.DollarParameterSupport;
 import org.appng.api.support.environment.DefaultEnvironment;
 import org.appng.api.support.environment.EnvironmentKeys;
+import org.appng.core.controller.HttpHeaders;
 import org.appng.core.domain.SiteImpl;
 import org.appng.core.service.TemplateService;
 import org.appng.xml.MarshallService;
@@ -51,7 +62,10 @@ import org.appng.xml.platform.ApplicationReference;
 import org.appng.xml.platform.Authentication;
 import org.appng.xml.platform.Authentications;
 import org.appng.xml.platform.Content;
+import org.appng.xml.platform.Icon;
+import org.appng.xml.platform.ItemType;
 import org.appng.xml.platform.Localization;
+import org.appng.xml.platform.NavigationItem;
 import org.appng.xml.platform.Output;
 import org.appng.xml.platform.OutputFormat;
 import org.appng.xml.platform.OutputType;
@@ -61,9 +75,14 @@ import org.appng.xml.platform.SessionInfo;
 import org.appng.xml.platform.Subject;
 import org.appng.xml.platform.Template;
 import org.slf4j.Logger;
+import org.springframework.http.HttpStatus;
 
 public abstract class AbstractRequestProcessor implements RequestProcessor {
 
+	private static final FastDateFormat DEBUG_FORMAT = FastDateFormat.getInstance("yyyy-MM-dd-HH:mm:ss,SSS");
+	protected static final String PLATFORM_XML = "platform.xml";
+	protected static final String STACKTRACE_TXT = "stacktrace.txt";
+	protected static final String INDEX_HTML = "index.html";
 	protected PathInfo pathInfo;
 	protected HttpServletRequest servletRequest;
 	protected HttpServletResponse servletResponse;
@@ -115,11 +134,11 @@ public abstract class AbstractRequestProcessor implements RequestProcessor {
 
 		initPlatform(platform, env, pathInfo);
 
-		org.appng.api.model.Subject currentSubject = env.getSubject();
+		org.appng.api.model.Subject subject = env.getSubject();
 		navigationBuilder = new NavigationBuilder(pathInfo, env);
 
-		boolean isLoggedIn = null != currentSubject && currentSubject.isAuthenticated();
-		// APPNG-601
+		boolean isLoggedIn = null != subject && subject.isAuthenticated();
+
 		PlatformConfig config = platform.getConfig();
 		Authentications authentications = config.getAuthentications();
 		if (null == authentications) {
@@ -129,33 +148,83 @@ public abstract class AbstractRequestProcessor implements RequestProcessor {
 
 		Properties siteProperties = applicationSite.getProperties();
 		Map<?, ?> plainSiteProperties = siteProperties.getPlainProperties();
-		Map<String, String> sitePropertyMap = new HashMap<String, String>();
+		Map<String, String> sitePropertyMap = new HashMap<>();
 		for (Object object : plainSiteProperties.keySet()) {
 			sitePropertyMap.put("site." + object.toString(), plainSiteProperties.get(object).toString());
 		}
 		DollarParameterSupport parameterSupport = new DollarParameterSupport(sitePropertyMap);
 		parameterSupport.allowDotInName();
-		Authentication authentication = determineActiveAuthentication(applicationSite, authentications,
-				parameterSupport);
+		Authentication authentication = determineActiveAuthentication(applicationSite, authentications);
 
 		if (isLoggedIn) {
+			String editProfileAction = siteProperties.getString("authEditProfileActionName", "editProfile");
+			Optional<NavigationItem> editProfileItem = navigationBuilder.getNavItem(platform.getNavigation(),
+					editProfileAction);
+			NavigationItem editProfile = null;
+			if (!editProfileItem.isPresent() && siteProperties.getBoolean("editProfileEnabled", false)) {
+				editProfile = new NavigationItem();
+				editProfile.setType(ItemType.ANCHOR);
+				editProfile.setSite(applicationSite.getName());
+				editProfile.setApplication(siteProperties.getString(SiteProperties.AUTH_APPLICATION));
+				editProfile.setPage(siteProperties.getString(SiteProperties.AUTH_LOGIN_PAGE));
+				editProfile.setActionName(siteProperties.getString(SiteProperties.AUTH_LOGOUT_ACTION_NAME));
+				editProfile.setActionValue(editProfileAction);
+				editProfile.setRef(editProfile.getPage() + "/" + editProfile.getActionValue());
+				editProfile.setLabel("user.edit");
+				editProfile.setIcon(new Icon());
+				editProfile.getIcon().setContent("edit");
+				platform.getNavigation().getItem().add(editProfile);
+			}
+
+			PasswordChangePolicy passwordChangePolicy = subject.getPasswordChangePolicy();
+			boolean mustChangePassword = passwordChangePolicy.equals(PasswordChangePolicy.MUST);
+			boolean mayChangePassword = passwordChangePolicy.equals(PasswordChangePolicy.MAY);
+			navigationBuilder.processNavigation(platform.getNavigation(), parameterSupport,
+					mustChangePassword || mayChangePassword);
+
 			String siteName = applicationSite.getName();
 			String sitePath = config.getBaseUrl() + SLASH + siteName + SLASH;
 			String loginPage = sitePath + authentication.getApplication() + SLASH + authentication.getPage();
-			String currentUrl = config.getCurrentUrl();
-			if (currentUrl.startsWith(loginPage)) {
+			if (config.getCurrentUrl().startsWith(loginPage)) {
 				String defaultApplication = siteProperties.getString(SiteProperties.DEFAULT_APPLICATION);
 				String path = sitePath + defaultApplication;
 				applicationSite.sendRedirect(env, path);
 				setRedirect(true);
 				return null;
 			}
+
+			Properties platformConfig = env.getAttribute(Scope.PLATFORM,
+					org.appng.api.Platform.Environment.PLATFORM_CONFIG);
+			Boolean forceChangePassword = platformConfig
+					.getBoolean(org.appng.api.Platform.Property.FORCE_CHANGE_PASSWORD, false);
+
+			if (mustChangePassword && forceChangePassword) {
+				Optional<NavigationItem> changePassword = navigationBuilder.getNavItem(platform.getNavigation(),
+						NavigationBuilder.CHANGE_PASSWORD);
+				Optional<NavigationItem> logoutItem = navigationBuilder.getNavItem(platform.getNavigation(),
+						siteProperties.getString(SiteProperties.AUTH_LOGOUT_ACTION_VALUE));
+				String logoutUrl = config.getBaseUrl() + SLASH + logoutItem.get().getRef();
+				boolean isLogout = logoutItem.isPresent() && config.getCurrentUrl().startsWith(logoutUrl);
+				if (changePassword.isPresent() && !isLogout) {
+					navigationBuilder.selectNavigationItem(changePassword.get());
+					String changePwUrl = config.getBaseUrl() + SLASH + changePassword.get().getRef();
+					if (!config.getCurrentUrl().startsWith(changePwUrl)) {
+						logger().info("{} must change password (last changed: {})", subject.getAuthName(),
+								subject.getPasswordLastChanged());
+						applicationSite.sendRedirect(env, changePwUrl, HttpStatus.FOUND.value());
+						setRedirect(true);
+						return null;
+					} else {
+						navigationBuilder.removeItems(platform.getNavigation(), ItemType.SITE);
+						navigationBuilder.removeItem(platform.getNavigation(), editProfile);
+					}
+				}
+			}
+
 		} else {
 			processAuthentication(authentication);
 			navigationBuilder.selectNavigationItem(authentication);
 		}
-
-		navigationBuilder.processNavigation(platform.getNavigation(), parameterSupport);
 
 		ApplicationReference applicationReference = processApplication(applicationSite, config);
 		Content content = new Content();
@@ -165,8 +234,7 @@ public abstract class AbstractRequestProcessor implements RequestProcessor {
 		return platform;
 	}
 
-	protected Authentication determineActiveAuthentication(Site site, Authentications authentications,
-			DollarParameterSupport parameterSupport) {
+	protected Authentication determineActiveAuthentication(Site site, Authentications authentications) {
 		String applicationName = pathInfo.getApplicationName();
 		String page = pathInfo.getPage();
 		Authentication defaultAuthentication = null;
@@ -259,13 +327,13 @@ public abstract class AbstractRequestProcessor implements RequestProcessor {
 		}
 
 		if (hasOutputFormat && hasOutputType) {
-			applicationProvider.setPlatformScope();
 			long start = System.currentTimeMillis();
 			ApplicationReference applicationReference = applicationProvider.process(applicationRequest, marshallService,
 					pathInfo, platformConfig);
 			long end = System.currentTimeMillis() - start;
-			logger().debug("succesfully called application \"" + pathInfo.getApplicationName() + "\" in site \""
-					+ applicationSite.getName() + "\" in " + end + " ms");
+
+			logger().debug("succesfully called application '{}' in site '{}' in {} ms", pathInfo.getApplicationName(),
+					applicationSite.getName(), end);
 			ApplicationConfig config = applicationReference.getConfig();
 			if (null != config) {
 				addTemplates(config.getTemplates());
@@ -273,8 +341,8 @@ public abstract class AbstractRequestProcessor implements RequestProcessor {
 			setRedirect(applicationRequest.isRedirect());
 			return applicationReference;
 		} else {
-			logger().info("no application called, missing outputformat '" + outputFormat.getId()
-					+ "' and/or outputType '" + outputType.getId() + "'");
+			logger().info("no application called, missing outputformat '{}' and/or outputType '{}'",
+					outputFormat.getId(), outputType.getId());
 			// forward to first non-hidden application the user has access to
 			for (Application p : applicationSite.getApplications()) {
 				if (env.getSubject().hasApplication(p) && !p.isHidden()) {
@@ -282,7 +350,19 @@ public abstract class AbstractRequestProcessor implements RequestProcessor {
 							+ applicationSite.getName() + SLASH + p.getName();
 					applicationSite.sendRedirect(env, path);
 					setRedirect(true);
+					logger().debug("Redirecting to application '{}' ({})", p.getName(), path);
 					break;
+				}
+			}
+			if (!isRedirect()) {
+				logger().warn(
+						"No application found to redirect to. Make sure there is at least one visisble application the user has access to."
+								+ " In case new roles have been created, reloading the site {} could fix this problem.",
+						applicationSite.getName());
+				try {
+					servletResponse.sendError(HttpStatus.INTERNAL_SERVER_ERROR.value());
+				} catch (IOException e) {
+					logger().error("Error sending status 500");
 				}
 			}
 		}
@@ -354,12 +434,11 @@ public abstract class AbstractRequestProcessor implements RequestProcessor {
 			}
 		}
 		if (null == outputType) {
-			if (outputFormat.getOutputType().isEmpty()) {
-				if (null != defaultFormat && !defaultFormat.equals(outputFormat)) {
-					logger().debug("no types defined for format {}, switching to default format {}",
-							outputFormat.getId(), defaultFormat.getId());
-					outputFormat = defaultFormat;
-				}
+			if (outputFormat.getOutputType().isEmpty() && null != defaultFormat
+					&& !defaultFormat.equals(outputFormat)) {
+				logger().debug("no types defined for format {}, switching to default format {}", outputFormat.getId(),
+						defaultFormat.getId());
+				outputFormat = defaultFormat;
 			}
 			for (OutputType outputType : outputFormat.getOutputType()) {
 				if (Boolean.TRUE.equals(outputType.isDefault())) {
@@ -390,13 +469,16 @@ public abstract class AbstractRequestProcessor implements RequestProcessor {
 	 * {@link OutputFormat} for the upcoming transformation.
 	 * 
 	 * @param marshallService
-	 *            the {@link MarshallService} to use for unmarshalling
+	 *                        the {@link MarshallService} to use for unmarshalling
 	 * @param path
-	 *            the current {@link Path}-object
+	 *                        the current {@link Path}-object
+	 * 
 	 * @return the {@link Platform}-object
+	 * 
 	 * @throws InvalidConfigurationException
-	 *             if the {@value org.appng.core.service.TemplateService#PLATFORM_XML}-file could net be found or
-	 *             unmarshalled.
+	 *                                       if the {@value org.appng.core.service.TemplateService#PLATFORM_XML}-file
+	 *                                       could net be found or unmarshalled.
+	 * 
 	 * @see #getOutputFormat()
 	 * @see #getOutputType()
 	 */
@@ -410,6 +492,74 @@ public abstract class AbstractRequestProcessor implements RequestProcessor {
 			throw new InvalidConfigurationException(path.getApplicationName(), "error while reading " + platformXML, e);
 		}
 	}
+
+	protected String writeErrorPage(Properties platformProperties, File debugFolder, String platformXml,
+			String templateName, Exception e, Object executionContext) {
+		logger().error("error while processing", e);
+		servletResponse.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+		StringWriter stringWriter = new StringWriter();
+		stringWriter.append("<!DOCTYPE html><html><head>");
+		stringWriter.append("<style type=\"text/css\">");
+		stringWriter.append("body{font-family:Arial}");
+		stringWriter.append("h2,h3{color:#ff8f02}");
+		stringWriter.append("div{width:100%;height:300px;overflow:auto;border:1px solid grey}");
+		stringWriter.append("pre{color:#666666;counter-reset: line}");
+		stringWriter.append("pre span{display: block}");
+		stringWriter.append(".error{color:red}");
+		stringWriter.append(
+				"pre span:before{counter-increment:line;content:counter(line);display:inline-block;color: #888}");
+		stringWriter.append("</style></head><body>");
+		stringWriter.append("<h2>500 - Internal Server Error</h2>");
+		if (platformProperties.getBoolean(org.appng.api.Platform.Property.DEV_MODE)) {
+			stringWriter.append("Path: " + servletRequest.getServletPath());
+			stringWriter.append("<br/>");
+			stringWriter.append("Site: " + pathInfo.getSiteName());
+			stringWriter.append("<br/>");
+			stringWriter.append("Application: " + pathInfo.getApplicationName());
+			stringWriter.append("<br/>");
+			stringWriter.append("Template: " + templateName);
+			stringWriter.append("<br/>");
+			stringWriter.append("Thread: " + Thread.currentThread().getName());
+			stringWriter.append("<br/>");
+
+			stringWriter.append("<h3>XML</h3>");
+			stringWriter.append("<button onclick=\"copy('xml')\">Copy to clipboard</button>");
+			stringWriter.append("<div><pre id=\"xml\">");
+			if (platformXml != null) {
+				stringWriter.append(StringEscapeUtils.escapeHtml4(platformXml));
+			}
+			stringWriter.append("</div></pre>");
+			writeTemplateToErrorPage(platformProperties, debugFolder, e, executionContext, stringWriter);
+			stringWriter.append("<h3>Stacktrace</h3>");
+			stringWriter.append("<button onclick=\"copy('stacktrace')\">Copy to clipboard</button>");
+			stringWriter.append("<div><pre id=\"stacktrace\">");
+			e.printStackTrace(new PrintWriter(stringWriter));
+			stringWriter.append("</div></pre>");
+			stringWriter.append("<textarea id=\"copy\" style=\"opacity: 0;\"></textarea>");
+			stringWriter.append("<script>function copy(id){");
+			stringWriter.append(
+					"var c =  document.getElementById('copy'); c.value = document.getElementById(id).textContent;");
+			stringWriter.append("c.select();document.execCommand('copy');alert('Copied to clipboard!')}</script>");
+		}
+		stringWriter.append("</body></html>");
+		String charsetName = platformProperties.getString(org.appng.api.Platform.Property.ENCODING);
+		this.contentType = HttpHeaders.getContentType(HttpHeaders.CONTENT_TYPE_TEXT_HTML, charsetName);
+		return stringWriter.toString();
+	}
+
+	protected static void writeDebugFile(Logger logger, File outFolder, String name, String content)
+			throws IOException {
+		File outFile = new File(outFolder, name);
+		logger.info("writing debug file {}", outFile.getAbsolutePath());
+		FileUtils.write(outFile, content, StandardCharsets.UTF_8);
+	}
+
+	protected static String getDebugFilePrefix(Date timestamp) {
+		return String.format("%s_%s", DEBUG_FORMAT.format(timestamp), Thread.currentThread().getName());
+	}
+
+	abstract void writeTemplateToErrorPage(Properties platformProperties, File debugFolder, Exception templateException,
+			Object executionContext, StringWriter stringWriter);
 
 	public OutputFormat getOutputFormat() {
 		return outputFormat;
