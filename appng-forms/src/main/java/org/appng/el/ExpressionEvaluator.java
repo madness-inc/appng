@@ -36,9 +36,9 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Used for evaluating expressions that conform the
- * <a href="https://docs.oracle.com/javaee/7/tutorial/jsf-el.htm">Expression Language 2.2</a> syntax.<br/>
- * A valid expression must start with ${ and end with }. A list of the allowed operators an be found
- * <a href="https://docs.oracle.com/javaee/7/tutorial/jsf-el005.htm#BNAIK">here</a>.
+ * <a href="https://jakartaee.github.io/jakartaee-tutorial/#expression-language">Jakarta Expression Language</a> syntax.<br/>
+ * A valid expression must start with ${ and end with }. A list of the allowed operators can be found
+ * <a href="https://jakartaee.github.io/jakartaee-tutorial/#expression-language">here</a>.
  * <p/>
  * Example:
  * 

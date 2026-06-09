@@ -28,7 +28,7 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * A {@link DatasourceConfigurer} using <a href="http://brettwooldridge.github.io/HikariCP/">HikariCP</a>. Also supports
+ * A {@link DatasourceConfigurer} using <a href="https://github.com/brettwooldridge/HikariCP">HikariCP</a>. Also supports
  * <a href="https://github.com/sylvainlaurent/JDBC-Performance-Logger">JDBC-Performance-Logger</a> for measuring
  * performance of SQL statements.
  * 

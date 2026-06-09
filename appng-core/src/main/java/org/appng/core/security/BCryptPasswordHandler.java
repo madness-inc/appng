@@ -30,8 +30,8 @@ import org.springframework.security.crypto.bcrypt.BCrypt;
  *      "http://docs.spring.io/spring-security/site/docs/current/reference/htmlsingle/#core-services-password-encoding">Spring
  *      Security Reference</a>
  * @see <a href=
- *      "https://docs.spring.io/spring-security/site/docs/current/apidocs/org/springframework/security/crypto/bcrypt/BCrypt.html">jBCrypt
- *      JavaDoc</a>
+ *      "https://docs.spring.io/spring-security/reference/features/authentication/password-storage.html#authentication-password-storage-bcrypt">Spring
+ *      Security - BCrypt</a>
  * 
  * @author Matthias Herlitzius
  */
