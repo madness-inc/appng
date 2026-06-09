@@ -71,7 +71,7 @@ public class PathInfo implements Path {
 	 *                            the name of the current {@link org.appng.api.model.Site}
 	 * @param servletPath
 	 *                            the current servletPath, as returned by
-	 *                            {@link javax.servlet.http.HttpServletRequest#getServletPath()}
+	 *                            {@link jakarta.servlet.http.HttpServletRequest#getServletPath()}
 	 * @param guiPath
 	 *                            value of the property {@value org.appng.api.SiteProperties#MANAGER_PATH} of the
 	 *                            current {@link org.appng.api.model.Site}

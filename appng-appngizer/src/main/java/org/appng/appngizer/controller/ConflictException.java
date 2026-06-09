@@ -26,10 +26,10 @@ import org.appng.appngizer.model.xml.Errors;
  * E.g. the controller returns {@code ResponseEntity<Application>} but in case of errors a message should be returned as
  * {@code ResponseEntity<Errors>} together with {@code HttpStatus.CONFLICT}. To achieve this, a
  * {@link ConflictException} can be raised and will be caught by the
- * {@link ControllerBase#onConflictException(javax.servlet.http.HttpServletRequest, ConflictException)}.
+ * {@link ControllerBase#onConflictException(jakarta.servlet.http.HttpServletRequest, ConflictException)}.
  * 
  * @see Errors
- * @see ControllerBase#onConflictException(javax.servlet.http.HttpServletRequest, ConflictException)
+ * @see ControllerBase#onConflictException(jakarta.servlet.http.HttpServletRequest, ConflictException)
  */
 public class ConflictException extends Exception {
 

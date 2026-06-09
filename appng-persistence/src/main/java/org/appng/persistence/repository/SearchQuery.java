@@ -52,7 +52,7 @@ import org.springframework.data.domain.Sort.Order;
  * from User e where e.name like ?1 and e.gender = ?2 and e.age > ?3
  * </pre>
  * 
- * The query can then be executed by calling {@link #execute(javax.persistence.EntityManager)} or
+ * The query can then be executed by calling {@link #execute(jakarta.persistence.EntityManager)} or
  * {@link #execute(org.springframework.data.domain.Pageable, jakarta.persistence.EntityManager)} .
  * <p>
  * This class can be sub-classed to implement custom behavior.

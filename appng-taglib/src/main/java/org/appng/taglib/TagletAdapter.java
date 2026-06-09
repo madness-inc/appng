@@ -46,7 +46,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * This class wraps an appNG taglet ( {@link Taglet}/{@link GlobalTaglet}/{@link XMLTaglet}/{@link GlobalXMLTaglet} )
- * into an {@link javax.servlet.jsp.tagext.Tag}.
+ * into an {@link jakarta.servlet.jsp.tagext.Tag}.
  * <p/>
  * <b>Attributes:</b>
  * <ul>
