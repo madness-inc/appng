@@ -34,7 +34,8 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TermQuery;
-import org.apache.lucene.search.TopScoreDocCollector;
+import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.TopScoreDocCollectorManager;
 import org.apache.lucene.store.Directory;
 import org.appng.api.Environment;
 import org.appng.api.model.Application;
@@ -70,11 +71,10 @@ public class StandardSearcher implements SearchProvider {
 			String transformedTerm = getSearchTerm(term, searchTermTransform);
 			Query query = getQuery(parseFields, transformedTerm, analyzer, language, excludeTypes);
 
-			TopScoreDocCollector collector = TopScoreDocCollector.create(100, Integer.MAX_VALUE);
-			searcher.search(query, collector);
-			ScoreDoc[] hits = collector.topDocs().scoreDocs;
+			TopDocs topDocs = searcher.search(query, new TopScoreDocCollectorManager(100, Integer.MAX_VALUE));
+			ScoreDoc[] hits = topDocs.scoreDocs;
 			for (ScoreDoc scoreDoc : hits) {
-				org.apache.lucene.document.Document doc = searcher.doc(scoreDoc.doc);
+				org.apache.lucene.document.Document doc = searcher.storedFields().document(scoreDoc.doc);
 				SimpleDocument simpleDoc = SimpleDocument.extract(doc, scoreDoc.doc, scoreDoc.score);
 				simpleDoc.setFragment(Document.FIELD_CONTENT, analyzer, query, highlightWith);
 				docs.add(simpleDoc);
