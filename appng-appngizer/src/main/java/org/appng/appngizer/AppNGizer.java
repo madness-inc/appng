@@ -17,7 +17,6 @@ package org.appng.appngizer;
 
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
@@ -51,7 +50,7 @@ import org.springframework.context.support.ResourceBundleMessageSource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
-import org.springframework.http.converter.HttpMessageConverter;
+import org.springframework.http.converter.HttpMessageConverters;
 import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.http.converter.xml.MarshallingHttpMessageConverter;
 import org.springframework.orm.jpa.JpaTransactionManager;
@@ -69,11 +68,10 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurationSupp
 public class AppNGizer extends WebMvcConfigurationSupport {
 
 	@Override
-	public void configureMessageConverters(List<HttpMessageConverter<?>> converters) {
-		super.configureMessageConverters(converters);
+	protected void configureMessageConverters(HttpMessageConverters.ServerBuilder builder) {
 		Jaxb2Marshaller jaxb2Marshaller = jaxb2Marshaller();
-		converters.add(new MarshallingHttpMessageConverter(jaxb2Marshaller, jaxb2Marshaller));
-		converters.add(new StringHttpMessageConverter(StandardCharsets.UTF_8));
+		builder.withXmlConverter(new MarshallingHttpMessageConverter(jaxb2Marshaller, jaxb2Marshaller));
+		builder.withStringConverter(new StringHttpMessageConverter(StandardCharsets.UTF_8));
 	}
 
 	@Bean

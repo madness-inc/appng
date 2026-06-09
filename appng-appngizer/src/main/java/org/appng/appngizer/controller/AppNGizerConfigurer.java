@@ -20,9 +20,9 @@ import java.util.Properties;
 
 import org.appng.core.controller.PlatformStartup;
 import org.appng.core.service.MigrationService;
-import org.springframework.beans.factory.config.PropertyPlaceholderConfigurer;
+import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 
-public class AppNGizerConfigurer extends PropertyPlaceholderConfigurer {
+public class AppNGizerConfigurer extends PropertySourcesPlaceholderConfigurer {
 
 	@Override
 	protected void loadProperties(Properties props) throws IOException {
