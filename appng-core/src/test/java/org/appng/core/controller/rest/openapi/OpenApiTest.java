@@ -37,6 +37,7 @@ import org.appng.testsupport.TestBase;
 import org.appng.testsupport.validation.WritingJsonValidator;
 import org.appng.xml.application.ApplicationInfo;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.mockito.Mockito;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -51,7 +52,8 @@ class OpenApiTest extends TestBase {
 	protected static final String TESTAPPLICATION = "demo-application";
 	protected ApplicationProvider applicationProvider;
 
-	static {
+	@BeforeClass
+	public static void setupValidator() {
 		WritingJsonValidator.writeJson = false;
 		WritingJsonValidator.sortPropertiesAlphabetically = true;
 	}

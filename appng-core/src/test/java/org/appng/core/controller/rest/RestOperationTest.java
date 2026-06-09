@@ -33,6 +33,7 @@ import org.appng.core.model.ApplicationProvider;
 import org.appng.testsupport.validation.WritingJsonValidator;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -45,7 +46,8 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 public class RestOperationTest {
 
-	static {
+	@BeforeClass
+	public static void setupValidator() {
 		WritingJsonValidator.writeJson = false;
 		WritingJsonValidator.sortPropertiesAlphabetically = false;
 	}
@@ -96,6 +98,7 @@ public class RestOperationTest {
 
 		Mockito.when(application.getProperties()).thenReturn(siteProps);
 		Mockito.when(siteProps.getBoolean(Mockito.any(), Mockito.any())).thenReturn(true);
+		int exceptionLine = new RuntimeException().getStackTrace()[0].getLineNumber() + 1;
 		ResponseEntity<ErrorModel> handleError = restErrorHandler.handleError(new IOException("BOOOM!"), site,
 				application, environment, servletRequest, servletResponse);
 
@@ -104,7 +107,7 @@ public class RestOperationTest {
 		String[] stackTrace = handleError.getBody().getMessage().split(System.lineSeparator());
 		Assert.assertEquals("java.io.IOException: BOOOM!", stackTrace[0]);
 		Assert.assertEquals(
-				"	at org.appng.core.controller.rest.RestOperationTest.testHandleException(RestOperationTest.java:99)",
+				"	at org.appng.core.controller.rest.RestOperationTest.testHandleException(RestOperationTest.java:" + exceptionLine + ")",
 				stackTrace[1]);
 	}
 
