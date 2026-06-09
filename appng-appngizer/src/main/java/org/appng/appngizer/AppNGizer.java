@@ -70,8 +70,9 @@ public class AppNGizer extends WebMvcConfigurationSupport {
 	@Override
 	protected void configureMessageConverters(HttpMessageConverters.ServerBuilder builder) {
 		Jaxb2Marshaller jaxb2Marshaller = jaxb2Marshaller();
-		builder.withXmlConverter(new MarshallingHttpMessageConverter(jaxb2Marshaller, jaxb2Marshaller));
-		builder.withStringConverter(new StringHttpMessageConverter(StandardCharsets.UTF_8));
+		builder.disableDefaults()
+				.withXmlConverter(new MarshallingHttpMessageConverter(jaxb2Marshaller, jaxb2Marshaller))
+				.withStringConverter(new StringHttpMessageConverter(StandardCharsets.UTF_8));
 	}
 
 	@Bean
