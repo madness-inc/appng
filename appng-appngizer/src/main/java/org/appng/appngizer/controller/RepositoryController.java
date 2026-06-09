@@ -259,9 +259,9 @@ public class RepositoryController extends ControllerBase {
 	// @formatter:off
 			@PathVariable("name") String name,
 			@RequestParam("file") MultipartFile file,
-			@RequestParam(required = false, defaultValue = "false") boolean install,
-			@RequestParam(required = false, defaultValue = "false") boolean privileged,
-			@RequestParam(required = false, defaultValue = "false") boolean hidden
+			@RequestParam(value = "install", required = false, defaultValue = "false") boolean install,
+			@RequestParam(value = "privileged", required = false, defaultValue = "false") boolean privileged,
+			@RequestParam(value = "hidden", required = false, defaultValue = "false") boolean hidden
 	// @formatter:on
 	) throws BusinessException {
 		org.appng.core.model.Repository r = getCoreService().getApplicationRepositoryByName(name);

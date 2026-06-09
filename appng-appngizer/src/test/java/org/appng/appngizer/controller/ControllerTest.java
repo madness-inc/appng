@@ -65,6 +65,7 @@ import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.AbstractMockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -184,7 +185,7 @@ public abstract class ControllerTest {
 		return sendAndVerify(delete, content, status, controlSource);
 	}
 
-	protected MockHttpServletResponse sendAndVerify(MockHttpServletRequestBuilder builder, Object content,
+	protected MockHttpServletResponse sendAndVerify(AbstractMockHttpServletRequestBuilder<?> builder, Object content,
 			HttpStatus status, String controlSource)
 			throws Exception, UnsupportedEncodingException, SAXException, IOException {
 		if (null != content) {
@@ -196,7 +197,7 @@ public abstract class ControllerTest {
 		return verify(builder, status, controlSource);
 	}
 
-	protected MockHttpServletResponse verify(MockHttpServletRequestBuilder builder, HttpStatus status,
+	protected MockHttpServletResponse verify(AbstractMockHttpServletRequestBuilder<?> builder, HttpStatus status,
 			String controlSource) throws Exception, UnsupportedEncodingException, SAXException, IOException {
 		builder.header(HttpHeaders.AUTHORIZATION, "Bearer 4711");
 		MvcResult mvcResult = mockMvc.perform(builder).andReturn();

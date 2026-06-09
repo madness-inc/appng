@@ -242,7 +242,11 @@
 		</dependency>
 		<dependency>
 			<groupId>org.flywaydb</groupId>
-			<artifactId>flyway-sqlserver</artifactId>			
+			<artifactId>flyway-sqlserver</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-database-hsqldb</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.hsqldb</groupId>

@@ -1130,6 +1130,11 @@
 				<version>${flyway.version}</version>
 			</dependency>
 			<dependency>
+				<groupId>org.flywaydb</groupId>
+				<artifactId>flyway-database-hsqldb</artifactId>
+				<version>${flyway.version}</version>
+			</dependency>
+			<dependency>
 				<groupId>net.sf.ehcache</groupId>
 				<artifactId>ehcache-core</artifactId>
 				<version>2.6.11</version>

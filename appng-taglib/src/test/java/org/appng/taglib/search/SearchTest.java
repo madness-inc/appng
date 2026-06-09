@@ -157,10 +157,12 @@ public class SearchTest extends Search {
 		String siteRootDir = siteProperties.getString(SiteProperties.SITE_ROOT_DIR);
 		String seIndex = siteRootDir + siteProperties.getString(SiteProperties.INDEX_DIR);
 		File indexDir = new File(seIndex);
+		org.apache.commons.io.FileUtils.deleteDirectory(indexDir);
 		indexDir.mkdirs();
 		Directory directory = FSDirectory.open(indexDir.toPath());
 		Analyzer analyzer = new EnglishAnalyzer();
 		IndexWriterConfig conf = new IndexWriterConfig(analyzer);
+		conf.setOpenMode(IndexWriterConfig.OpenMode.CREATE);
 		IndexWriter indexWriter = new IndexWriter(directory, conf);
 
 		indexWriter.deleteDocuments(new MatchAllDocsQuery());
