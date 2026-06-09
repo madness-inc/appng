@@ -34,7 +34,7 @@ jobs:
 
       - name: Build with Maven
         run: |
-          mvn -B -ntp package --file pom.xml \
+          mvn -B -ntp -fae package --file pom.xml \
             -Djavax.xml.accessExternalSchema=all \
             -Duser.timezone=Europe/Berlin \
             -Dappng.node.id=appNG_test
