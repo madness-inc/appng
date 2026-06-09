@@ -10,8 +10,6 @@
 
 	<context:component-scan base-package="org.example" />
 
-	<bean class="org.springframework.http.converter.json.MappingJackson2HttpMessageConverter">
-		<property name="prettyPrint" value="true" />
-	</bean>
+	<bean class="org.springframework.http.converter.json.JacksonJsonHttpMessageConverter" />
 
 </beans>

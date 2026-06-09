@@ -15,7 +15,7 @@
  */
 package org.appng.api.config;
 
-import java.io.IOException;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -45,25 +45,27 @@ import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.converter.ByteArrayHttpMessageConverter;
 import org.springframework.http.converter.HttpMessageConverter;
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
 import org.springframework.web.bind.support.WebDataBinderFactory;
 import org.springframework.web.context.annotation.RequestScope;
 import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
-import com.fasterxml.jackson.core.JacksonException;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.Module;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.databind.module.SimpleModule;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonParser;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.JacksonModule;
+import tools.jackson.databind.SerializationContext;
+import tools.jackson.databind.SerializationFeature;
+import tools.jackson.databind.cfg.DateTimeFeature;
+import tools.jackson.databind.ValueDeserializer;
+import tools.jackson.databind.ValueSerializer;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.module.SimpleModule;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -71,7 +73,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * A {@link Configuration}that adds a {@link MappingJackson2HttpMessageConverter} and an {@link ObjectMapper} to the
  * context, if not already present. <br/>
- * Also checks the context for Jackson {@link Module}s and adds them to the {@link ObjectMapper}.<br/>
+ * Also checks the context for Jackson {@link JacksonModule}s and adds them to the {@link JsonMapper}.<br/>
  * Additionally, modules for handling these {@link Temporal}-types are registered:
  * <ul>
  * <li>{@link OffsetDateTime}, using {@link DateTimeFormatter#ISO_OFFSET_DATE_TIME}
@@ -108,16 +110,16 @@ public class RestConfig implements BeanFactoryPostProcessor {
 		Application app = beanFactory.getBean(Application.class);
 		String siteApp = String.format("[%s:%s]", site.getName(), app.getName());
 		Boolean jsonPrettyPrint = site.getProperties().getBoolean("jsonPrettyPrint", true);
-		Map<String, MappingJackson2HttpMessageConverter> jacksonConverters = beanFactory
-				.getBeansOfType(MappingJackson2HttpMessageConverter.class);
-		LOGGER.info("{} Found {} MappingJackson2HttpMessageConverters: {}", siteApp, jacksonConverters.size(),
+		Map<String, JacksonJsonHttpMessageConverter> jacksonConverters = beanFactory
+				.getBeansOfType(JacksonJsonHttpMessageConverter.class);
+		LOGGER.info("{} Found {} JacksonJsonHttpMessageConverters: {}", siteApp, jacksonConverters.size(),
 				StringUtils.join(jacksonConverters.keySet(), ", "));
 
-		Map<String, ObjectMapper> objectMappers = beanFactory.getBeansOfType(ObjectMapper.class);
-		LOGGER.info("{} Found {} ObjectMappers: {}", siteApp, objectMappers.size(),
-				StringUtils.join(objectMappers.keySet(), ", "));
+		Map<String, JsonMapper> jsonMappers = beanFactory.getBeansOfType(JsonMapper.class);
+		LOGGER.info("{} Found {} JsonMappers: {}", siteApp, jsonMappers.size(),
+				StringUtils.join(jsonMappers.keySet(), ", "));
 
-		Map<String, Module> modules = beanFactory.getBeansOfType(Module.class);
+		Map<String, JacksonModule> modules = beanFactory.getBeansOfType(JacksonModule.class);
 		LOGGER.info("{} Found {} Modules: {}", siteApp, modules.size(), StringUtils.join(modules.keySet(), ", "));
 
 		Map<String, Object> primaryBeans = beanFactory.getBeansWithAnnotation(Primary.class);
@@ -125,42 +127,44 @@ public class RestConfig implements BeanFactoryPostProcessor {
 				StringUtils.join(primaryBeans.keySet(), ", "));
 
 		boolean registerObjectMapper = false;
-		ObjectMapper objectMapper;
-		if (registerObjectMapper = objectMappers.isEmpty()) {
-			objectMapper = new ObjectMapper().setDefaultPropertyInclusion(Include.NON_ABSENT)
-					.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-			LOGGER.info("{} No ObjectMapper found in context, creating default.", siteApp);
+		JsonMapper.Builder mapperBuilder;
+		if (registerObjectMapper = jsonMappers.isEmpty()) {
+			mapperBuilder = JsonMapper.builder()
+					.changeDefaultPropertyInclusion(v -> JsonInclude.Value.ALL_NON_ABSENT)
+					.disable(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS);
+			LOGGER.info("{} No JsonMapper found in context, creating default.", siteApp);
 		} else {
-			objectMapper = getPrimaryOrFirst(objectMappers, primaryBeans);
+			mapperBuilder = getPrimaryOrFirst(jsonMappers, primaryBeans).rebuild();
 		}
 		if (jsonPrettyPrint) {
-			objectMapper = objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
+			mapperBuilder.enable(SerializationFeature.INDENT_OUTPUT);
 		}
+
+		addDateModules(mapperBuilder);
+		for (Entry<String, JacksonModule> moduleEntry : modules.entrySet()) {
+			mapperBuilder.addModule(moduleEntry.getValue());
+			LOGGER.info("{} Adding Module '{}' to JsonMapper", siteApp, moduleEntry.getKey());
+		}
+
+		JsonMapper mapper = mapperBuilder.build();
 
 		boolean registerConverter = false;
-		MappingJackson2HttpMessageConverter converter;
+		JacksonJsonHttpMessageConverter converter;
 		if (registerConverter = jacksonConverters.isEmpty()) {
-			converter = new MappingJackson2HttpMessageConverter(objectMapper);
-			LOGGER.info("{} No MappingJackson2HttpMessageConverter found in context, creating default.", siteApp);
+			converter = new JacksonJsonHttpMessageConverter(mapper);
+			LOGGER.info("{} No JacksonJsonHttpMessageConverter found in context, creating default.", siteApp);
 		} else {
 			converter = getPrimaryOrFirst(jacksonConverters, primaryBeans);
-			objectMapper = converter.getObjectMapper();
-		}
-
-		addDateModules(objectMapper);
-		for (Entry<String, Module> moduleEntry : modules.entrySet()) {
-			objectMapper.registerModule(moduleEntry.getValue());
-			LOGGER.info("{} Adding Module '{}' to ObjectMapper", siteApp, moduleEntry.getKey());
 		}
 
 		if (registerObjectMapper) {
-			beanFactory.registerSingleton(DEFAULT_OBJECT_MAPPER, objectMapper);
-			LOGGER.info("{} Registering ObjectMapper '{}'", siteApp, DEFAULT_OBJECT_MAPPER);
+			beanFactory.registerSingleton(DEFAULT_OBJECT_MAPPER, mapper);
+			LOGGER.info("{} Registering JsonMapper '{}'", siteApp, DEFAULT_OBJECT_MAPPER);
 		}
 
 		if (registerConverter) {
 			beanFactory.registerSingleton(DEFAULT_JACKSON_CONVERTER, converter);
-			LOGGER.info("{} Registering MappingJackson2HttpMessageConverter '{}'", siteApp, DEFAULT_JACKSON_CONVERTER);
+			LOGGER.info("{} Registering JacksonJsonHttpMessageConverter '{}'", siteApp, DEFAULT_JACKSON_CONVERTER);
 		}
 	}
 
@@ -181,49 +185,31 @@ public class RestConfig implements BeanFactoryPostProcessor {
 	}
 
 	// @formatter:off
-	protected void addDateModules(ObjectMapper objectMapper) {
-		objectMapper.registerModule(getDateModule(
-			OffsetDateTime.class,
-			OffsetDateTime::parse,
-			DateTimeFormatter.ISO_OFFSET_DATE_TIME
-		));
-
-		objectMapper.registerModule(getDateModule(
-			LocalDate.class,
-			LocalDate::parse,
-			DateTimeFormatter.ISO_LOCAL_DATE
-		));
-
-		objectMapper.registerModule(getDateModule(
-			LocalTime.class,
-			LocalTime::parse,
-			DateTimeFormatter.ISO_LOCAL_TIME
-		));
-
-		objectMapper.registerModule(getDateModule(
-			LocalDateTime.class,
-			LocalDateTime::parse,
-			DateTimeFormatter.ISO_LOCAL_DATE_TIME
-		));
-	}	
+	protected void addDateModules(JsonMapper.Builder mapperBuilder) {
+		mapperBuilder
+			.addModule(getDateModule(OffsetDateTime.class, OffsetDateTime::parse, DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+			.addModule(getDateModule(LocalDate.class, LocalDate::parse, DateTimeFormatter.ISO_LOCAL_DATE))
+			.addModule(getDateModule(LocalTime.class, LocalTime::parse, DateTimeFormatter.ISO_LOCAL_TIME))
+			.addModule(getDateModule(LocalDateTime.class, LocalDateTime::parse, DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+	}
 	// @formatter:on
 
 	protected <T extends Temporal> SimpleModule getDateModule(Class<T> temporal, Function<String, T> parseFunction,
 			DateTimeFormatter formatter) {
 		SimpleModule module = new SimpleModule();
-		module.addDeserializer(temporal, new JsonDeserializer<T>() {
+		module.addDeserializer(temporal, new ValueDeserializer<T>() {
 			@Override
-			public T deserialize(JsonParser parser, DeserializationContext ctxt) throws IOException, JacksonException {
+			public T deserialize(JsonParser parser, DeserializationContext ctxt) throws JacksonException {
 				if (StringUtils.isNotBlank(parser.getText())) {
 					return parseFunction.apply(parser.getText());
 				}
 				return null;
 			}
 		});
-		module.addSerializer(temporal, new JsonSerializer<T>() {
+		module.addSerializer(temporal, new ValueSerializer<T>() {
 			@Override
-			public void serialize(T value, JsonGenerator jsonGenerator, SerializerProvider provider)
-					throws IOException {
+			public void serialize(T value, JsonGenerator jsonGenerator, SerializationContext provider)
+					throws JacksonException {
 				if (value != null) {
 					jsonGenerator.writeString(formatter.format(value));
 				}

@@ -54,11 +54,11 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 
-import com.fasterxml.jackson.annotation.JsonInclude.Include;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectWriter;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import tools.jackson.databind.ObjectWriter;
+import tools.jackson.databind.SerializationFeature;
+import tools.jackson.databind.cfg.DateTimeFeature;
+import tools.jackson.databind.json.JsonMapper;
 import com.hazelcast.core.HazelcastInstance;
 import com.zaxxer.hikari.HikariDataSource;
 
@@ -99,8 +99,10 @@ public class MonitoringHandler implements RequestHandler {
 	private ObjectWriter writer;
 
 	public MonitoringHandler() {
-		writer = new ObjectMapper().setSerializationInclusion(Include.NON_ABSENT)
-				.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false).registerModule(new JavaTimeModule())
+		writer = JsonMapper.builder()
+				.changeDefaultPropertyInclusion(v -> JsonInclude.Value.ALL_NON_ABSENT)
+				.disable(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS)
+				.build()
 				.writerWithDefaultPrettyPrinter();
 	}
 

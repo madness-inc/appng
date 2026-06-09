@@ -29,8 +29,8 @@ import org.apache.commons.codec.digest.HmacAlgorithms;
 import org.apache.commons.codec.digest.HmacUtils;
 import org.apache.commons.lang3.StringUtils;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -141,7 +141,7 @@ public class GMapGeoLocator implements GeoLocator {
 			Thread.sleep(sleepTime);
 			connection.connect();
 			InputStream is = connection.getInputStream();
-			return new ObjectMapper().reader().readTree(is);
+			return new JsonMapper().reader().readTree(is);
 		} finally {
 			if (null != connection) {
 				connection.disconnect();

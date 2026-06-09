@@ -25,7 +25,7 @@ import org.appng.xml.platform.Action;
 import org.appng.xml.platform.Datasource;
 import org.junit.Test;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 public class WritingJsonValidatorTest {
 
@@ -64,7 +64,7 @@ public class WritingJsonValidatorTest {
 	public void testValidateObjectWithMapper() throws Exception {
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 		Person p = getPerson(sdf);
-		WritingJsonValidator.validate(new ObjectMapper().setDateFormat(sdf), p,
+		WritingJsonValidator.validate(JsonMapper.builder().defaultDateFormat(sdf).build(), p,
 				"json/WritingJsonValidatorTest-testValidateObjectWithMapper.json");
 	}
 

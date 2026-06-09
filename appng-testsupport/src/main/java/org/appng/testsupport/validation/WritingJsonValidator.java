@@ -28,9 +28,10 @@ import org.appng.xml.platform.Action;
 import org.appng.xml.platform.Datasource;
 import org.junit.Assert;
 
-import com.fasterxml.jackson.annotation.JsonInclude.Include;
-import com.fasterxml.jackson.databind.MapperFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import tools.jackson.databind.MapperFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -236,8 +237,10 @@ public class WritingJsonValidator {
 	 *                     if an error occurs while mapping the object to JSON
 	 */
 	public static String toJSON(Object object) throws IOException {
-		ObjectMapper objectMapper = new ObjectMapper().setSerializationInclusion(Include.NON_EMPTY)
-				.configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, sortPropertiesAlphabetically);
+		ObjectMapper objectMapper = JsonMapper.builder()
+				.changeDefaultPropertyInclusion(v -> JsonInclude.Value.ALL_NON_EMPTY)
+				.configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, sortPropertiesAlphabetically)
+				.build();
 		return toJSON(objectMapper, object);
 	}
 

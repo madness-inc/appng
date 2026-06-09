@@ -54,10 +54,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 
-import com.fasterxml.jackson.annotation.JsonInclude.Include;
-import com.fasterxml.jackson.core.JsonGenerationException;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import tools.jackson.databind.MapperFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -274,10 +273,13 @@ public class ServiceRequestHandler implements RequestHandler {
 		return false;
 	}
 
-	protected String writeJson(Object data) throws IOException, JsonGenerationException, JsonMappingException {
-		ObjectMapper objectMapper = new ObjectMapper().setSerializationInclusion(Include.NON_EMPTY);
+	protected String writeJson(Object data) throws IOException {
 		StringWriter stringWriter = new StringWriter();
-		objectMapper.writer().withDefaultPrettyPrinter().writeValue(stringWriter, data);
+		JsonMapper.builder()
+				.changeDefaultPropertyInclusion(v -> JsonInclude.Value.ALL_NON_EMPTY)
+				.disable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
+				.build()
+				.writer().withDefaultPrettyPrinter().writeValue(stringWriter, data);
 		return stringWriter.toString();
 	}
 
