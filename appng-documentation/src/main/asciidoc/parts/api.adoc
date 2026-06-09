@@ -75,7 +75,7 @@ A minimalist XSD looks like this:
 
 . Generate JAXB classes for the schema file
 +
-The http://www.mojohaus.org/jaxb2-maven-plugin/Documentation/v2.2/[jaxb2-maven-plugin^] can be used to generate the Java classes using the https://eclipse-ee4j.github.io/jaxb-ri/[xjc^] binding compiler on this schema. The http://www.mojohaus.org/build-helper-maven-plugin/index.html[build-helper-maven-plugin^] is then used to add those classes to the project sources.
+The https://www.mojohaus.org/jaxb2-maven-plugin/[jaxb2-maven-plugin^] can be used to generate the Java classes using the https://eclipse-ee4j.github.io/jaxb-ri/[xjc^] binding compiler on this schema. The http://www.mojohaus.org/build-helper-maven-plugin/index.html[build-helper-maven-plugin^] is then used to add those classes to the project sources.
 +
 Example configuration from `pom.xml`:
 +

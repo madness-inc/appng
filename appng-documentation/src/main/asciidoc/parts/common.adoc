@@ -1,6 +1,6 @@
 == Expressions
 
-AppNG uses the https://eclipse-ee4j.github.io/jakartaee-tutorial/web/jsf-el/jsf-el.html[Jakarta Expression Language^] syntax to provide support for dynamic expressions. See https://eclipse-ee4j.github.io/jakartaee-tutorial/web/jsf-el/jsf-el005.html[here^] for a list of operators.
+AppNG uses the https://jakartaee.github.io/jakartaee-tutorial/#expression-language[Jakarta Expression Language^] syntax to provide support for dynamic expressions. See https://jakartaee.github.io/jakartaee-tutorial/#expression-language[here^] for a list of operators.
 
 Expressions can be used to
 
