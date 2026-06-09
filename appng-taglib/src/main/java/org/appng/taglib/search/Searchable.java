@@ -17,8 +17,8 @@ package org.appng.taglib.search;
 
 import java.io.IOException;
 
-import javax.servlet.jsp.tagext.BodyContent;
-import javax.servlet.jsp.tagext.BodyTagSupport;
+import jakarta.servlet.jsp.tagext.BodyContent;
+import jakarta.servlet.jsp.tagext.BodyTagSupport;
 
 import lombok.extern.slf4j.Slf4j;
 

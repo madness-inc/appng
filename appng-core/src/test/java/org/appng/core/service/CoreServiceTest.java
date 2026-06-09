@@ -41,7 +41,7 @@ import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 
-import javax.persistence.EntityManager;
+import jakarta.persistence.EntityManager;
 
 import org.apache.commons.lang3.time.DateUtils;
 import org.appng.api.BusinessException;
@@ -368,6 +368,7 @@ public class CoreServiceTest {
 		coreService.deleteRole(1, "applicationroleDeleteError", "applicationroleErrorInvalid");
 	}
 
+	@Rollback
 	@Test(expected = BusinessException.class)
 	public void testDeleteApplicationRoleInvalid() throws BusinessException {
 		try {
@@ -929,6 +930,7 @@ public class CoreServiceTest {
 		assertNull(coreService.findApplicationByName("demo-application"));
 	}
 
+	@Rollback
 	@Test(expected = BusinessException.class)
 	public void testReloadRepository() throws BusinessException {
 		coreService.reloadRepository(1);

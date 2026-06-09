@@ -53,6 +53,7 @@ class OpenApiTest extends TestBase {
 
 	static {
 		WritingJsonValidator.writeJson = false;
+		WritingJsonValidator.sortPropertiesAlphabetically = true;
 	}
 
 	public OpenApiTest() {

@@ -23,8 +23,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import javax.persistence.EntityManager;
-import javax.persistence.TypedQuery;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.TypedQuery;
 
 import org.apache.commons.lang3.Validate;
 import org.appng.api.model.RevisionAware;
@@ -87,7 +87,7 @@ public class SearchRepositoryImpl<T, ID extends Serializable> extends SimpleJpaR
 	public Page<T> search(Pageable pageable) {
 		Page<T> page = super.findAll(pageable);
 		if (pageable.getOffset() >= page.getTotalElements()) {
-			Pageable newPageable = new PageRequest(0, pageable.getPageSize(), pageable.getSort());
+			Pageable newPageable = PageRequest.of(0, pageable.getPageSize(), pageable.getSort());
 			page = super.findAll(newPageable);
 		}
 		return page;
@@ -121,9 +121,9 @@ public class SearchRepositoryImpl<T, ID extends Serializable> extends SimpleJpaR
 		}
 		Long total = countQuery.getSingleResult();
 		if (pageable.getOffset() >= total) {
-			pageable = new PageRequest(0, pageable.getPageSize(), pageable.getSort());
+			pageable = PageRequest.of(0, pageable.getPageSize(), pageable.getSort());
 		}
-		query.setFirstResult(pageable.getOffset());
+		query.setFirstResult((int) pageable.getOffset());
 		query.setMaxResults(pageable.getPageSize());
 		List<T> content = query.getResultList();
 		return new PageImpl<T>(content, pageable, total);
@@ -215,7 +215,7 @@ public class SearchRepositoryImpl<T, ID extends Serializable> extends SimpleJpaR
 		if (results.isEmpty()) {
 			return true;
 		} else if (id != null) {
-			T current = findOne(id);
+			T current = findById(id).orElse(null);
 			return results.size() == 1 && current.equals(results.get(0));
 		} else {
 			return false;

@@ -209,10 +209,14 @@ public class MigrationService {
 		StringBuilder dbInfo = new StringBuilder();
 		if (!testConnection || connection.testConnection(dbInfo, true)) {
 			LOGGER.info("connected to {} ({})", connection.getJdbcUrl(), dbInfo.toString());
-			Flyway flyway = getFlyway(connection, null, LOCATION_PREFIX + connection.getType().name().toLowerCase());
-			MigrationInfoService info = flyway.info();
-			connection.setMigrationInfoService(info);
-			return info;
+			try {
+				Flyway flyway = getFlyway(connection, null, LOCATION_PREFIX + connection.getType().name().toLowerCase());
+				MigrationInfoService info = flyway.info();
+				connection.setMigrationInfoService(info);
+				return info;
+			} catch (FlywayException e) {
+				LOGGER.warn("Flyway could not check migration status for {}: {}", connection.getJdbcUrl(), e.getMessage());
+			}
 		} else {
 			LOGGER.error("{} is not working, unable to retrieve connection status.", connection.toString());
 		}
@@ -236,10 +240,14 @@ public class MigrationService {
 		if (null != connection && connection.testConnection(null)) {
 			String typeFolder = connection.getType().name().toLowerCase();
 			File scriptFolder = new File(sqlFolder.getAbsolutePath(), typeFolder);
-			Flyway flyway = getFlyway(connection, null, Location.FILESYSTEM_PREFIX + scriptFolder.getAbsolutePath());
-			MigrationInfoService info = flyway.info();
-			connection.setMigrationInfoService(info);
-			return info;
+			try {
+				Flyway flyway = getFlyway(connection, null, Location.FILESYSTEM_PREFIX + scriptFolder.getAbsolutePath());
+				MigrationInfoService info = flyway.info();
+				connection.setMigrationInfoService(info);
+				return info;
+			} catch (FlywayException e) {
+				LOGGER.warn("Flyway could not check migration status for {}: {}", connection.getJdbcUrl(), e.getMessage());
+			}
 		}
 		return null;
 	}

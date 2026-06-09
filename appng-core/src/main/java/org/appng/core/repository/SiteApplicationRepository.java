@@ -26,6 +26,7 @@ import org.appng.core.domain.SiteApplicationPK;
 import org.appng.core.domain.SiteImpl;
 import org.appng.persistence.repository.SearchRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface SiteApplicationRepository extends SearchRepository<SiteApplication, SiteApplicationPK> {
 
@@ -33,7 +34,8 @@ public interface SiteApplicationRepository extends SearchRepository<SiteApplicat
 
 	SiteApplication findByApplicationNameAndGrantedSitesName(String grantedApplication, String grantedSite);
 
-	List<SiteApplication> findByGrantedSitesIn(Site site);
+	@Query("select sa from SiteApplication sa where :site member of sa.grantedSites")
+	List<SiteApplication> findByGrantedSitesContaining(@Param("site") Site site);
 
 	@Query("select sa.application from SiteApplication sa where sa.databaseConnection=?1")
 	Application findApplicationForConnection(DatabaseConnection dbc);

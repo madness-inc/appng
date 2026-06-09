@@ -21,7 +21,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectStreamClass;
 import java.util.Map;
 
-import javax.servlet.ServletContext;
+import jakarta.servlet.ServletContext;
 
 import org.appng.api.Environment;
 import org.appng.api.Platform;

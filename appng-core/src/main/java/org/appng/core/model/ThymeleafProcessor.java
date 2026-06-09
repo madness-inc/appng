@@ -101,6 +101,8 @@ import org.thymeleaf.context.IContext;
 import org.thymeleaf.context.IExpressionContext;
 import org.thymeleaf.context.IWebContext;
 import org.thymeleaf.context.WebContext;
+import org.thymeleaf.web.IWebExchange;
+import org.thymeleaf.web.servlet.JakartaServletWebApplication;
 import org.thymeleaf.exceptions.TemplateProcessingException;
 import org.thymeleaf.linkbuilder.AbstractLinkBuilder;
 import org.thymeleaf.linkbuilder.ILinkBuilder;
@@ -319,8 +321,9 @@ public class ThymeleafProcessor extends AbstractRequestProcessor {
 		} catch (Exception e) {
 			throw new InvalidConfigurationException(applicationProvider.getName(), e.getMessage(), e);
 		}
-		return new WebContext(env.getServletRequest(), env.getServletResponse(), env.getServletContext(),
-				env.getLocale(), variables);
+		JakartaServletWebApplication webApp = JakartaServletWebApplication.buildApplication(env.getServletContext());
+		IWebExchange webExchange = webApp.buildExchange(env.getServletRequest(), env.getServletResponse());
+		return new WebContext(webExchange, env.getLocale(), variables);
 	}
 
 	protected ILinkBuilder getGlobalLinkBuilder(String templatePrefix) {

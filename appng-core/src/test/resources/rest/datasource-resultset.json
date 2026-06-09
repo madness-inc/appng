@@ -40,11 +40,11 @@
     "fieldType" : "text",
     "sort" : { },
     "rules" : [ {
-      "type" : "javax.validation.constraints.NotNull",
+      "type" : "jakarta.validation.constraints.NotNull",
       "message" : "Field must not be empty",
       "messageKey" : "{validation.notNull}"
     }, {
-      "type" : "javax.validation.constraints.Pattern",
+      "type" : "jakarta.validation.constraints.Pattern",
       "message" : "{validation.nameStrict}",
       "messageKey" : "{validation.nameStrict}",
       "options" : [ {
@@ -52,7 +52,7 @@
         "value" : "[a-zA-Z0-9\\-]{3,}"
       } ]
     }, {
-      "type" : "javax.validation.constraints.Size",
+      "type" : "jakarta.validation.constraints.Size",
       "message" : "Enter at most 64 characters",
       "messageKey" : "{validation.string.max}",
       "options" : [ {
@@ -69,11 +69,11 @@
     "fieldType" : "text",
     "sort" : { },
     "rules" : [ {
-      "type" : "javax.validation.constraints.NotNull",
+      "type" : "jakarta.validation.constraints.NotNull",
       "message" : "Field must not be empty",
       "messageKey" : "{validation.notNull}"
     }, {
-      "type" : "javax.validation.constraints.Pattern",
+      "type" : "jakarta.validation.constraints.Pattern",
       "message" : "{validation.host}",
       "messageKey" : "{validation.host}",
       "options" : [ {
@@ -87,11 +87,11 @@
     "fieldType" : "text",
     "sort" : { },
     "rules" : [ {
-      "type" : "javax.validation.constraints.NotNull",
+      "type" : "jakarta.validation.constraints.NotNull",
       "message" : "Field must not be empty",
       "messageKey" : "{validation.notNull}"
     }, {
-      "type" : "javax.validation.constraints.Pattern",
+      "type" : "jakarta.validation.constraints.Pattern",
       "message" : "{validation.domain}",
       "messageKey" : "{validation.domain}",
       "options" : [ {
@@ -104,7 +104,7 @@
     "label" : "Description",
     "fieldType" : "text",
     "rules" : [ {
-      "type" : "javax.validation.constraints.Size",
+      "type" : "jakarta.validation.constraints.Size",
       "message" : "Enter at most 8192 characters",
       "messageKey" : "{validation.string.max}",
       "options" : [ {

@@ -33,6 +33,7 @@ import org.appng.api.rest.model.Sort.OrderEnum;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
@@ -98,8 +99,8 @@ public class RestClient {
 						new MappingJackson2HttpMessageConverter(), new ResourceHttpMessageConverter()));
 		restTemplate.setErrorHandler(new DefaultResponseErrorHandler() {
 			@Override
-			protected boolean hasError(HttpStatus statusCode) {
-				return statusCode.series() == HttpStatus.Series.SERVER_ERROR;
+			protected boolean hasError(HttpStatusCode statusCode) {
+				return statusCode.is5xxServerError();
 			}
 
 		});
@@ -222,7 +223,7 @@ public class RestClient {
 		return exchange(actionURL, null, HttpMethod.GET, Action.class);
 	}
 
-	private void doLog(String prefix, Object body, HttpStatus httpStatus) {
+	private void doLog(String prefix, Object body, HttpStatusCode httpStatus) {
 		if (LOGGER.isDebugEnabled()) {
 			String content = StringUtils.EMPTY;
 			if (null != body) {
@@ -341,12 +342,12 @@ public class RestClient {
 				LOGGER.debug("sent cookie: {}={}", k, cookies.get(k));
 			});
 		}
-		headers.setContentType(MediaType.APPLICATION_JSON_UTF8);
+		headers.setContentType(MediaType.APPLICATION_JSON);
 		List<MediaType> acceptableMediaTypes;
 		if (acceptAnyType) {
 			acceptableMediaTypes = Arrays.asList(MediaType.ALL);
 		} else {
-			acceptableMediaTypes = Arrays.asList(MediaType.APPLICATION_JSON_UTF8);
+			acceptableMediaTypes = Arrays.asList(MediaType.APPLICATION_JSON);
 		}
 		headers.setAccept(acceptableMediaTypes);
 		headers.set(HttpHeaders.USER_AGENT, "appNG Rest Client");
@@ -458,7 +459,7 @@ public class RestClient {
 				errorModel.setCode(e.getStatusCode().value());
 				errorModel.setMessage(e.getMessage());
 			}
-			return new RestResponseEntity<>(errorModel, e.getResponseHeaders(), e.getStatusCode());
+			return new RestResponseEntity<IN>(errorModel, e.getResponseHeaders(), e.getStatusCode());
 		}
 	}
 

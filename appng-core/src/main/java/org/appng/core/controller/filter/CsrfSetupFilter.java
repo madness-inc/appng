@@ -29,16 +29,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-import javax.servlet.DispatcherType;
-import javax.servlet.FilterRegistration.Dynamic;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletContextEvent;
-import javax.servlet.ServletContextListener;
-import javax.servlet.annotation.WebListener;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.DispatcherType;
+import jakarta.servlet.FilterRegistration.Dynamic;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletContextEvent;
+import jakarta.servlet.ServletContextListener;
+import jakarta.servlet.annotation.WebListener;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
-import org.apache.commons.fileupload.disk.DiskFileItem;
 import org.appng.api.Platform;
 import org.appng.api.RequestUtil;
 import org.appng.api.Scope;
@@ -58,9 +57,8 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
-import org.springframework.web.multipart.commons.CommonsMultipartFile;
-import org.springframework.web.multipart.commons.CommonsMultipartResolver;
 import org.springframework.web.multipart.support.MultipartFilter;
+import org.springframework.web.multipart.support.StandardServletMultipartResolver;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -160,17 +158,18 @@ public class CsrfSetupFilter implements ServletContextListener {
 		}
 	}
 
-	class MultipartResolver extends CommonsMultipartResolver {
+	class MultipartResolver extends StandardServletMultipartResolver {
+
+		private final File uploadTempDir;
 
 		MultipartResolver(Resource uploadTempDir) throws IOException {
-			super();
-			setUploadTempDir(uploadTempDir);
+			this.uploadTempDir = uploadTempDir.getFile();
 		}
 
 		@Override
 		public MultipartHttpServletRequest resolveMultipart(HttpServletRequest request) throws MultipartException {
 			MultipartHttpServletRequest multipart = super.resolveMultipart(request);
-			request.setAttribute(org.appng.forms.Request.REQUEST_PARSED, new MultipartRequest(multipart));
+			request.setAttribute(org.appng.forms.Request.REQUEST_PARSED, new MultipartRequest(multipart, uploadTempDir));
 			return multipart;
 		}
 	}
@@ -184,10 +183,12 @@ public class CsrfSetupFilter implements ServletContextListener {
 		private MultipartHttpServletRequest wrapped;
 		private LinkedMultiValueMap<String, String> additionalParams = new LinkedMultiValueMap<>();
 		private String host;
+		private File tempDir;
 
-		MultipartRequest(MultipartHttpServletRequest wrapped) {
+		MultipartRequest(MultipartHttpServletRequest wrapped, File tempDir) {
 			this.wrapped = wrapped;
 			this.host = wrapped.getServerName();
+			this.tempDir = tempDir;
 		}
 
 		public boolean hasParameter(String name) {
@@ -253,20 +254,14 @@ public class CsrfSetupFilter implements ServletContextListener {
 		}
 
 		private FormUpload getFormUpload(MultipartFile mf) {
-			CommonsMultipartFile cmf = (CommonsMultipartFile) mf;
-			DiskFileItem diskFileItem = (DiskFileItem) cmf.getFileItem();
-			File file = diskFileItem.getStoreLocation();
-			if (diskFileItem.isInMemory()) {
-				try {
-					diskFileItem.write(file);
-				} catch (Exception e) {
-					LOGGER.error(String.format("error writing %s", file.getAbsolutePath()), e);
-				}
+			try {
+				File file = File.createTempFile("appng-upload-", "", tempDir);
+				mf.transferTo(file);
+				List<String> acceptedTypes = new ArrayList<>();
+				return new FormUploadBean(file, mf.getOriginalFilename(), mf.getContentType(), acceptedTypes, file.length());
+			} catch (IOException e) {
+				throw new RuntimeException("error writing upload to temp file", e);
 			}
-			List<String> acceptedTypes = new ArrayList<>();
-			FormUpload upload = new FormUploadBean(file, mf.getOriginalFilename(), mf.getContentType(), acceptedTypes,
-					file.length());
-			return upload;
 		}
 
 		public Map<String, List<FormUpload>> getFormUploads() {

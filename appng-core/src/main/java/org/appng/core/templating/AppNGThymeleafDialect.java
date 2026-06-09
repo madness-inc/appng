@@ -19,7 +19,7 @@ import java.util.Collection;
 import java.util.Set;
 
 import org.thymeleaf.processor.IProcessor;
-import org.thymeleaf.spring4.dialect.SpringStandardDialect;
+import org.thymeleaf.spring6.dialect.SpringStandardDialect;
 import org.thymeleaf.standard.processor.StandardReplaceTagProcessor;
 import org.thymeleaf.templatemode.TemplateMode;
 

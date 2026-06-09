@@ -17,25 +17,29 @@ package org.appng.persistence.hibernate.dialect;
 
 import java.sql.Types;
 
-import org.hibernate.HibernateException;
+import org.hibernate.boot.model.TypeContributions;
+import org.hibernate.service.ServiceRegistry;
+import org.hibernate.type.descriptor.sql.internal.CapacityDependentDdlType;
+import org.hibernate.type.descriptor.sql.spi.DdlTypeRegistry;
 
 /**
- * A {@link HSQLDialect} which converts varchar-fields with a length of >=1024 to hsql-type 'LONGVARCHAR'
- * 
+ * A {@link org.hibernate.dialect.HSQLDialect} which converts varchar-fields with a length of >=1024 to hsql-type
+ * 'LONGVARCHAR'
+ *
  * @author Matthias Müller
  */
 public class HSQLDialect extends org.hibernate.dialect.HSQLDialect {
 
-	private static final String LONGVARCHAR = "LONGVARCHAR";
-
-	private static final long MAX_LENGHT = 1024;
+	private static final long MAX_LENGTH = 1024;
 
 	@Override
-	public String getTypeName(int code, long length, int precision, int scale) throws HibernateException {
-		if (Types.VARCHAR == code && length >= MAX_LENGHT) {
-			return LONGVARCHAR;
-		}
-		return super.getTypeName(code, length, precision, scale);
+	protected void registerColumnTypes(TypeContributions typeContributions, ServiceRegistry serviceRegistry) {
+		super.registerColumnTypes(typeContributions, serviceRegistry);
+		final DdlTypeRegistry ddlTypeRegistry = typeContributions.getTypeConfiguration().getDdlTypeRegistry();
+		ddlTypeRegistry.addDescriptor(
+			CapacityDependentDdlType.builder(Types.VARCHAR, "LONGVARCHAR", this)
+				.withTypeCapacity(MAX_LENGTH - 1, "varchar($l)")
+				.build()
+		);
 	}
-
 }

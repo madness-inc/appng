@@ -27,7 +27,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.appng.api.ApplicationConfigProvider;
 import org.appng.api.DataContainer;
@@ -168,14 +168,14 @@ public class CallableDataSourceTest {
 
 	@Test
 	public void testInvalidPage() throws Exception {
-		mockPage(new PageRequest(3, 25), 5);
+		mockPage(PageRequest.of(3, 25), 5);
 		getDataSource().perform("test");
 		verifyRedirect(1);
 	}
 
 	@Test
 	public void testEmptyPage() throws Exception {
-		mockPage(new PageRequest(0, 25), 0);
+		mockPage(PageRequest.of(0, 25), 0);
 		getDataSource().perform("test");
 		verifyRedirect(0);
 	}

@@ -18,16 +18,16 @@ package org.appng.el;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.el.ELContext;
-import javax.el.ExpressionFactory;
-import javax.el.ValueExpression;
+import jakarta.el.ELContext;
+import jakarta.el.ExpressionFactory;
+import jakarta.el.ValueExpression;
 
 /**
- * A {@link Map}-based {@link javax.el.VariableMapper} implementation.
+ * A {@link Map}-based {@link jakarta.el.VariableMapper} implementation.
  * 
  * @author Matthias Müller
  */
-class VariableMapper extends javax.el.VariableMapper {
+class VariableMapper extends jakarta.el.VariableMapper {
 
 	private final Map<String, ValueExpression> map = new HashMap<>();
 	private ExpressionFactory ef;

@@ -17,8 +17,8 @@ package org.appng.mail;
 
 import java.io.File;
 
-import javax.mail.Message;
-import javax.mail.internet.InternetAddress;
+import jakarta.mail.Message;
+import jakarta.mail.internet.InternetAddress;
 
 import org.appng.mail.Mail.RecipientType;
 import org.appng.mail.impl.DefaultTransport;
@@ -61,9 +61,9 @@ public class MailTest {
 			Assert.assertEquals("subject", message.getSubject());
 			InternetAddress[] addresses = new InternetAddress[] { new InternetAddress(address) };
 			Assert.assertArrayEquals(addresses, message.getFrom());
-			Assert.assertArrayEquals(addresses, message.getRecipients(javax.mail.Message.RecipientType.TO));
-			Assert.assertArrayEquals(addresses, message.getRecipients(javax.mail.Message.RecipientType.CC));
-			Assert.assertArrayEquals(addresses, message.getRecipients(javax.mail.Message.RecipientType.BCC));
+			Assert.assertArrayEquals(addresses, message.getRecipients(jakarta.mail.Message.RecipientType.TO));
+			Assert.assertArrayEquals(addresses, message.getRecipients(jakarta.mail.Message.RecipientType.CC));
+			Assert.assertArrayEquals(addresses, message.getRecipients(jakarta.mail.Message.RecipientType.BCC));
 			Assert.assertArrayEquals(addresses, message.getReplyTo());
 			Assert.assertNotNull(message.getSentDate());
 			Assert.assertNotNull(message.getHeader("date"));

@@ -15,7 +15,7 @@
  */
 package org.appng.core.model;
 
-import javax.servlet.ServletContext;
+import jakarta.servlet.ServletContext;
 
 import org.appng.api.model.Application;
 import org.appng.api.model.Site;

@@ -16,15 +16,19 @@
 package org.appng.persistence.repository;
 
 import java.io.Serializable;
+import java.util.Optional;
+import java.util.function.Function;
 
-import javax.persistence.EntityManager;
+import jakarta.persistence.EntityManager;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.support.JpaEntityInformation;
 import org.springframework.data.jpa.repository.support.JpaEntityInformationSupport;
-import org.springframework.data.jpa.repository.support.QueryDslJpaRepository;
+import org.springframework.data.jpa.repository.support.QuerydslJpaPredicateExecutor;
+import org.springframework.data.querydsl.SimpleEntityPathResolver;
+import org.springframework.data.repository.query.FluentQuery;
 
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.Predicate;
@@ -32,17 +36,17 @@ import com.querydsl.core.types.Predicate;
 /**
  * Default {@link QueryDslSearchRepository} implementation.<br/>
  * Use this class as the base class for your {@link QueryDslSearchRepository} implementations:
- * 
+ *
  * <pre>
  * &lt;repositories base-class="org.appng.persistence.repository.QueryDslSearchRepositoryImpl"&gt;
  * </pre>
- * 
+ *
  * See <a href=
  * "http://docs.spring.io/spring-data/jpa/docs/1.11.0.RELEASE/reference/html/#repositories.custom-behaviour-for-all-repositories">
  * 4.6.2. Adding custom behavior to all repositories</a> from the reference Documentation for further details.
  *
  * @author Matthias Müller
- * 
+ *
  * @param <T>
  *             the domain class
  * @param <ID>
@@ -51,11 +55,12 @@ import com.querydsl.core.types.Predicate;
 public class QueryDslSearchRepositoryImpl<T, ID extends Serializable> extends SearchRepositoryImpl<T, ID>
 		implements QueryDslSearchRepository<T, ID> {
 
-	private QueryDslJpaRepository<T, ID> queryDslJpaRepository;
+	private final QuerydslJpaPredicateExecutor<T> querydslExecutor;
 
 	public QueryDslSearchRepositoryImpl(JpaEntityInformation<T, ID> entityInformation, EntityManager entityManager) {
 		super(entityInformation, entityManager);
-		this.queryDslJpaRepository = new QueryDslJpaRepository<T, ID>(entityInformation, entityManager);
+		this.querydslExecutor = new QuerydslJpaPredicateExecutor<>(entityInformation, entityManager,
+				SimpleEntityPathResolver.INSTANCE, null);
 	}
 
 	@SuppressWarnings("unchecked")
@@ -63,39 +68,43 @@ public class QueryDslSearchRepositoryImpl<T, ID extends Serializable> extends Se
 		super(domainType, entityManager);
 		JpaEntityInformation<T, ID> entityInformation = (JpaEntityInformation<T, ID>) JpaEntityInformationSupport
 				.getEntityInformation(domainClass, entityManager);
-		this.queryDslJpaRepository = new QueryDslJpaRepository<T, ID>(entityInformation, entityManager);
+		this.querydslExecutor = new QuerydslJpaPredicateExecutor<>(entityInformation, entityManager,
+				SimpleEntityPathResolver.INSTANCE, null);
 	}
 
-	public T findOne(Predicate predicate) {
-		return queryDslJpaRepository.findOne(predicate);
+	public Optional<T> findOne(Predicate predicate) {
+		return querydslExecutor.findOne(predicate);
 	}
 
 	public Iterable<T> findAll(Predicate predicate) {
-		return queryDslJpaRepository.findAll(predicate);
+		return querydslExecutor.findAll(predicate);
 	}
 
 	public Iterable<T> findAll(Predicate predicate, OrderSpecifier<?>... orders) {
-		return queryDslJpaRepository.findAll(predicate, orders);
+		return querydslExecutor.findAll(predicate, orders);
 	}
 
 	public Page<T> findAll(Predicate predicate, Pageable pageable) {
-		return queryDslJpaRepository.findAll(predicate, pageable);
+		return querydslExecutor.findAll(predicate, pageable);
 	}
 
 	public long count(Predicate predicate) {
-		return queryDslJpaRepository.count(predicate);
+		return querydslExecutor.count(predicate);
 	}
 
 	public Iterable<T> findAll(Predicate predicate, Sort sort) {
-		return queryDslJpaRepository.findAll(predicate, sort);
+		return querydslExecutor.findAll(predicate, sort);
 	}
 
 	public Iterable<T> findAll(OrderSpecifier<?>... orders) {
-		return queryDslJpaRepository.findAll(orders);
+		return querydslExecutor.findAll(orders);
 	}
 
 	public boolean exists(Predicate predicate) {
-		return queryDslJpaRepository.exists(predicate);
+		return querydslExecutor.exists(predicate);
 	}
 
+	public <S extends T, R> R findBy(Predicate predicate, Function<FluentQuery.FetchableFluentQuery<S>, R> queryFunction) {
+		return querydslExecutor.findBy(predicate, queryFunction);
+	}
 }

@@ -19,10 +19,10 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Locale;
 
-import javax.validation.Valid;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Size;
-import javax.validation.groups.Default;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import jakarta.validation.groups.Default;
 
 import org.appng.api.AbstractTest;
 import org.appng.api.FieldProcessor;
@@ -221,7 +221,7 @@ public class ValidationProviderTest extends AbstractTest {
 		Message errorMessage = fieldDef.getMessages().getMessageList().get(0);
 		Assert.assertEquals(MUST_NOT_BE_NULL, errorMessage.getContent());
 		Assert.assertEquals(MessageType.ERROR, errorMessage.getClazz());
-		Assert.assertEquals("{javax.validation.constraints.NotNull.message}", errorMessage.getCode());
+		Assert.assertEquals("{jakarta.validation.constraints.NotNull.message}", errorMessage.getCode());
 	}
 
 	@Test

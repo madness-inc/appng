@@ -25,8 +25,8 @@ import java.lang.annotation.Target;
 import java.text.NumberFormat;
 import java.util.Collection;
 
-import javax.validation.Constraint;
-import javax.validation.Payload;
+import jakarta.validation.Constraint;
+import jakarta.validation.Payload;
 
 import org.appng.api.support.validation.FileUploadListValidator;
 import org.appng.api.support.validation.FileUploadValidator;

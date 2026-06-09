@@ -19,9 +19,9 @@ import java.io.FileNotFoundException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import javax.servlet.ServletContext;
-import javax.servlet.ServletContextEvent;
-import javax.servlet.ServletContextListener;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletContextEvent;
+import jakarta.servlet.ServletContextListener;
 
 import org.apache.commons.lang3.StringUtils;
 import org.appng.api.Platform;
@@ -40,29 +40,10 @@ public class Log4jConfigurer extends WebAppRootListener {
 	protected static final String LOG4J_PROPERTIES = "/conf/log4j.properties";
 	public static final String WEB_INF = "/WEB-INF";
 
-	@SuppressWarnings("deprecation")
 	public void contextInitialized(ServletContextEvent sce) {
 		super.contextInitialized(sce);
-		ServletContext ctx = sce.getServletContext();
-		String log4jLocation = ctx.getRealPath(WEB_INF + LOG4J_PROPERTIES);
-		String appngData = System.getProperty(Platform.Property.APPNG_DATA);
-		if (!StringUtils.isBlank(appngData)) {
-			Path log4jPath = Paths.get(appngData, LOG4J_PROPERTIES);
-			if (log4jPath.toFile().exists()) {
-				log4jLocation = log4jPath.toUri().toString();
-			}
-		}
-		try {
-			org.springframework.util.Log4jConfigurer.initLogging(log4jLocation);
-			LOGGER = LoggerFactory.getLogger(Log4jConfigurer.class);
-			LOGGER.info("Initialized log4j from {}", log4jLocation);
-		} catch (FileNotFoundException e) {
-			throw new RuntimeException(e);
-		} catch (NoClassDefFoundError | UnsupportedOperationException e) {
-			// log4j is no longer on classpath - logging is configured via logback.xml
-			LOGGER = LoggerFactory.getLogger(Log4jConfigurer.class);
-			LOGGER.info("Log4j not available, using Logback configuration ({})", e.getMessage());
-		}
+		LOGGER = LoggerFactory.getLogger(Log4jConfigurer.class);
+		LOGGER.info("Logging configured via logback.xml");
 	}
 
 	public void contextDestroyed(ServletContextEvent sce) {

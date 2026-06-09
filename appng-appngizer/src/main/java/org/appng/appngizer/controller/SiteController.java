@@ -22,7 +22,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.io.FileUtils;
 import org.appng.api.BusinessException;
 import org.appng.api.Environment;

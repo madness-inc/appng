@@ -18,9 +18,9 @@ package org.appng.taglib.form;
 import java.io.IOException;
 import java.io.StringWriter;
 
-import javax.servlet.jsp.JspException;
-import javax.servlet.jsp.JspWriter;
-import javax.servlet.jsp.tagext.BodyTag;
+import jakarta.servlet.jsp.JspException;
+import jakarta.servlet.jsp.JspWriter;
+import jakarta.servlet.jsp.tagext.BodyTag;
 
 import org.apache.jasper.runtime.BodyContentImpl;
 import org.appng.formtags.FormConfirmation.FormConfirmationMode;

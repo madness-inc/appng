@@ -20,7 +20,7 @@ import java.io.UnsupportedEncodingException;
 import java.text.ParseException;
 import java.util.Date;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.junit.Assert;
 import org.junit.Test;

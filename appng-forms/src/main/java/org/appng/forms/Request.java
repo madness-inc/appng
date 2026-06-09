@@ -19,7 +19,7 @@ import java.io.File;
 import java.util.List;
 import java.util.Map;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Extends the informations provided by a {@link RequestContainer} and allows processing a {@link HttpServletRequest} by

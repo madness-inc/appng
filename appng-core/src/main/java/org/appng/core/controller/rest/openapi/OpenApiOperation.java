@@ -31,9 +31,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.validation.MessageInterpolator;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.MessageInterpolator;
 import jakarta.xml.bind.JAXBException;
 
 import org.apache.commons.lang3.StringUtils;
@@ -209,14 +209,9 @@ abstract class OpenApiOperation {
 			params.remove(params.keySet().iterator().next());
 			params.entrySet().forEach(e -> {
 				if (!e.getValue().isEmpty()) {
-					List<String> values = e.getValue().stream().map(v -> {
-						try {
-							return UriUtils.decode(v, StandardCharsets.UTF_8.name());
-						} catch (UnsupportedEncodingException e1) {
-							// will not happen
-						}
-						return v;
-					}).collect(Collectors.toList());
+					List<String> values = e.getValue().stream()
+							.map(v -> UriUtils.decode(v, StandardCharsets.UTF_8))
+							.collect(Collectors.toList());
 					applicationRequest.addParameters(e.getKey(), values);
 					getLogger().debug("added path parameter {}={}", e.getKey(), values);
 				}
@@ -385,15 +380,11 @@ abstract class OpenApiOperation {
 		if (null != params) {
 			for (Param p : params.getParam()) {
 				if (null != p.getValue()) {
-					try {
-						self.append(first ? "/" : "").append(";");
-						first = false;
-						self.append(UriUtils.encodeQueryParam(p.getName(), StandardCharsets.UTF_8.name()));
-						self.append("=");
-						self.append(UriUtils.encodeQueryParam(p.getValue(), StandardCharsets.UTF_8.name()));
-					} catch (UnsupportedEncodingException e) {
-						// will not happen
-					}
+					self.append(first ? "/" : "").append(";");
+					first = false;
+					self.append(UriUtils.encodeQueryParam(p.getName(), StandardCharsets.UTF_8));
+					self.append("=");
+					self.append(UriUtils.encodeQueryParam(p.getValue(), StandardCharsets.UTF_8));
 				}
 			}
 			return !first;

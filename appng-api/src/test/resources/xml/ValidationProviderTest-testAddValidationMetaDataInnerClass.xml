@@ -3,10 +3,10 @@
 	<field name="foo" type="text" binding="foo">
 		<validation>
 			<notNull>
-				<message ref="foo" class="ERROR" code="{javax.validation.constraints.NotNull.message}">must not be null</message>
+				<message ref="foo" class="ERROR" code="{jakarta.validation.constraints.NotNull.message}">must not be null</message>
 			</notNull>
 			<size min="5" max="2147483647">
-				<message ref="foo" class="ERROR" code="{javax.validation.constraints.Size.message}">size must be between 5 and 2147483647</message>
+				<message ref="foo" class="ERROR" code="{jakarta.validation.constraints.Size.message}">size must be between 5 and 2147483647</message>
 			</size>
 		</validation>
 	</field>

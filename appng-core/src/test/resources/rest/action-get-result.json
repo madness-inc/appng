@@ -14,10 +14,10 @@
     "readonly" : false,
     "visible" : true,
     "rules" : [ {
-      "type" : "javax.validation.constraints.NotNull",
+      "type" : "jakarta.validation.constraints.NotNull",
       "message" : "Enter at most 64 characters"
     }, {
-      "type" : "javax.validation.constraints.Size",
+      "type" : "jakarta.validation.constraints.Size",
       "message" : "Field must not be empty",
       "options" : [ {
         "name" : "min",
@@ -27,7 +27,7 @@
         "value" : "64"
       } ]
     }, {
-      "type" : "javax.validation.constraints.Pattern",
+      "type" : "jakarta.validation.constraints.Pattern",
       "message" : "Please enter a valid name, which may only consist of letters, numbers and\n\t\t\t\t\t\t\thyphens\n\t\t\t\t\t\t",
       "options" : [ {
         "name" : "regexp",

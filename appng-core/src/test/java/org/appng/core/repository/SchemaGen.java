@@ -18,7 +18,7 @@ package org.appng.core.repository;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.persistence.Persistence;
+import jakarta.persistence.Persistence;
 
 public class SchemaGen {
 

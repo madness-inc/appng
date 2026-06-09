@@ -18,8 +18,8 @@ package org.appng.taglib;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.servlet.jsp.JspException;
-import javax.servlet.jsp.tagext.Tag;
+import jakarta.servlet.jsp.JspException;
+import jakarta.servlet.jsp.tagext.Tag;
 
 import org.junit.Assert;
 import org.junit.Test;

@@ -19,7 +19,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import javax.servlet.jsp.PageContext;
+import jakarta.servlet.jsp.PageContext;
 
 import org.appng.api.Platform;
 import org.appng.api.Scope;

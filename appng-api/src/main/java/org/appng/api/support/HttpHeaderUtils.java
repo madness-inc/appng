@@ -26,8 +26,8 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.TimeZone;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.collections.EnumerationUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -35,8 +35,6 @@ import org.apache.commons.lang3.time.FastDateFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.http.RequestEntity;
-import org.springframework.http.RequestEntity.BodyBuilder;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -249,17 +247,19 @@ public class HttpHeaderUtils {
 	 * @return The immutable {@link HttpHeaders}
 	 */
 	public static HttpHeaders parse(HttpServletRequest httpServletRequest) {
-		BodyBuilder builder = RequestEntity.method(null, null);
+		HttpHeaders headers = new HttpHeaders();
 		if (null != httpServletRequest) {
 			Enumeration<String> headerNames = httpServletRequest.getHeaderNames();
-			while (headerNames.hasMoreElements()) {
-				String header = headerNames.nextElement();
-				@SuppressWarnings("unchecked")
-				List<String> headerValues = EnumerationUtils.toList(httpServletRequest.getHeaders(header));
-				builder.header(header, headerValues.toArray(new String[headerValues.size()]));
+			if (null != headerNames) {
+				while (headerNames.hasMoreElements()) {
+					String header = headerNames.nextElement();
+					@SuppressWarnings("unchecked")
+					List<String> headerValues = EnumerationUtils.toList(httpServletRequest.getHeaders(header));
+					headers.addAll(header, headerValues);
+				}
 			}
 		}
-		return HttpHeaders.readOnlyHttpHeaders(builder.build().getHeaders());
+		return HttpHeaders.readOnlyHttpHeaders(headers);
 	}
 
 	/**
@@ -272,7 +272,7 @@ public class HttpHeaderUtils {
 	 */
 	public static void applyHeaders(HttpServletResponse httpServletResponse, HttpHeaders headers) {
 		if (null != headers) {
-			Set<String> headerNames = new HashSet<>(headers.keySet());
+			Set<String> headerNames = new HashSet<>(headers.headerNames());
 			if (headerNames.remove(HttpHeaders.CACHE_CONTROL)) {
 				httpServletResponse.setHeader(HttpHeaders.CACHE_CONTROL, headers.getCacheControl());
 			}

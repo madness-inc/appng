@@ -72,8 +72,9 @@ public class SitePropertyController extends PropertyBase {
 			prop = new Property();
 			prop.setName(name);
 		}
-		prop.setStatusCode(updatedProperty.getStatusCode().value());
-		prop.setStatusMessage(updatedProperty.getStatusCode().getReasonPhrase());
+		HttpStatus statusCode = HttpStatus.valueOf(updatedProperty.getStatusCode().value());
+		prop.setStatusCode(statusCode.value());
+		prop.setStatusMessage(statusCode.getReasonPhrase());
 		propsList.add(prop);
 	}
 

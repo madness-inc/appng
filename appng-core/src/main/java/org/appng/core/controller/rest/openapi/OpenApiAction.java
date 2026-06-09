@@ -29,9 +29,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.validation.MessageInterpolator;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.MessageInterpolator;
 import jakarta.xml.bind.JAXBException;
 
 import org.apache.commons.lang3.StringUtils;
@@ -96,7 +96,7 @@ abstract class OpenApiAction extends OpenApiOperation {
 		super(site, application, request, messageSource);
 	}
 
-	@GetMapping(path = { ACTION_PATH, ACTION_PATH_PARAMETRIZED }, produces = MediaType.APPLICATION_JSON_UTF8_VALUE)
+	@GetMapping(path = { ACTION_PATH, ACTION_PATH_PARAMETRIZED }, produces = MediaType.APPLICATION_JSON_VALUE)
 	public ResponseEntity<Action> getAction(
 	// @formatter:off
 		@PathVariable(name = "event-id") String eventId,

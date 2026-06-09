@@ -18,8 +18,9 @@ package org.appng.persistence.repository;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
-import javax.persistence.EntityManager;
+import jakarta.persistence.EntityManager;
 
 import org.hibernate.envers.AuditReader;
 import org.hibernate.envers.AuditReaderFactory;
@@ -80,11 +81,11 @@ public class EnversSearchRepositoryImpl<T, ID extends Serializable, N extends Nu
 				revisionEntityInformation, entityManager);
 	}
 
-	public Revision<N, T> findRevision(ID id, N revisionNumber) {
+	public Optional<Revision<N, T>> findRevision(ID id, N revisionNumber) {
 		return revisionRepository.findRevision(id, revisionNumber);
 	}
 
-	public Revision<N, T> findLastChangeRevision(ID id) {
+	public Optional<Revision<N, T>> findLastChangeRevision(ID id) {
 		return revisionRepository.findLastChangeRevision(id);
 	}
 

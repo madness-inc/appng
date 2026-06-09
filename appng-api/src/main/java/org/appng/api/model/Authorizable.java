@@ -25,7 +25,7 @@ import java.util.List;
  * Since the {@link Role}s are maintained by appNG and not by the {@link Application} itself, the {@link Authorizable}
  * just needs to maintain the IDs of the authorized {@link Role}s.<br/>
  * When using JPA for persisting domain objects, this can easily be done by using a
- * {@code javax.persistence.ElementCollection}.
+ * {@code jakarta.persistence.ElementCollection}.
  * 
  * <pre>
  * &#064;ElementCollection

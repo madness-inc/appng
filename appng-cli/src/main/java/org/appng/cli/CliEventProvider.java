@@ -15,7 +15,7 @@
  */
 package org.appng.cli;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.appng.core.domain.PlatformEventListener.EventProvider;
 

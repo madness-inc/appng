@@ -16,8 +16,13 @@
 package org.appng.forms.impl;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -25,11 +30,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.Part;
 
-import org.apache.commons.fileupload.FileItem;
-import org.apache.commons.fileupload.disk.DiskFileItemFactory;
-import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.apache.commons.io.FilenameUtils;
 import org.appng.forms.FormUpload;
 import org.appng.forms.Request;
@@ -106,7 +109,8 @@ public class RequestBean implements Request {
 			this.method = httpServletRequest.getMethod().toUpperCase();
 			LOGGER.debug("request method: {}", method);
 
-			isMultiPart = ServletFileUpload.isMultipartContent(httpServletRequest);
+			String contentType = httpServletRequest.getContentType();
+			isMultiPart = contentType != null && contentType.toLowerCase().contains("multipart/");
 			boolean stripXss = stripXss();
 			if (isMultiPart) {
 				if (null != httpServletRequest.getAttribute(REQUEST_PARSED)) {
@@ -115,18 +119,15 @@ public class RequestBean implements Request {
 					return;
 				}
 				// POST, multipart/form-data
-				DiskFileItemFactory fileItemFactory = new DiskFileItemFactory();
-				fileItemFactory.setRepository(tempDir);
-				ServletFileUpload upload = new ServletFileUpload(fileItemFactory);
-				if (sizeStrict) {
-					upload.setFileSizeMax(maxSize);
-				}
-				List<FileItem> items = upload.parseRequest(httpServletRequest);
-				for (FileItem item : items) {
-					String name = item.getFieldName();
+				Collection<Part> parts = httpServletRequest.getParts();
+				Charset charset = Charset.forName(encoding);
+				for (Part part : parts) {
+					String name = part.getName();
+					String submittedFileName = part.getSubmittedFileName();
+					boolean isFormField = submittedFileName == null || submittedFileName.isEmpty();
 
-					if (item.isFormField()) {
-						String value = item.getString(getEncoding());
+					if (isFormField) {
+						String value = new String(part.getInputStream().readAllBytes(), charset);
 						if (stripXss) {
 							value = xssUtil.stripXss(value);
 						}
@@ -143,9 +144,12 @@ public class RequestBean implements Request {
 						if (!formUploads.containsKey(name)) {
 							formUploads.put(name, new ArrayList<>());
 						}
-						if (item.get().length > 0) {
-							String itemName = item.getName();
-							String extension = FilenameUtils.getExtension(itemName);
+						if (part.getSize() > 0) {
+							if (sizeStrict && part.getSize() > maxSize) {
+								throw new IllegalStateException(
+										"Upload for '" + name + "' exceeds max size: " + part.getSize() + " > " + maxSize);
+							}
+							String extension = FilenameUtils.getExtension(submittedFileName);
 							int i = 0;
 							String sessionId = httpServletRequest.getSession().getId();
 							File outFile = getOutFile(sessionId, extension, i);
@@ -153,10 +157,13 @@ public class RequestBean implements Request {
 								i++;
 								outFile = getOutFile(sessionId, extension, i);
 							}
-							item.write(outFile);
+							try (InputStream in = part.getInputStream();
+									OutputStream out = new FileOutputStream(outFile)) {
+								in.transferTo(out);
+							}
 							List<String> acceptedTypes = getAcceptedTypes(name);
-							FormUpload formUpload = new FormUploadBean(outFile, itemName, item.getContentType(),
-									acceptedTypes, maxSize);
+							FormUpload formUpload = new FormUploadBean(outFile, submittedFileName,
+									part.getContentType(), acceptedTypes, maxSize);
 							formUploads.get(name).add(formUpload);
 							LOGGER.trace("{} upload parameter: {}", method, formUpload);
 						} else {

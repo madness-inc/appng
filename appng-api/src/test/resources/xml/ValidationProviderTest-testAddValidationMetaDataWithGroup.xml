@@ -4,7 +4,7 @@
         <sort order="desc" prio="1"/>
         <validation>
             <notNull>
-                <message ref="name" class="ERROR" code="{javax.validation.constraints.NotNull.message}">must not be null</message>
+                <message ref="name" class="ERROR" code="{jakarta.validation.constraints.NotNull.message}">must not be null</message>
             </notNull>
         </validation>
     </field>
@@ -12,7 +12,7 @@
         <sort order="asc" prio="0"/>
         <validation>
             <notNull>
-                <message ref="firstname" class="ERROR" code="{javax.validation.constraints.NotNull.message}">must not be null</message>
+                <message ref="firstname" class="ERROR" code="{jakarta.validation.constraints.NotNull.message}">must not be null</message>
             </notNull>
             <size min="1" max="5">
                 <message ref="firstname" class="ERROR" code="{custom.message}">Value must be between 1 and 5</message>
@@ -51,14 +51,14 @@
         <field name="name" type="text" binding="father.name">
             <validation>
                 <notNull>
-                    <message ref="father.name" class="ERROR" code="{javax.validation.constraints.NotNull.message}">must not be null</message>
+                    <message ref="father.name" class="ERROR" code="{jakarta.validation.constraints.NotNull.message}">must not be null</message>
                 </notNull>
             </validation>
         </field>
         <field name="firstname" type="text" binding="father.firstname">
             <validation>
                 <notNull>
-                    <message ref="father.firstname" class="ERROR" code="{javax.validation.constraints.NotNull.message}">must not be null</message>
+                    <message ref="father.firstname" class="ERROR" code="{jakarta.validation.constraints.NotNull.message}">must not be null</message>
                 </notNull>
                 <size min="1" max="5">
                     <message ref="father.firstname" class="ERROR" code="{custom.message}">Value must be between 1 and 5</message>

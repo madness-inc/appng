@@ -18,6 +18,7 @@ package org.appng.persistence.hibernate.dialect;
 import java.sql.Types;
 
 import org.hibernate.dialect.Dialect;
+import org.hibernate.type.descriptor.sql.internal.CapacityDependentDdlType;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -39,12 +40,17 @@ public class DialectUTF8Test {
 	}
 
 	private void runTest(Dialect dialect) {
-		Assert.assertEquals("varchar(255)", dialect.getTypeName(Types.VARCHAR, 255, -1, -1));
-		Assert.assertEquals("varchar(1000)", dialect.getTypeName(Types.VARCHAR, 1000, -1, -1));
-		Assert.assertEquals("text", dialect.getTypeName(Types.VARCHAR, 1001, -1, -1));
-		Assert.assertEquals("text", dialect.getTypeName(Types.VARCHAR, 16383, -1, -1));
-		Assert.assertEquals("mediumtext", dialect.getTypeName(Types.VARCHAR, 16384, -1, -1));
-		Assert.assertEquals("mediumtext", dialect.getTypeName(Types.VARCHAR, 4194303, -1, -1));
-		Assert.assertEquals("longtext", dialect.getTypeName(Types.VARCHAR, 4194304, -1, -1));
+		CapacityDependentDdlType ddlType = CapacityDependentDdlType.builder(Types.VARCHAR, "longtext", dialect)
+			.withTypeCapacity(4194303, "mediumtext")
+			.withTypeCapacity(16383, "text")
+			.withTypeCapacity(1000, "varchar($l)")
+			.build();
+		Assert.assertEquals("varchar(255)", ddlType.getTypeName(255L, null, null));
+		Assert.assertEquals("varchar(1000)", ddlType.getTypeName(1000L, null, null));
+		Assert.assertEquals("text", ddlType.getTypeName(1001L, null, null));
+		Assert.assertEquals("text", ddlType.getTypeName(16383L, null, null));
+		Assert.assertEquals("mediumtext", ddlType.getTypeName(16384L, null, null));
+		Assert.assertEquals("mediumtext", ddlType.getTypeName(4194303L, null, null));
+		Assert.assertEquals("longtext", ddlType.getTypeName(4194304L, null, null));
 	}
 }

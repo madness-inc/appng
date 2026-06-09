@@ -51,7 +51,7 @@ public class PlatformConfigTest {
 		Assert.assertEquals(50000L, hikariDataSource.getMaxLifetime());
 		StringBuilder dbInfo = new StringBuilder();
 		platformConnection.testConnection(dbInfo);
-		Assert.assertTrue(dbInfo.toString().contains("HSQL Database Engine 2.5"));
+		Assert.assertTrue(dbInfo.toString().contains("HSQL Database Engine 2.7"));
 
 		ctx.close();
 	}

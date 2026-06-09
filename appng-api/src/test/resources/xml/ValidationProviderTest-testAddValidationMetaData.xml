@@ -4,10 +4,10 @@
 		<sort order="desc" prio="1" />
 		<validation>
 			<notNull>
-				<message ref="name" class="ERROR" code="{javax.validation.constraints.NotNull.message}">must not be null</message>
+				<message ref="name" class="ERROR" code="{jakarta.validation.constraints.NotNull.message}">must not be null</message>
 			</notNull>
-			<rule type="javax.validation.constraints.NotBlank" name="notBlank">
-				<message ref="name" class="ERROR" code="{javax.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
+			<rule type="jakarta.validation.constraints.NotBlank" name="notBlank">
+				<message ref="name" class="ERROR" code="{jakarta.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
 			</rule>
 		</validation>
 	</field>
@@ -15,20 +15,20 @@
 		<sort order="asc" prio="0" />
 		<validation>
 			<notNull>
-				<message ref="firstname" class="ERROR" code="{javax.validation.constraints.NotNull.message}">must not be null</message>
+				<message ref="firstname" class="ERROR" code="{jakarta.validation.constraints.NotNull.message}">must not be null</message>
 			</notNull>
 			<size min="1" max="5">
 				<message ref="firstname" class="ERROR" code="{custom.message}">Value must be between 1 and 5</message>
 			</size>
-			<rule type="javax.validation.constraints.NotBlank" name="notBlank">
-				<message ref="firstname" class="ERROR" code="{javax.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
+			<rule type="jakarta.validation.constraints.NotBlank" name="notBlank">
+				<message ref="firstname" class="ERROR" code="{jakarta.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
 			</rule>
 		</validation>
 	</field>
 	<field name="birthDate" type="date" format="yyyy.MM.dd" binding="birthDate">
 		<validation>
 			<past>
-				<message ref="birthDate" class="ERROR" code="{javax.validation.constraints.Past.message}">must be a past date</message>
+				<message ref="birthDate" class="ERROR" code="{jakarta.validation.constraints.Past.message}">must be a past date</message>
 			</past>
 		</validation>
 	</field>
@@ -81,23 +81,23 @@
 		<field name="name" type="text" binding="father.name">
 			<validation>
 				<notNull>
-					<message ref="father.name" class="ERROR" code="{javax.validation.constraints.NotNull.message}">must not be null</message>
+					<message ref="father.name" class="ERROR" code="{jakarta.validation.constraints.NotNull.message}">must not be null</message>
 				</notNull>
-				<rule type="javax.validation.constraints.NotBlank" name="notBlank">
-					<message ref="father.name" class="ERROR" code="{javax.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
+				<rule type="jakarta.validation.constraints.NotBlank" name="notBlank">
+					<message ref="father.name" class="ERROR" code="{jakarta.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
 				</rule>
 			</validation>
 		</field>
 		<field name="firstname" type="text" binding="father.firstname">
 			<validation>
 				<notNull>
-					<message ref="father.firstname" class="ERROR" code="{javax.validation.constraints.NotNull.message}">must not be null</message>
+					<message ref="father.firstname" class="ERROR" code="{jakarta.validation.constraints.NotNull.message}">must not be null</message>
 				</notNull>
 				<size min="1" max="5">
 					<message ref="father.firstname" class="ERROR" code="{custom.message}">Value must be between 1 and 5</message>
 				</size>
-				<rule type="javax.validation.constraints.NotBlank" name="notBlank">
-					<message ref="father.firstname" class="ERROR" code="{javax.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
+				<rule type="jakarta.validation.constraints.NotBlank" name="notBlank">
+					<message ref="father.firstname" class="ERROR" code="{jakarta.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
 				</rule>
 			</validation>
 		</field>
@@ -105,43 +105,43 @@
 	<field name="offsprings[0].name" type="text" binding="offsprings[0].name">
 		<validation>
 			<notNull>
-				<message ref="offsprings[0].name" class="ERROR" code="{javax.validation.constraints.NotNull.message}">must not be null</message>
+				<message ref="offsprings[0].name" class="ERROR" code="{jakarta.validation.constraints.NotNull.message}">must not be null</message>
 			</notNull>
-			<rule type="javax.validation.constraints.NotBlank" name="notBlank">
-				<message ref="offsprings[0].name" class="ERROR" code="{javax.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
+			<rule type="jakarta.validation.constraints.NotBlank" name="notBlank">
+				<message ref="offsprings[0].name" class="ERROR" code="{jakarta.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
 			</rule>
 		</validation>
 	</field>
 	<field name="offsprings[0].firstname" type="text" binding="offsprings[0].firstname">
 		<validation>
 			<notNull>
-				<message ref="offsprings[0].firstname" class="ERROR" code="{javax.validation.constraints.NotNull.message}">must not be null</message>
+				<message ref="offsprings[0].firstname" class="ERROR" code="{jakarta.validation.constraints.NotNull.message}">must not be null</message>
 			</notNull>
 			<size min="1" max="5">
 				<message ref="offsprings[0].firstname" class="ERROR" code="{custom.message}">Value must be between 1 and 5</message>
 			</size>
-			<rule type="javax.validation.constraints.NotBlank" name="notBlank">
-				<message ref="offsprings[0].firstname" class="ERROR" code="{javax.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
+			<rule type="jakarta.validation.constraints.NotBlank" name="notBlank">
+				<message ref="offsprings[0].firstname" class="ERROR" code="{jakarta.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
 			</rule>
 		</validation>
 	</field>
 	<field name="offspringNames['Han'].name" type="text" binding="offspringNames['Han'].name">
 		<validation>
 			<notNull>
-				<message ref="offspringNames['Han'].name" class="ERROR" code="{javax.validation.constraints.NotNull.message}">must not be null</message>
+				<message ref="offspringNames['Han'].name" class="ERROR" code="{jakarta.validation.constraints.NotNull.message}">must not be null</message>
 			</notNull>
-			<rule type="javax.validation.constraints.NotBlank" name="notBlank">
-				<message ref="offspringNames['Han'].name" class="ERROR" code="{javax.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
+			<rule type="jakarta.validation.constraints.NotBlank" name="notBlank">
+				<message ref="offspringNames['Han'].name" class="ERROR" code="{jakarta.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
 			</rule>
 		</validation>
 	</field>
 	<field name="father.father.name" type="text" binding="father.father.name">
 		<validation>
 			<notNull>
-				<message ref="father.father.name" class="ERROR" code="{javax.validation.constraints.NotNull.message}">must not be null</message>
+				<message ref="father.father.name" class="ERROR" code="{jakarta.validation.constraints.NotNull.message}">must not be null</message>
 			</notNull>
-			<rule type="javax.validation.constraints.NotBlank" name="notBlank">
-				<message ref="father.father.name" class="ERROR" code="{javax.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
+			<rule type="jakarta.validation.constraints.NotBlank" name="notBlank">
+				<message ref="father.father.name" class="ERROR" code="{jakarta.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
 			</rule>
 		</validation>
 	</field>

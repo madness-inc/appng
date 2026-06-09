@@ -15,7 +15,7 @@
  */
 package org.appng.core.controller.rest.model;
 
-import javax.validation.Valid;
+import jakarta.validation.Valid;
 
 import org.appng.core.domain.SiteImpl;
 

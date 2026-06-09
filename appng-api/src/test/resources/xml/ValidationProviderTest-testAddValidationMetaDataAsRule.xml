@@ -3,24 +3,24 @@
 	<field name="name" type="text" binding="name">
 		<sort order="desc" prio="1" />
 		<validation>
-			<rule type="javax.validation.constraints.NotBlank" name="notBlank">
-				<message ref="name" class="ERROR" code="{javax.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
+			<rule type="jakarta.validation.constraints.NotBlank" name="notBlank">
+				<message ref="name" class="ERROR" code="{jakarta.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
 			</rule>
-			<rule type="javax.validation.constraints.NotNull" name="notNull">
-				<message ref="name" class="ERROR" code="{javax.validation.constraints.NotNull.message}">must not be null</message>
+			<rule type="jakarta.validation.constraints.NotNull" name="notNull">
+				<message ref="name" class="ERROR" code="{jakarta.validation.constraints.NotNull.message}">must not be null</message>
 			</rule>
 		</validation>
 	</field>
 	<field name="firstname" type="text" binding="firstname">
 		<sort order="asc" prio="0" />
 		<validation>
-			<rule type="javax.validation.constraints.NotBlank" name="notBlank">
-				<message ref="firstname" class="ERROR" code="{javax.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
+			<rule type="jakarta.validation.constraints.NotBlank" name="notBlank">
+				<message ref="firstname" class="ERROR" code="{jakarta.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
 			</rule>
-			<rule type="javax.validation.constraints.NotNull" name="notNull">
-				<message ref="firstname" class="ERROR" code="{javax.validation.constraints.NotNull.message}">must not be null</message>
+			<rule type="jakarta.validation.constraints.NotNull" name="notNull">
+				<message ref="firstname" class="ERROR" code="{jakarta.validation.constraints.NotNull.message}">must not be null</message>
 			</rule>
-			<rule type="javax.validation.constraints.Size" name="size">
+			<rule type="jakarta.validation.constraints.Size" name="size">
 				<message ref="firstname" class="ERROR" code="{custom.message}">Value must be between 1 and 5</message>
 				<option name="max" value="5" />
 				<option name="min" value="1" />
@@ -29,8 +29,8 @@
 	</field>
 	<field name="birthDate" type="date" format="yyyy.MM.dd" binding="birthDate">
 		<validation>
-			<rule type="javax.validation.constraints.Past" name="past">
-				<message ref="birthDate" class="ERROR" code="{javax.validation.constraints.Past.message}">must be a past date</message>
+			<rule type="jakarta.validation.constraints.Past" name="past">
+				<message ref="birthDate" class="ERROR" code="{jakarta.validation.constraints.Past.message}">must be a past date</message>
 			</rule>
 		</validation>
 	</field>
@@ -42,11 +42,11 @@
 			<type>
 				<message ref="age" class="ERROR" code="invalid.integer">invalid.integer</message>
 			</type>
-			<rule type="javax.validation.constraints.Max" name="max">
+			<rule type="jakarta.validation.constraints.Max" name="max">
 				<message ref="age" class="ERROR" code="{validation.max}">Value must be less than or equal to 100</message>
 				<option name="value" value="100" />
 			</rule>
-			<rule type="javax.validation.constraints.Min" name="min">
+			<rule type="jakarta.validation.constraints.Min" name="min">
 				<message ref="age" class="ERROR" code="{validation.min}">Value must be greater than or equal to 0</message>
 				<option name="value" value="0" />
 			</rule>
@@ -98,23 +98,23 @@
 	<field name="father" binding="father">
 		<field name="name" type="text" binding="father.name">
 			<validation>
-				<rule type="javax.validation.constraints.NotBlank" name="notBlank">
-					<message ref="father.name" class="ERROR" code="{javax.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
+				<rule type="jakarta.validation.constraints.NotBlank" name="notBlank">
+					<message ref="father.name" class="ERROR" code="{jakarta.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
 				</rule>
-				<rule type="javax.validation.constraints.NotNull" name="notNull">
-					<message ref="father.name" class="ERROR" code="{javax.validation.constraints.NotNull.message}">must not be null</message>
+				<rule type="jakarta.validation.constraints.NotNull" name="notNull">
+					<message ref="father.name" class="ERROR" code="{jakarta.validation.constraints.NotNull.message}">must not be null</message>
 				</rule>
 			</validation>
 		</field>
 		<field name="firstname" type="text" binding="father.firstname">
 			<validation>
-				<rule type="javax.validation.constraints.NotBlank" name="notBlank">
-					<message ref="father.firstname" class="ERROR" code="{javax.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
+				<rule type="jakarta.validation.constraints.NotBlank" name="notBlank">
+					<message ref="father.firstname" class="ERROR" code="{jakarta.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
 				</rule>
-				<rule type="javax.validation.constraints.NotNull" name="notNull">
-					<message ref="father.firstname" class="ERROR" code="{javax.validation.constraints.NotNull.message}">must not be null</message>
+				<rule type="jakarta.validation.constraints.NotNull" name="notNull">
+					<message ref="father.firstname" class="ERROR" code="{jakarta.validation.constraints.NotNull.message}">must not be null</message>
 				</rule>
-				<rule type="javax.validation.constraints.Size" name="size">
+				<rule type="jakarta.validation.constraints.Size" name="size">
 					<message ref="father.firstname" class="ERROR" code="{custom.message}">Value must be between 1 and 5</message>
 					<option name="max" value="5" />
 					<option name="min" value="1" />
@@ -124,7 +124,7 @@
 	</field>
 	<field name="email" type="text" binding="email">
 		<validation>
-			<rule type="javax.validation.constraints.Email" name="email">
+			<rule type="jakarta.validation.constraints.Email" name="email">
 				<message ref="email" class="ERROR" code="{validation.email}">Please enter a valid e-mail address</message>
 				<option name="regexp" value=".*" />
 			</rule>

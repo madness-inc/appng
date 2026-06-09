@@ -25,8 +25,8 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.net.URLClassLoader;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.appng.api.AttachmentWebservice;
 import org.appng.api.BusinessException;

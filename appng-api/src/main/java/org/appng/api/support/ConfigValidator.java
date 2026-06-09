@@ -33,10 +33,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import javax.el.ELContext;
-import javax.el.ELException;
-import javax.el.ValueExpression;
-import javax.el.VariableMapper;
+import jakarta.el.ELContext;
+import jakarta.el.ELException;
+import jakarta.el.ValueExpression;
+import jakarta.el.VariableMapper;
 import javax.xml.namespace.QName;
 
 import org.apache.commons.collections.CollectionUtils;

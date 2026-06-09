@@ -30,26 +30,26 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
-import javax.validation.Configuration;
-import javax.validation.ConstraintViolation;
-import javax.validation.MessageInterpolator;
-import javax.validation.Valid;
-import javax.validation.Validator;
-import javax.validation.ValidatorFactory;
-import javax.validation.constraints.DecimalMax;
-import javax.validation.constraints.DecimalMin;
-import javax.validation.constraints.Digits;
-import javax.validation.constraints.Future;
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Past;
-import javax.validation.constraints.Pattern;
-import javax.validation.constraints.Size;
-import javax.validation.groups.Default;
-import javax.validation.metadata.BeanDescriptor;
-import javax.validation.metadata.ConstraintDescriptor;
-import javax.validation.metadata.PropertyDescriptor;
+import jakarta.validation.Configuration;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.MessageInterpolator;
+import jakarta.validation.Valid;
+import jakarta.validation.Validator;
+import jakarta.validation.ValidatorFactory;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.Future;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Past;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import jakarta.validation.groups.Default;
+import jakarta.validation.metadata.BeanDescriptor;
+import jakarta.validation.metadata.ConstraintDescriptor;
+import jakarta.validation.metadata.PropertyDescriptor;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -129,7 +129,7 @@ public class DefaultValidationProvider implements ValidationProvider {
 	 */
 	public DefaultValidationProvider(MessageInterpolator messageInterpolator, MessageSource messageSource,
 			Locale locale, boolean contraintsAsRule) {
-		Configuration<?> configuration = javax.validation.Validation.byDefaultProvider().configure();
+		Configuration<?> configuration = jakarta.validation.Validation.byDefaultProvider().configure();
 		ValidatorFactory validatorFactory = configuration.messageInterpolator(messageInterpolator)
 				.buildValidatorFactory();
 		this.validator = validatorFactory.getValidator();
@@ -144,7 +144,7 @@ public class DefaultValidationProvider implements ValidationProvider {
 	 * {@link ValidatorFactory#getMessageInterpolator()}.
 	 */
 	public DefaultValidationProvider() {
-		ValidatorFactory validatorFactory = javax.validation.Validation.buildDefaultValidatorFactory();
+		ValidatorFactory validatorFactory = jakarta.validation.Validation.buildDefaultValidatorFactory();
 		validator = validatorFactory.getValidator();
 		this.messageInterpolator = validatorFactory.getMessageInterpolator();
 	}

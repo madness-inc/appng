@@ -22,10 +22,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import javax.persistence.Entity;
-import javax.persistence.EntityManager;
-import javax.persistence.Query;
-import javax.persistence.TypedQuery;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.Page;
@@ -53,7 +53,7 @@ import org.springframework.data.domain.Sort.Order;
  * </pre>
  * 
  * The query can then be executed by calling {@link #execute(javax.persistence.EntityManager)} or
- * {@link #execute(org.springframework.data.domain.Pageable, javax.persistence.EntityManager)} .
+ * {@link #execute(org.springframework.data.domain.Pageable, jakarta.persistence.EntityManager)} .
  * <p>
  * This class can be sub-classed to implement custom behavior.
  * </p>
@@ -628,7 +628,7 @@ public class SearchQuery<T> {
 			total = (long) content.size();
 		}
 
-		return new PageImpl<T>(content, pageable, total);
+		return new PageImpl<T>(content, pageable != null ? pageable : Pageable.unpaged(), total);
 	}
 
 	/**
@@ -669,7 +669,7 @@ public class SearchQuery<T> {
 		if (StringUtils.isNotBlank(joinQuery)) {
 			queryBuilder.append(StringUtils.SPACE + joinQuery.trim() + StringUtils.SPACE);
 		}
-		int i = 0;
+		int i = 1;
 		boolean isFirst = true;
 		for (Criterion criterion : criteria) {
 			queryBuilder.append(isFirst ? WHERE : AND);
@@ -700,7 +700,7 @@ public class SearchQuery<T> {
 	 */
 	protected SearchQuery<T> setQueryParameters(Query... queries) {
 		for (Query query : queries) {
-			int i = 0;
+			int i = 1;
 			for (Criterion criterion : criteria) {
 				Object value = criterion.getValue();
 				if (null != value) {
@@ -731,9 +731,9 @@ public class SearchQuery<T> {
 	 */
 	protected Pageable applyPagination(Query query, Long total, Pageable pageable) {
 		if (pageable.getOffset() >= total) {
-			pageable = new PageRequest(0, pageable.getPageSize(), pageable.getSort());
+			pageable = PageRequest.of(0, pageable.getPageSize(), pageable.getSort());
 		}
-		query.setFirstResult(pageable.getOffset());
+		query.setFirstResult((int) pageable.getOffset());
 		query.setMaxResults(pageable.getPageSize());
 		return pageable;
 	}

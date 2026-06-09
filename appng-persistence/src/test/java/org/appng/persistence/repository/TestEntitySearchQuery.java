@@ -17,8 +17,8 @@ package org.appng.persistence.repository;
 
 import java.util.List;
 
-import javax.persistence.EntityManager;
-import javax.persistence.TypedQuery;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.TypedQuery;
 
 import org.appng.persistence.model.TestEntity;
 import org.springframework.data.domain.Page;

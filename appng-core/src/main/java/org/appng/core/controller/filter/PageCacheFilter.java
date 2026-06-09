@@ -38,13 +38,13 @@ import javax.cache.expiry.AccessedExpiryPolicy;
 import javax.cache.expiry.CreatedExpiryPolicy;
 import javax.cache.expiry.Duration;
 import javax.cache.expiry.ExpiryPolicy;
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.catalina.connector.ClientAbortException;
 import org.apache.commons.collections4.CollectionUtils;
@@ -78,7 +78,7 @@ import lombok.extern.slf4j.Slf4j;
  * @author Matthias Müller
  */
 @Slf4j
-public class PageCacheFilter implements javax.servlet.Filter {
+public class PageCacheFilter implements Filter {
 
 	private static final String GZIP = "gzip";
 	protected static final String CACHE_HIT = PageCacheFilter.class.getSimpleName() + ".cacheHit";
@@ -207,7 +207,7 @@ public class PageCacheFilter implements javax.servlet.Filter {
 	}
 
 	private void writeCachedHeaders(HttpServletResponse response, CachedResponse pageInfo) {
-		pageInfo.getHeaders().entrySet().stream().filter(e -> !e.getKey().equals(HttpHeaderUtils.X_APPNG_REQUIRED_ROLE))
+		pageInfo.getHeaders().headerSet().stream().filter(e -> !e.getKey().equals(HttpHeaderUtils.X_APPNG_REQUIRED_ROLE))
 				.forEach(e -> e.getValue().forEach(v -> response.setHeader(e.getKey(), v)));
 	}
 

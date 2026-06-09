@@ -15,7 +15,7 @@
  */
 package org.appng.appngizer.controller;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.appng.appngizer.model.xml.Permission;
 import org.junit.Test;

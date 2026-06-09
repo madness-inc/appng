@@ -22,7 +22,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import javax.servlet.ServletException;
+import jakarta.servlet.ServletException;
 
 import org.appng.api.Environment;
 import org.appng.api.PathInfo;

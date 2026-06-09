@@ -15,7 +15,7 @@
  */
 package org.appng.appngizer.controller;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.appng.api.Platform;
 import org.appng.api.Scope;

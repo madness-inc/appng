@@ -9,8 +9,8 @@
   </div>
 	<div>true</div>
 	<div>true</div>
-	<div>Europe/Berlin</div>
-	<div>[PLATFORM, APP, SITE, appNG, thymeleaf::EvaluationContext, REQUEST, SESSION, platform]</div>
+	<div>true</div>
+	<div>[REQUEST, PLATFORM, APP, SITE, appNG, SESSION, platform, thymeleaf::EvaluationContext]</div>
 	<div>John Doe</div>
 	<div>thymeleaf</div>
 	<div>all</div>

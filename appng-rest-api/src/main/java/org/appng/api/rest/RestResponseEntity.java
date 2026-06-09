@@ -16,9 +16,10 @@
 package org.appng.api.rest;
 
 import org.appng.api.rest.model.ErrorModel;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
-import org.springframework.util.MultiValueMap;
 
 /**
  * A {@link ResponseEntity} that offers an {@link ErrorModel}, which contains details about potential errors on the
@@ -37,7 +38,7 @@ public class RestResponseEntity<T> extends ResponseEntity<T> {
 		super(status);
 	}
 
-	public RestResponseEntity(MultiValueMap<String, String> headers, HttpStatus status) {
+	public RestResponseEntity(HttpHeaders headers, HttpStatus status) {
 		super(headers, status);
 	}
 
@@ -45,7 +46,7 @@ public class RestResponseEntity<T> extends ResponseEntity<T> {
 		super(body, status);
 	}
 
-	public RestResponseEntity(T body, MultiValueMap<String, String> headers, HttpStatus status) {
+	public RestResponseEntity(T body, HttpHeaders headers, HttpStatusCode status) {
 		super(body, headers, status);
 	}
 
@@ -54,8 +55,8 @@ public class RestResponseEntity<T> extends ResponseEntity<T> {
 		this.error = error;
 	}
 
-	public RestResponseEntity(ErrorModel error, MultiValueMap<String, String> headers, HttpStatus status) {
-		this(headers, status);
+	public RestResponseEntity(ErrorModel error, HttpHeaders headers, HttpStatusCode status) {
+		this((T) null, headers, status);
 		this.error = error;
 	}
 
@@ -69,7 +70,7 @@ public class RestResponseEntity<T> extends ResponseEntity<T> {
 	}
 
 	public static <T> RestResponseEntity<T> of(ResponseEntity<T> exchange) {
-		return new RestResponseEntity<>(exchange.getBody(), exchange.getHeaders(), exchange.getStatusCode());
+		return new RestResponseEntity<T>(exchange.getBody(), exchange.getHeaders(), exchange.getStatusCode());
 	}
 
 }

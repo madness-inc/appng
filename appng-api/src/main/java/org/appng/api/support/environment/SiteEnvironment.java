@@ -15,7 +15,7 @@
  */
 package org.appng.api.support.environment;
 
-import javax.servlet.ServletContext;
+import jakarta.servlet.ServletContext;
 
 import org.appng.api.Scope;
 import org.appng.api.model.Site;

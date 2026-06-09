@@ -32,8 +32,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import javax.persistence.NoResultException;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.persistence.NoResultException;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.xml.bind.JAXBException;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -264,8 +264,8 @@ public class CoreService {
 	}
 
 	protected Page<PropertyImpl> getProperties(Integer siteId, Integer applicationId, Pageable pageable) {
-		Site site = siteId == null ? null : siteRepository.findOne(siteId);
-		Application application = applicationId == null ? null : applicationRepository.findOne(applicationId);
+		Site site = siteId == null ? null : siteRepository.findById(siteId).orElse(null);
+		Application application = applicationId == null ? null : applicationRepository.findById(applicationId).orElse(null);
 		return getProperties(site, application, pageable);
 	}
 
@@ -328,10 +328,10 @@ public class CoreService {
 		Site site = null;
 		Application application = null;
 		if (null != siteId) {
-			site = siteRepository.findOne(siteId);
+			site = siteRepository.findById(siteId).orElse(null);
 		}
 		if (null != applicationId) {
-			application = applicationRepository.findOne(applicationId);
+			application = applicationRepository.findById(applicationId).orElse(null);
 		}
 		return createProperty(site, application, property);
 	}
@@ -364,8 +364,8 @@ public class CoreService {
 	}
 
 	protected boolean checkPropertyExists(Integer siteId, Integer applicationId, PropertyImpl property) {
-		Site site = null == siteId ? null : siteRepository.findOne(siteId);
-		Application application = null == applicationId ? null : applicationRepository.findOne(applicationId);
+		Site site = null == siteId ? null : siteRepository.findById(siteId).orElse(null);
+		Application application = null == applicationId ? null : applicationRepository.findById(applicationId).orElse(null);
 		String prefix = PropertySupport.getPropertyPrefix(site, application);
 		String propertyPrefix = prefix;
 		String propertyName = propertyPrefix + property.getName();
@@ -378,7 +378,7 @@ public class CoreService {
 	}
 
 	public SiteImpl getSite(Integer id) {
-		SiteImpl site = siteRepository.findOne(id);
+		SiteImpl site = siteRepository.findById(id).orElse(null);
 		initSite(site);
 		return site;
 	}
@@ -775,7 +775,7 @@ public class CoreService {
 	}
 
 	public PropertyImpl getProperty(String propertyId) {
-		return propertyRepository.findOne(propertyId);
+		return propertyRepository.findById(propertyId).orElse(null);
 	}
 
 	protected void createSite(SiteImpl site, Environment env) {
@@ -816,7 +816,7 @@ public class CoreService {
 		PropertyHolder siteProperties = getProperties(site, null);
 		List<String> platformProps = PropertySupport.getSiteRelevantPlatformProps();
 		SearchQuery<PropertyImpl> query = propertyRepository.createSearchQuery().in("name", platformProps);
-		Page<PropertyImpl> properties = propertyRepository.search(query, new PageRequest(0, platformProps.size()));
+		Page<PropertyImpl> properties = propertyRepository.search(query, PageRequest.of(0, platformProps.size()));
 		new PropertySupport(siteProperties).initSiteProperties(site,
 				new PropertyHolder(PropertySupport.PREFIX_PLATFORM, properties));
 		if (doSave) {
@@ -1045,7 +1045,7 @@ public class CoreService {
 	private PackageArchive getArchive(final Integer repositoryId, final String applicationName,
 			final String applicationVersion, String applicationTimestamp) throws BusinessException {
 		if (null != repositoryId && null != applicationName && null != applicationVersion) {
-			RepositoryImpl repository = repoRepository.findOne(repositoryId);
+			RepositoryImpl repository = repoRepository.findById(repositoryId).orElse(null);
 			if (null != repository) {
 				LOGGER.info("retrieving '{}-{}' from repository {}", applicationName, applicationVersion,
 						repository.getUri());
@@ -1124,7 +1124,7 @@ public class CoreService {
 	protected void deletePackageVersion(Integer repositoryId, String packageName, String packageVersion,
 			String packageTimestamp) throws BusinessException {
 		if (null != repositoryId && null != packageName && null != packageVersion) {
-			RepositoryImpl repository = repoRepository.findOne(repositoryId);
+			RepositoryImpl repository = repoRepository.findById(repositoryId).orElse(null);
 			if (null != repository) {
 				try {
 					repository.deletePackageVersion(packageName, packageVersion, packageTimestamp);
@@ -1142,7 +1142,7 @@ public class CoreService {
 
 	protected void reloadRepository(Integer repositoryId) throws BusinessException {
 		if (null != repositoryId) {
-			RepositoryImpl repository = repoRepository.findOne(repositoryId);
+			RepositoryImpl repository = repoRepository.findById(repositoryId).orElse(null);
 			if (null != repository) {
 				try {
 					repository.reload();
@@ -1189,7 +1189,7 @@ public class CoreService {
 			List<SiteImpl> applicationSites = siteRepository.findSitesForApplication(application.getId());
 			for (org.appng.xml.application.Property prop : properties.getProperty()) {
 				String propName = PropertySupport.getPropertyName(null, application, prop.getId());
-				PropertyImpl property = propertyRepository.findOne(propName);
+				PropertyImpl property = propertyRepository.findById(propName).orElse(null);
 				if (null == property) {
 					property = new PropertyImpl(prop.getId(), null, null);
 					createProperty(null, application, property);
@@ -1198,7 +1198,7 @@ public class CoreService {
 
 				for (Site site : applicationSites) {
 					propName = PropertySupport.getPropertyName(site, application, prop.getId());
-					PropertyImpl siteProperty = propertyRepository.findOne(propName);
+					PropertyImpl siteProperty = propertyRepository.findById(propName).orElse(null);
 					boolean forceValue = null == siteProperty;
 					if (forceValue) {
 						siteProperty = new PropertyImpl(prop.getId(), null, null);
@@ -1284,7 +1284,7 @@ public class CoreService {
 
 	protected String deleteResource(Environment env, Integer applicationId, Integer resourceId)
 			throws BusinessException {
-		Application application = applicationRepository.findOne(applicationId);
+		Application application = applicationRepository.findById(applicationId).orElse(null);
 		try {
 			Resources applicationResourceHolder = getResources(application, null, getApplicationRootFolder(env));
 			Resource applicationResource = applicationResourceHolder.getResource(resourceId);
@@ -1295,7 +1295,7 @@ public class CoreService {
 				FileUtils.deleteQuietly(file);
 			} else {
 				application.getResourceSet().remove(applicationResource);
-				resourceRepository.delete(applicationResource.getId());
+				resourceRepository.deleteById(applicationResource.getId());
 			}
 			return applicationResource.getName();
 		} catch (Exception e) {
@@ -1307,7 +1307,7 @@ public class CoreService {
 			throws BusinessException {
 		String convertDirection = "";
 		try {
-			Application currentApplication = applicationRepository.findOne(application.getId());
+			Application currentApplication = applicationRepository.findById(application.getId()).orElse(null);
 			File applicationFolder = getApplicationFolder(env, currentApplication);
 			if (currentApplication.isFileBased() && !isFileBased) {
 				convertDirection = "filebased to database";
@@ -1449,7 +1449,7 @@ public class CoreService {
 
 	public void deleteSite(Environment env, SiteImpl site) throws BusinessException {
 		LOGGER.info("starting deletion of site {}", site.getName());
-		List<SiteApplication> grantedApplications = siteApplicationRepository.findByGrantedSitesIn(site);
+		List<SiteApplication> grantedApplications = siteApplicationRepository.findByGrantedSitesContaining(site);
 		for (SiteApplication siteApplication : grantedApplications) {
 			siteApplication.getGrantedSites().remove(site);
 		}
@@ -1461,7 +1461,7 @@ public class CoreService {
 		SiteImpl shutdownSite = shutdownSite(env, site.getName(), false);
 		List<DatabaseConnection> connections = databaseConnectionRepository.findBySiteId(site.getId());
 		LOGGER.info("deleting {} orphaned database connections", connections.size());
-		databaseConnectionRepository.delete(connections);
+		databaseConnectionRepository.deleteAll(connections);
 		siteRepository.delete(site);
 		cleanupSite(env, shutdownSite, true);
 		LOGGER.info("done deleting site {}", site.getName());
@@ -1547,7 +1547,7 @@ public class CoreService {
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
 	public MigrationStatus unlinkApplicationFromSite(Integer siteId, Integer applicationId) {
 		SiteApplication siteApplication = siteApplicationRepository
-				.findOne(new SiteApplicationPK(siteId, applicationId));
+				.findById(new SiteApplicationPK(siteId, applicationId)).orElse(null);
 		return unlinkApplicationFromSite(siteApplication);
 	}
 
@@ -1566,7 +1566,7 @@ public class CoreService {
 	 */
 	protected void deleteRole(Integer roleId, final String roleDeleteError, final String roleErrorInvalid)
 			throws BusinessException {
-		RoleImpl applicationRole = roleRepository.findOne(roleId);
+		RoleImpl applicationRole = roleRepository.findById(roleId).orElse(null);
 		if (null != applicationRole) {
 			List<GroupImpl> groups = groupRepository.findGroupsForApplicationRole(roleId);
 			for (Group group : groups) {
@@ -1597,7 +1597,7 @@ public class CoreService {
 			final String applicationroleErrorInvalid) throws BusinessException {
 
 		try {
-			Application application = applicationRepository.findOne(applicationId);
+			Application application = applicationRepository.findById(applicationId).orElse(null);
 			if (null == application) {
 				throw new BusinessException("no such application " + applicationId, applicationErrorInvalid,
 						applicationId);
@@ -1699,7 +1699,7 @@ public class CoreService {
 			}
 		}
 		for (Integer roleId : applicationRoleIds) {
-			Role role = roleRepository.findOne(roleId);
+			Role role = roleRepository.findById(roleId).orElse(null);
 			applicationRoles.add(role);
 		}
 	}
@@ -1723,12 +1723,12 @@ public class CoreService {
 	}
 
 	protected void assignGroupsToSubject(Integer subjectId, List<Integer> groupIds, boolean clear) {
-		Subject subject = subjectRepository.findOne(subjectId);
+		Subject subject = subjectRepository.findById(subjectId).orElse(null);
 		if (clear) {
 			subject.getGroups().clear();
 		}
 		if (null != groupIds && !groupIds.isEmpty()) {
-			Iterable<GroupImpl> groups = groupRepository.findAll(groupIds);
+			Iterable<GroupImpl> groups = groupRepository.findAllById(groupIds);
 			for (GroupImpl group : groups) {
 				if (!subject.getGroups().contains(group)) {
 					subject.getGroups().add(group);
@@ -1790,7 +1790,7 @@ public class CoreService {
 	}
 
 	public DatabaseConnection getDatabaseConnection(Integer dcId, boolean clearPassword) {
-		DatabaseConnection conn = databaseConnectionRepository.findOne(dcId);
+		DatabaseConnection conn = databaseConnectionRepository.findById(dcId).orElse(null);
 		CacheProvider cacheProvider = null == conn.getSite() ? null : new CacheProvider(getPlatformProperties());
 		prepareConnection(conn, clearPassword, cacheProvider);
 		return conn;
@@ -1887,11 +1887,11 @@ public class CoreService {
 	}
 
 	public void deleteApplicationRepository(org.appng.core.model.Repository repository) {
-		repoRepository.delete(repository.getId());
+		repoRepository.deleteById(repository.getId());
 	}
 
 	public void deleteSubject(Subject subject) {
-		subjectRepository.delete(subject.getId());
+		subjectRepository.deleteById(subject.getId());
 	}
 
 	public SiteImpl shutdownSite(Environment env, String siteName) {
@@ -1968,7 +1968,7 @@ public class CoreService {
 
 	public void unsetReloadRequired(SiteApplication siteApplication) {
 		siteApplication.setReloadRequired(false);
-		siteApplicationRepository.findOne(siteApplication.getSiteApplicationId()).setReloadRequired(false);
+		siteApplicationRepository.findById(siteApplication.getSiteApplicationId()).ifPresent(sa -> sa.setReloadRequired(false));
 	}
 
 	public void setSiteStartUpTime(SiteImpl site, Date date) {
@@ -1977,7 +1977,7 @@ public class CoreService {
 
 	public Collection<ApplicationSubject> getApplicationSubjects(Integer applicationId, Site site) {
 		List<ApplicationSubject> applicationSubjects = new ArrayList<>();
-		ApplicationImpl application = applicationRepository.findOne(applicationId);
+		ApplicationImpl application = applicationRepository.findById(applicationId).orElse(null);
 		List<SubjectImpl> subjects = subjectRepository.findSubjectsForApplication(applicationId);
 		String siteTimeZone = site.getProperties().getString(Platform.Property.TIME_ZONE);
 		for (SubjectImpl subject : subjects) {
@@ -2020,7 +2020,7 @@ public class CoreService {
 	}
 
 	public Subject getSubjectById(Integer id, boolean initialize) {
-		SubjectImpl subject = subjectRepository.findOne(id);
+		SubjectImpl subject = subjectRepository.findById(id).orElse(null);
 		if (initialize) {
 			initializeSubject(subject);
 		}
@@ -2167,7 +2167,7 @@ public class CoreService {
 	}
 
 	public List<? extends Permission> getPermissionsForApplication(Integer applicationId) {
-		return permissionRepository.findByApplicationId(applicationId, new Sort(Direction.ASC, "name"));
+		return permissionRepository.findByApplicationId(applicationId, Sort.by(Direction.ASC, "name"));
 	}
 
 	public Site getGrantingSite(String grantedSite, String grantedApplication) {
@@ -2182,7 +2182,7 @@ public class CoreService {
 	}
 
 	public List<CachedResponse> getCacheEntries(Integer siteId) {
-		SiteImpl site = siteRepository.findOne(siteId);
+		SiteImpl site = siteRepository.findById(siteId).orElse(null);
 		return CacheService.getCacheEntries(site);
 	}
 
@@ -2261,7 +2261,7 @@ public class CoreService {
 	}
 
 	public void setSiteReloadCount(SiteImpl site) {
-		siteRepository.findOne(site.getId()).setReloadCount(site.getReloadCount());
+		siteRepository.findById(site.getId()).ifPresent(s -> s.setReloadCount(site.getReloadCount()));
 	}
 
 	public void refreshTemplate(Site site, PlatformProperties platformConfig) {

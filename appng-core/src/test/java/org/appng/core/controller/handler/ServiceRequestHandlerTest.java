@@ -24,8 +24,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.xml.bind.JAXBException;
 
 import org.apache.commons.lang3.StringUtils;
@@ -133,7 +133,7 @@ public class ServiceRequestHandlerTest extends ServiceRequestHandler {
 
 	@Test
 	public void testRest() throws Exception {
-		handleRestCall(3, 4, "{\"operation\":\"add\",\"result\":7}", MediaType.APPLICATION_JSON_UTF8_VALUE,
+		handleRestCall(3, 4, "{\"operation\":\"add\",\"result\":7}", MediaType.APPLICATION_JSON_VALUE,
 				HttpStatus.OK);
 	}
 
@@ -149,13 +149,13 @@ public class ServiceRequestHandlerTest extends ServiceRequestHandler {
 
 	@Test
 	public void testRestHandleBusinessException() throws Exception {
-		handleRestCall(11, 47, "{\"message\":\"BOOOM!\"}", MediaType.APPLICATION_JSON_UTF8_VALUE,
+		handleRestCall(11, 47, "{\"message\":\"BOOOM!\"}", MediaType.APPLICATION_JSON_VALUE,
 				HttpStatus.METHOD_NOT_ALLOWED);
 	}
 
 	@Test
 	public void testRestHandleNullPointerException() throws Exception {
-		handleRestCall(47, 12, "{\"message\":\"NPE\"}", MediaType.APPLICATION_JSON_UTF8_VALUE,
+		handleRestCall(47, 12, "{\"message\":\"NPE\"}", MediaType.APPLICATION_JSON_VALUE,
 				HttpStatus.I_AM_A_TEAPOT);
 	}
 
@@ -217,7 +217,7 @@ public class ServiceRequestHandlerTest extends ServiceRequestHandler {
 	@ControllerAdvice
 	static class FoobarRest extends ResponseEntityExceptionHandler {
 
-		@RequestMapping(value = "/add/{a}/{b}", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_UTF8_VALUE)
+		@RequestMapping(value = "/add/{a}/{b}", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
 		public ResponseEntity<Result> add(@PathVariable("a") Integer a, @PathVariable("b") Integer b)
 				throws BusinessException {
 			if (a < 0) {

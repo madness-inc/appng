@@ -18,7 +18,7 @@ package org.appng.api.support.validation.model;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.validation.Valid;
+import jakarta.validation.Valid;
 
 import org.appng.api.NotBlank;
 

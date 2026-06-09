@@ -15,7 +15,7 @@
  */
 package org.appng.core.controller;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.appng.core.Redirect;
 import org.junit.Assert;

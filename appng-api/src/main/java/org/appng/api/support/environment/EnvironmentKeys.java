@@ -15,7 +15,7 @@
  */
 package org.appng.api.support.environment;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.appng.api.Environment;
 import org.appng.api.PathInfo;

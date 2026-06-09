@@ -171,13 +171,13 @@ public final class DataContainer {
 			doSort(sortedItems, pageable.getSort());
 		}
 		int size = sortedItems.size();
-		int fromIndex = pageable.getOffset() < size ? pageable.getOffset() : 0;
+		int fromIndex = (int) (pageable.getOffset() < size ? pageable.getOffset() : 0);
 		int pageSize = pageable.getPageSize();
 		int toIndex = fromIndex + pageSize;
 		toIndex = toIndex > size ? size : toIndex;
 		List subList = new ArrayList(sortedItems).subList(fromIndex, toIndex);
 		int currentPage = fromIndex == 0 ? 0 : pageable.getPageNumber();
-		Pageable extractedPageable = new PageRequest(currentPage, pageSize, pageable.getSort());
+		Pageable extractedPageable = PageRequest.of(currentPage, pageSize, pageable.getSort());
 		Page extractedPage = new PageImpl(subList, extractedPageable, size);
 		setPage(extractedPage);
 		setPageable(extractedPageable);
@@ -185,7 +185,7 @@ public final class DataContainer {
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private void doSort(List items, Sort sort) {
-		if (null != sort && !items.isEmpty()) {
+		if (null != sort && sort.isSorted() && !items.isEmpty()) {
 			ComparatorChain comparatorChain = new ComparatorChain();
 			Iterator<Order> iterator = sort.iterator();
 

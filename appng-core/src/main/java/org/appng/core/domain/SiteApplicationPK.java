@@ -17,8 +17,8 @@ package org.appng.core.domain;
 
 import java.io.Serializable;
 
-import javax.persistence.Column;
-import javax.persistence.Embeddable;
+import jakarta.persistence.Column;
+import jakarta.persistence.Embeddable;
 
 /**
  * Composite primary-key for a {@link SiteApplication}

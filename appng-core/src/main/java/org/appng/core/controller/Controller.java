@@ -25,14 +25,16 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 
-import javax.servlet.Servlet;
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.WriteListener;
-import javax.servlet.annotation.WebServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpServletResponseWrapper;
+import jakarta.servlet.MultipartConfigElement;
+import jakarta.servlet.Servlet;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.annotation.MultipartConfig;
+import jakarta.servlet.WriteListener;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponseWrapper;
 
 import org.apache.catalina.ContainerServlet;
 import org.apache.catalina.Context;
@@ -79,6 +81,7 @@ import lombok.extern.slf4j.Slf4j;
  * @author Matthias Müller
  */
 @Slf4j
+@MultipartConfig(fileSizeThreshold = 0, maxFileSize = -1L, maxRequestSize = -1L)
 @WebServlet(name = "controller", urlPatterns = { "/", "*.jsp" }, loadOnStartup = 1)
 public class Controller extends DefaultServlet implements ContainerServlet {
 

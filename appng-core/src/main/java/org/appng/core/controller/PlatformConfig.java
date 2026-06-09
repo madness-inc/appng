@@ -18,7 +18,7 @@ package org.appng.core.controller;
 import java.util.Arrays;
 import java.util.Properties;
 
-import javax.persistence.EntityManagerFactory;
+import jakarta.persistence.EntityManagerFactory;
 import javax.sql.DataSource;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.TransformerConfigurationException;
