@@ -459,6 +459,7 @@
 					<version>3.0.0-M5</version>
 					<configuration>
 						<argLine>
+							-javaagent:${org.mockito:mockito-core:jar}
 							--add-opens java.base/java.net=ALL-UNNAMED
 							--add-opens java.base/java.security=ALL-UNNAMED
 							--add-opens java.base/java.lang=ALL-UNNAMED
@@ -511,6 +512,17 @@
 			</plugins>
 		</pluginManagement>
 		<plugins>
+			<plugin>
+				<artifactId>maven-dependency-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>mockito-agent</id>
+						<goals>
+							<goal>properties</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
 			<plugin>
 				<groupId>com.mycila</groupId>
 				<artifactId>license-maven-plugin</artifactId>
