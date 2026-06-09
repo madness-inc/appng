@@ -23,7 +23,7 @@ import org.appng.core.domain.DatabaseConnection;
 import org.appng.core.service.DatabaseService;
 import org.junit.Assert;
 import org.junit.Test;
-import org.springframework.beans.factory.config.PreferencesPlaceholderConfigurer;
+import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.core.io.ClassPathResource;
 
@@ -36,12 +36,11 @@ public class PlatformConfigTest {
 		AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext();
 		ctx.register(PlatformConfig.class);
 
-		PreferencesPlaceholderConfigurer ppc = new PreferencesPlaceholderConfigurer();
+		PropertySourcesPlaceholderConfigurer ppc = new PropertySourcesPlaceholderConfigurer();
 		Properties props = new Properties();
 		ppc.setProperties(props);
 		ClassPathResource configResource = new ClassPathResource("appNG-hsql.properties");
 		props.load(configResource.getInputStream());
-		ppc.afterPropertiesSet();
 
 		ctx.addBeanFactoryPostProcessor(ppc);
 		ctx.refresh();

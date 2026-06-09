@@ -88,7 +88,7 @@ public class SearchRepositoryTest {
 		Page<TestEntity> page = repo.findAll(Specification.where(new Specification<TestEntity>() {
 			public Predicate toPredicate(Root<TestEntity> root, CriteriaQuery<?> query, CriteriaBuilder cb) {
 				Path<Integer> path = root.get("integerValue");
-				return cb.gt(path, new Integer(0));
+				return cb.gt(path, 0);
 			}
 		}).and(new Specification<TestEntity>() {
 

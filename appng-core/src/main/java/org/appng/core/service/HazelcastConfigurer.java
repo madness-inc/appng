@@ -100,7 +100,9 @@ public class HazelcastConfigurer {
 							LOGGER.info("Using {}", instance);
 						}
 					}
-					instance.getCluster().addMembershipListener(getMembershipListener(environment));
+					if (null != instance) {
+						instance.getCluster().addMembershipListener(getMembershipListener(environment));
+					}
 				} catch (IOException e) {
 					LOGGER.error("failed to create Hazelcast instance!", e);
 				}
