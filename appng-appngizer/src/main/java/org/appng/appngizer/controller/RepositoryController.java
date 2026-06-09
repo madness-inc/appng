@@ -19,7 +19,6 @@ import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
@@ -45,7 +44,6 @@ import org.appng.core.model.RepositoryUtils;
 import org.appng.core.xml.repository.PackageVersions;
 import org.appng.xml.application.PackageInfo;
 import org.slf4j.Logger;
-import org.springframework.beans.support.PropertyComparator;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -118,9 +116,8 @@ public class RepositoryController extends ControllerBase {
 				Package p = getPackage(name, installedApp, installedTemplate, pkg);
 				packages.getPackage().add(p);
 			}
-			Comparator<org.appng.appngizer.model.xml.Package> propertyComparator = new PropertyComparator<org.appng.appngizer.model.xml.Package>(
-					"timestamp", false, false);
-			Collections.sort(packages.getPackage(), propertyComparator);
+			packages.getPackage().sort(Comparator.comparing(
+					org.appng.appngizer.model.xml.Package::getTimestamp, Comparator.nullsLast(Comparator.reverseOrder())));
 			packages.setSelf("/repository/" + packages.encode(name) + "/" + packageName);
 			packages.applyUriComponents(getUriBuilder());
 			return ok(packages);
@@ -259,9 +256,9 @@ public class RepositoryController extends ControllerBase {
 	// @formatter:off
 			@PathVariable("name") String name,
 			@RequestParam("file") MultipartFile file,
-			@RequestParam(required = false, defaultValue = "false") boolean install,
-			@RequestParam(required = false, defaultValue = "false") boolean privileged,
-			@RequestParam(required = false, defaultValue = "false") boolean hidden
+			@RequestParam(value = "install", required = false, defaultValue = "false") boolean install,
+			@RequestParam(value = "privileged", required = false, defaultValue = "false") boolean privileged,
+			@RequestParam(value = "hidden", required = false, defaultValue = "false") boolean hidden
 	// @formatter:on
 	) throws BusinessException {
 		org.appng.core.model.Repository r = getCoreService().getApplicationRepositoryByName(name);

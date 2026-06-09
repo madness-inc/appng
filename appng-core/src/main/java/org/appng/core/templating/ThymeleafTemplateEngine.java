@@ -17,7 +17,7 @@ package org.appng.core.templating;
 
 import java.util.List;
 
-import org.thymeleaf.spring4.SpringTemplateEngine;
+import org.thymeleaf.spring6.SpringTemplateEngine;
 
 /**
  * An custom template engine to set a custom Thymeleaf dialect

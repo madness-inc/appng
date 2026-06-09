@@ -22,7 +22,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.activation.MimetypesFileTypeMap;
+import jakarta.activation.MimetypesFileTypeMap;
 
 import org.appng.mail.Address;
 import org.appng.mail.Attachment;

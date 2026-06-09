@@ -18,11 +18,11 @@ package org.appng.api.support.validation;
 import java.io.File;
 import java.util.Arrays;
 
-import javax.validation.Validation;
-import javax.validation.Validator;
-import javax.validation.metadata.BeanDescriptor;
-import javax.validation.metadata.ConstraintDescriptor;
-import javax.validation.metadata.PropertyDescriptor;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
+import jakarta.validation.metadata.BeanDescriptor;
+import jakarta.validation.metadata.ConstraintDescriptor;
+import jakarta.validation.metadata.PropertyDescriptor;
 
 import org.appng.api.FileUpload;
 import org.appng.api.FileUpload.Unit;

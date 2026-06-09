@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
 
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import org.appng.api.AbstractTest;
 import org.appng.api.BusinessException;

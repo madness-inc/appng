@@ -43,9 +43,9 @@ public class ResourceRepositoryTest extends AbstractRepositoryTest {
 
 		Integer applicationId = application.getId();
 		Assert.assertEquals(applicationResource, repository.findByNameAndApplicationId("name", applicationId));
-		Assert.assertEquals(applicationResource, repository.findOne(applicationResource.getId()));
+		Assert.assertEquals(applicationResource, repository.findById(applicationResource.getId()).orElse(null));
 		repository.delete(applicationResource);
-		Assert.assertNull(repository.findOne(applicationResource.getId()));
+		Assert.assertNull(repository.findById(applicationResource.getId()).orElse(null));
 	}
 
 }

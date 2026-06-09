@@ -18,7 +18,7 @@ package org.appng.forms;
 import java.io.File;
 import java.util.List;
 
-import javax.servlet.ServletRequest;
+import jakarta.servlet.ServletRequest;
 
 /**
  * A {@link FormUpload} represents a {@link File} which was uploaded through a HTML form using

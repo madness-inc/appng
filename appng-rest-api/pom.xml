@@ -71,10 +71,12 @@
 						<configuration>
 							<language>java</language>
 							<inputSpec>${basedir}/src/main/resources/org/appng/api/rest/appng-rest.yaml</inputSpec>
+							<templateDirectory>${project.basedir}/swagger/templates</templateDirectory>
 							<generateModels>true</generateModels>
 							<modelPackage>org.appng.api.rest.model</modelPackage>
 							<generateModelDocumentation>true</generateModelDocumentation>
 							<generateApis>false</generateApis>
+							<generateSupportingFiles>false</generateSupportingFiles>
 							<library>resttemplate</library>
 							<configOptions>
 								<dateLibrary>legacy</dateLibrary>
@@ -94,7 +96,7 @@
 			<plugin>
 				<groupId>org.openapitools</groupId>
 				<artifactId>openapi-generator-maven-plugin</artifactId>
-				<version>5.1.1</version>
+				<version>7.23.0</version>
 				<executions>
 					<execution>
 						<id>rest-api</id>
@@ -105,7 +107,6 @@
 				</executions>
 				<configuration>
 					<inputSpec>${basedir}/src/main/resources/org/appng/api/rest/appng-openapi.yaml</inputSpec>
-					<templateDirectory>${project.basedir}/openapi/templates</templateDirectory>
 					<generatorName>java</generatorName>
 					<generateApis>true</generateApis>
 					<generateModels>true</generateModels>
@@ -116,8 +117,10 @@
 						<invokerPackage>org.appng.openapi.invoke</invokerPackage>
 						<modelPackage>org.appng.openapi.model</modelPackage>
 						<library>resttemplate</library>
+						<useJackson3>true</useJackson3>
 						<useJakartaEe>true</useJakartaEe>
-						<dateLibrary>java8</dateLibrary>
+						<useSpringBoot4>true</useSpringBoot4>
+						<dateLibrary>legacy</dateLibrary>
 					</configOptions>
 				</configuration>
 			</plugin>
@@ -183,7 +186,7 @@
 		<dependency>
 			<groupId>org.openapitools</groupId>
 			<artifactId>jackson-databind-nullable</artifactId>
-			<version>0.2.6</version>
+			<version>0.2.10</version>
 		</dependency>
 		<dependency>
 			<groupId>io.swagger</groupId>
@@ -191,12 +194,16 @@
 			<version>1.5.22</version>
 		</dependency>
 		<dependency>
-			<groupId>com.fasterxml.jackson.core</groupId>
+			<groupId>tools.jackson.core</groupId>
 			<artifactId>jackson-databind</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-context</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.slf4j</groupId>

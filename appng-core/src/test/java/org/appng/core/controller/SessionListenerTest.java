@@ -19,11 +19,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import javax.servlet.ServletContext;
-import javax.servlet.ServletContextEvent;
-import javax.servlet.ServletRequestEvent;
-import javax.servlet.http.HttpSession;
-import javax.servlet.http.HttpSessionEvent;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletContextEvent;
+import jakarta.servlet.ServletRequestEvent;
+import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpSessionEvent;
 
 import org.appng.api.Platform;
 import org.appng.api.Scope;

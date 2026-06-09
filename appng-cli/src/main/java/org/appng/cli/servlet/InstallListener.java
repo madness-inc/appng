@@ -22,9 +22,9 @@ import java.io.PrintStream;
 import java.nio.charset.Charset;
 import java.nio.file.Paths;
 
-import javax.servlet.ServletContext;
-import javax.servlet.ServletContextEvent;
-import javax.servlet.ServletContextListener;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletContextEvent;
+import jakarta.servlet.ServletContextListener;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;

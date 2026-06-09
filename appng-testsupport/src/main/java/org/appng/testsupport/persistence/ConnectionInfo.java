@@ -17,8 +17,7 @@ package org.appng.testsupport.persistence;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.LineNumberReader;
+import java.nio.charset.StandardCharsets;
 import java.sql.Driver;
 import java.util.List;
 
@@ -27,7 +26,7 @@ import javax.sql.DataSource;
 import org.dbunit.database.IDatabaseConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.SimpleDriverDataSource;
-import org.springframework.jdbc.datasource.init.ScriptUtils;
+import org.springframework.util.StreamUtils;
 
 /**
  * A container for all information about a database connection like the JDBC-Url, user, password etc.
@@ -187,8 +186,7 @@ public class ConnectionInfo {
 
 	public void executeSqlFromResource(String resourceName) throws IOException {
 		InputStream resource = Thread.currentThread().getContextClassLoader().getResourceAsStream(resourceName);
-		String viewScript = ScriptUtils.readScript(new LineNumberReader(new InputStreamReader(resource)),
-				ScriptUtils.DEFAULT_COMMENT_PREFIX, ScriptUtils.DEFAULT_STATEMENT_SEPARATOR);
+		String viewScript = StreamUtils.copyToString(resource, StandardCharsets.UTF_8);
 		executeSql(viewScript);
 	}
 

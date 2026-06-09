@@ -167,6 +167,21 @@
     "appNGVersion" : "1.25.x",
     "appVersion" : "1.5.2-2012-11-27-1305"
   },
-  "statusCode" : "OK",
-  "statusCodeValue" : 200
+  "headers" : {
+    "accessControlAllowCredentials" : false,
+    "accessControlMaxAge" : -1,
+    "contentDisposition" : {
+      "attachment" : false,
+      "formData" : false,
+      "inline" : false
+    },
+    "contentLength" : -1,
+    "date" : -1,
+    "empty" : true,
+    "expires" : -1,
+    "ifModifiedSince" : -1,
+    "ifUnmodifiedSince" : -1,
+    "lastModified" : -1
+  },
+  "statusCode" : "200 OK"
 }

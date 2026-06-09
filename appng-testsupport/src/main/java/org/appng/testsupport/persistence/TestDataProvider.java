@@ -15,7 +15,7 @@
  */
 package org.appng.testsupport.persistence;
 
-import javax.persistence.EntityManager;
+import jakarta.persistence.EntityManager;
 
 /**
  * TODO insert description

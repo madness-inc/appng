@@ -1,6 +1,6 @@
 == Expressions
 
-AppNG uses the https://docs.oracle.com/javaee/7/tutorial/jsf-el.htm[JSP Expression language^] syntax to provide support for dynamic expressions. See https://docs.oracle.com/javaee/7/tutorial/jsf-el005.htm#BNAIK[here^] for a list of operators.
+AppNG uses the https://jakartaee.github.io/jakartaee-tutorial/#expression-language[Jakarta Expression Language^] syntax to provide support for dynamic expressions. See https://jakartaee.github.io/jakartaee-tutorial/#expression-language[here^] for a list of operators.
 
 Expressions can be used to
 

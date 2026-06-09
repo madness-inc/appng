@@ -17,9 +17,9 @@ package org.appng.upngizr.controller;
 
 import java.io.File;
 
-import javax.servlet.ServletContext;
-import javax.servlet.ServletContextEvent;
-import javax.servlet.ServletContextListener;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletContextEvent;
+import jakarta.servlet.ServletContextListener;
 
 import org.apache.catalina.ContainerServlet;
 import org.apache.catalina.Context;

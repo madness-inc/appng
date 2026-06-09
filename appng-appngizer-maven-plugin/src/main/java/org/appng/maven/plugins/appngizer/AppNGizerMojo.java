@@ -48,6 +48,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpOutputMessage;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
@@ -98,7 +99,7 @@ abstract class AppNGizerMojo extends AbstractMojo {
 		restTemplate.getMessageConverters().add(jaxbConverter);
 		restTemplate.setErrorHandler(new DefaultResponseErrorHandler() {
 			@Override
-			protected boolean hasError(HttpStatus statusCode) {
+			protected boolean hasError(HttpStatusCode statusCode) {
 				return statusCode.is5xxServerError();
 			}
 		});
@@ -128,12 +129,13 @@ abstract class AppNGizerMojo extends AbstractMojo {
 		}
 		ResponseEntity<T> response = restTemplate.exchange(req.getUrl(), req.getMethod(), req, resultType);
 		getLog().debug("in: " + response);
-		HttpStatus statusCode = response.getStatusCode();
+		HttpStatusCode statusCode = response.getStatusCode();
 		if (null != response.getBody()) {
 			debugBody(response.getBody(), response.getHeaders().getContentType());
 		} else if ((throwErrorOn4xx && statusCode.is4xxClientError()) || statusCode.is5xxServerError()) {
+			HttpStatus httpStatus = HttpStatus.valueOf(statusCode.value());
 			String message = String.format("[%s] on %s returned HTTP status %s (%s)", method, path, statusCode,
-					statusCode.getReasonPhrase());
+					httpStatus.getReasonPhrase());
 			throw new MojoExecutionException(message);
 		}
 

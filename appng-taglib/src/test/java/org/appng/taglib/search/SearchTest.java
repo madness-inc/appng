@@ -24,12 +24,12 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import javax.servlet.ServletContext;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
-import javax.servlet.jsp.JspWriter;
-import javax.servlet.jsp.PageContext;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.jsp.JspWriter;
+import jakarta.servlet.jsp.PageContext;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.TransformerFactory;
 
@@ -157,10 +157,12 @@ public class SearchTest extends Search {
 		String siteRootDir = siteProperties.getString(SiteProperties.SITE_ROOT_DIR);
 		String seIndex = siteRootDir + siteProperties.getString(SiteProperties.INDEX_DIR);
 		File indexDir = new File(seIndex);
+		org.apache.commons.io.FileUtils.deleteDirectory(indexDir);
 		indexDir.mkdirs();
 		Directory directory = FSDirectory.open(indexDir.toPath());
 		Analyzer analyzer = new EnglishAnalyzer();
 		IndexWriterConfig conf = new IndexWriterConfig(analyzer);
+		conf.setOpenMode(IndexWriterConfig.OpenMode.CREATE);
 		IndexWriter indexWriter = new IndexWriter(directory, conf);
 
 		indexWriter.deleteDocuments(new MatchAllDocsQuery());

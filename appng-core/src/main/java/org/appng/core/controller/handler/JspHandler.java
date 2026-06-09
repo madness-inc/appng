@@ -18,10 +18,10 @@ package org.appng.core.controller.handler;
 import java.io.IOException;
 import java.net.URLClassLoader;
 
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.jasper.servlet.JspServlet;
 import org.appng.api.Environment;
@@ -33,7 +33,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * A {@link RequestHandler} responsible for serving JSPs. Internally,the {@link HttpServletRequest} is forwarded to the
- * <a href="http://tomcat.apache.org/tomcat-8.0-doc/jasper-howto.html">Jasper JSP Engine</a>, namely a
+ * <a href="https://tomcat.apache.org/tomcat-11.0-doc/jasper-howto.html">Jasper JSP Engine</a>, namely a
  * {@code org.apache.jasper.servlet.JspServlet}.
  * 
  * @author Matthias Müller

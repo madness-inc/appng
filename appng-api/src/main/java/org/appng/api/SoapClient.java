@@ -31,7 +31,7 @@ import org.springframework.ws.transport.http.HttpUrlConnectionMessageSender;
 import org.springframework.xml.transform.StringResult;
 
 /**
- * A simple SOAP-client for <a href="http://jaxb.java.net/">JAXB</a>-based webservices.
+ * A simple SOAP-client for <a href="https://jakarta.ee/specifications/xml-binding/">JAXB</a>-based webservices.
  * 
  * @author Matthias Müller
  */

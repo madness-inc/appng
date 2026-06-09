@@ -21,11 +21,11 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.Module;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectReader;
-import com.fasterxml.jackson.databind.ObjectWriter;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JacksonModule;
+import tools.jackson.databind.MapperFeature;
+import tools.jackson.databind.ObjectWriter;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Helper class to convert an object to it's JSON representation and vice versa.
@@ -35,21 +35,24 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 public class Json {
 
 	private boolean pretty = false;
-	private ObjectMapper mapper;
+	private JsonMapper mapper;
 
 	public Json(DateFormat dateFormat, boolean pretty) {
 		this.pretty = pretty;
-		this.mapper = new ObjectMapper();
-		mapper.setDateFormat(dateFormat);
+		this.mapper = JsonMapper.builder()
+				.defaultDateFormat(dateFormat)
+				.disable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
+				.build();
 	}
 
 	public Json() {
 		this(new SimpleDateFormat(), false);
 	}
 
-	public String toJson(Object o, Include include) throws JsonProcessingException, IOException {
-		ObjectMapper innerMapper = mapper.setSerializationInclusion(include);
-
+	public String toJson(Object o, Include include) throws JacksonException, IOException {
+		JsonMapper innerMapper = mapper.rebuild()
+				.changeDefaultPropertyInclusion(v -> v.withValueInclusion(include))
+				.build();
 		ObjectWriter writer = innerMapper.writer();
 		if (pretty) {
 			writer = writer.withDefaultPrettyPrinter();
@@ -59,15 +62,15 @@ public class Json {
 		return stringWriter.toString();
 	}
 
-	public String toJson(Object o) throws JsonProcessingException, IOException {
+	public String toJson(Object o) throws JacksonException, IOException {
 		return toJson(o, Include.NON_NULL);
 	}
 
-	public <T> T toObject(String json, Class<T> type, Module... modules) throws IOException {
-		for (Module module : modules) {
-			mapper.registerModule(module);
+	public <T> T toObject(String json, Class<T> type, JacksonModule... modules) throws IOException {
+		JsonMapper.Builder builder = mapper.rebuild();
+		for (JacksonModule module : modules) {
+			builder.addModule(module);
 		}
-		ObjectReader reader = mapper.readerFor(type);
-		return reader.readValue(json);
+		return builder.build().readerFor(type).readValue(json);
 	}
 }

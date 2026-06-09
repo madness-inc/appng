@@ -11,7 +11,7 @@ In order to use the appNG JSP tags, a `@taglib` directive must be added to the p
 [TIP]
 ====
 Within JSP files, you can make use of the available __implicit objects__ like `${param}`, `${requestScope}`  `${sessionScope}`.
-For further details see https://docs.oracle.com/javaee/7/tutorial/jsf-custom012.htm#BNATJ[section 15.12.2^] of the  https://docs.oracle.com/javaee/7/tutorial/index.html[The Java EE Tutorial^].
+For further details see https://jakartaee.github.io/jakartaee-tutorial/#binding-a-component-value-to-an-implicit-object[the implicit objects section^] of the https://jakartaee.github.io/jakartaee-tutorial/[The Jakarta EE Tutorial^].
 ====
 
 === <appNG:taglet>

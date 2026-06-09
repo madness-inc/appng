@@ -21,13 +21,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.commons.lang3.StringUtils;
 import org.appng.api.Environment;
@@ -49,7 +49,7 @@ import org.springframework.context.ApplicationContext;
  * <p>
  * <strong>Prerequisites</strong>
  * <ul>
- * <li>The <a href="https://www.keycloak.org/docs/latest/securing_apps/index.html#_tomcat_adapter">Keycloak Tomcat
+ * <li>The <a href="https://www.keycloak.org/documentation">Keycloak Tomcat
  * Adapter</a> must be installed and set up, defining the {@code KeycloakAuthenticatorValve} in the server's
  * {@code context.xml}
  * <li>A Keycloak client must be set up, the corresponding {@code keycloak.json} must be present in {@code WEB-INF}

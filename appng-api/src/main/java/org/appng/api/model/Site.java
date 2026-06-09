@@ -20,7 +20,7 @@ import java.net.URLClassLoader;
 import java.util.Date;
 import java.util.Set;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.appng.api.Environment;
 import org.appng.api.auth.PasswordPolicy;

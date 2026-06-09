@@ -27,7 +27,7 @@ The `environment` is used to retrieve and set attributes of different {appng}/or
 *Scope:* request
 
 * `request` +
-A wrapper for the current {jee}/javax/servlet/http/HttpServletRequest.html[javax.servlet.http/HttpServletRequest.html^], offering additional framework methods. +
+A wrapper for the current {jee}/jakarta/servlet/http/HttpServletRequest.html[jakarta.servlet.http.HttpServletRequest^], offering additional framework methods. +
 *Type:* {appng}/org/appng/api/Request.html[org.appng.api.Request^] +
 *Scope:* request
 
@@ -40,7 +40,7 @@ This message-source is built from the resource bundle file(s) provided in the ap
 [[app-datasource]]
 * `datasource` +
 Only available if there is a `<datasource>` present in `application.xml`. Usually used to configure a JPA `EntityManagerFactory`, as described in <<Using JPA, this section>>. +
-*Type:* {jse}/javax/sql/DataSource.html[javax.sql.DataSource.html^] +
+*Type:* {jse}/java.sql/javax/sql/DataSource.html[javax.sql.DataSource^] +
 *Scope:* singleton
 
 * `selectionFactory` +

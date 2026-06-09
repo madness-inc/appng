@@ -283,12 +283,16 @@ public final class FieldProcessorImpl implements FieldProcessor, Serializable {
 	}
 
 	public Pageable getPageable() {
-		return null == pageable ? null : new PageRequest(pageable.getPageNumber(), pageable.getPageSize(), getSort());
+		if (null == pageable) return null;
+		Sort sort = getSort();
+		return sort != null
+				? PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort)
+				: PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
 	}
 
 	private Sort getSort() {
 		Sort sort = null;
-		if (pageable.getSort() != null) {
+		if (pageable.getSort() != null && pageable.getSort().isSorted()) {
 			List<Order> orders = new ArrayList<>();
 			List<FieldDef> activeSortFields = new ArrayList<>();
 			for (Order order : pageable.getSort()) {
@@ -318,7 +322,7 @@ public final class FieldProcessorImpl implements FieldProcessor, Serializable {
 					}
 				}
 			}
-			sort = new Sort(orders);
+			sort = Sort.by(orders);
 		} else {
 			sort = getDefaultSort();
 		}
@@ -368,7 +372,7 @@ public final class FieldProcessorImpl implements FieldProcessor, Serializable {
 				field.setSort(new org.appng.xml.platform.Sort());
 			}
 			if (!orders.isEmpty()) {
-				sort = new Sort(orders);
+				sort = Sort.by(orders);
 			}
 		}
 		return sort;

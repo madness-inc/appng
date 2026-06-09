@@ -18,7 +18,7 @@ package org.appng.api.support.environment;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import javax.servlet.ServletContext;
+import jakarta.servlet.ServletContext;
 
 import org.appng.api.Scope;
 

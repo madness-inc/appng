@@ -63,8 +63,8 @@ When using annotation based configuration, your `@Configuration` must look like 
 ----
 import java.util.Properties;
 
-import javax.persistence.EntityManager;
-import javax.persistence.EntityManagerFactory;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
 import javax.sql.DataSource;
 
 import org.appng.persistence.repository.SearchRepositoryImpl;
@@ -116,12 +116,12 @@ public class BeanConfiguration {
 ----
 <1> Enable Spring Data JPA repositories, defining the `basePackages` where your repositories reside. As a `repositoryBaseClass`, use `org.appng.persistence.repository.SearchRepositoryImpl`.
 <2> Enable annotation based transaction management (using {spring}/javadoc-api/org/springframework/transaction/annotation/Transactional.html[org.springframework.transaction.annotation.Transactional^]).
-<3> Define a `javax.persistence.EntityManagerFactory`.
+<3> Define a `jakarta.persistence.EntityManagerFactory`.
 <4> The referenced `javax.sql.DataSource` <<app-datasource,is provided by the platform>>.
 <5> Choose a meaningful name for the persistence unit.
 <6> Define the package(s) where your entities reside.
 <7> Define the JPA properties.
-<8> Define an `javax.persistence.EntityManager`.
+<8> Define an `jakarta.persistence.EntityManager`.
 <9> Define a transaction manager.
 +
 However, if you prefer XML-configuration, add the following to your `beans.xml`:
@@ -169,12 +169,12 @@ However, if you prefer XML-configuration, add the following to your `beans.xml`:
 ----
 <1> Enable Spring Data JPA repositories, defining the `base-package` where your repositories reside. As a `base-class`, use `org.appng.persistence.repository.SearchRepositoryImpl`.
 <2> Enable annotation based transaction management (using {spring}/javadoc-api/org/springframework/transaction/annotation/Transactional.html[org.springframework.transaction.annotation.Transactional^]).
-<3> Define a `javax.persistence.EntityManagerFactory`.
+<3> Define a `jakarta.persistence.EntityManagerFactory`.
 <4> The referenced bean `datasource` of type `javax.sql.DataSource` <<app-datasource,is provided by the platform>>.
 <5> Choose a meaningful name for the persistence unit.
 <6> Define the package(s) where your entities reside.
 <7> Define the JPA properties.
-<8> Define a `javax.persistence.EntityManager`.
+<8> Define a `jakarta.persistence.EntityManager`.
 <9> Define a transaction manager.
 
 . Inject the repositories into your service class(es) and annotate them with  `@org.springframework.transaction.annotation.Transactional`:

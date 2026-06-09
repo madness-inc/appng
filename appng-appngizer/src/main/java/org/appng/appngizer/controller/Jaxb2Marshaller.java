@@ -19,14 +19,14 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
 
-import javax.xml.bind.JAXBException;
-import javax.xml.bind.Marshaller;
-import javax.xml.bind.PropertyException;
+import jakarta.xml.bind.JAXBException;
+import jakarta.xml.bind.Marshaller;
+import jakarta.xml.bind.PropertyException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.oxm.MarshallingFailureException;
 
-import com.sun.xml.bind.marshaller.CharacterEscapeHandler;
+import org.glassfish.jaxb.core.marshaller.CharacterEscapeHandler;
 
 public class Jaxb2Marshaller extends org.springframework.oxm.jaxb.Jaxb2Marshaller implements CharacterEscapeHandler {
 

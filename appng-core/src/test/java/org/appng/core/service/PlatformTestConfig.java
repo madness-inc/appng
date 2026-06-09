@@ -21,7 +21,7 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Properties;
 
-import javax.persistence.EntityManagerFactory;
+import jakarta.persistence.EntityManagerFactory;
 import javax.sql.DataSource;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.TransformerFactory;
@@ -102,7 +102,7 @@ public class PlatformTestConfig {
 		jpaProperties.put(AvailableSettings.USER, "sa");
 		jpaProperties.put(AvailableSettings.PASS, "");
 		jpaProperties.put(AvailableSettings.HBM2DDL_AUTO, "create");
-		jpaProperties.put(AvailableSettings.USE_NEW_ID_GENERATOR_MAPPINGS, false);
+
 		lemfb.setJpaProperties(jpaProperties);
 		return lemfb;
 	}

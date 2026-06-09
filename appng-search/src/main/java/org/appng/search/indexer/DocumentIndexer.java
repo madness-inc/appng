@@ -134,7 +134,7 @@ public class DocumentIndexer extends Consumer<DocumentEvent, DocumentProducer> i
 						BooleanQuery query = queryBuilder.build();
 						String queryString = query.toString();
 						TopDocs search = searcher.search(query, 10);
-						long found = search.totalHits.value;
+						long found = search.totalHits.value();
 						if (found > 0) {
 							indexWriter.deleteDocuments(query);
 							LOGGER.debug("deleting {} existing document(s) for query {}", found, queryString);

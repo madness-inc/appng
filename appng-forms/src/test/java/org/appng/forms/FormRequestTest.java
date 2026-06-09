@@ -16,23 +16,21 @@
 package org.appng.forms;
 
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import javax.servlet.ReadListener;
-import javax.servlet.ServletInputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.Part;
 
 import org.apache.commons.io.FileUtils;
 import org.appng.forms.impl.RequestBean;
@@ -56,7 +54,7 @@ public class FormRequestTest {
 		testMultipart("GIF", "JPG");
 	}
 
-	private void testMultipart(String... fileTypes) throws IOException, FileNotFoundException {
+	private void testMultipart(String... fileTypes) throws Exception {
 		String bar = "bar";
 		String foo = "foo";
 		String file = "file";
@@ -68,62 +66,30 @@ public class FormRequestTest {
 		HttpServletRequest httpRequest = Mockito.mock(HttpServletRequest.class);
 		Mockito.when(httpRequest.getCharacterEncoding()).thenReturn("UTF-8");
 		Mockito.when(httpRequest.getHeader("Content-Encoding")).thenReturn("UTF-8");
-		String boundary = "foobar";
-		Mockito.when(httpRequest.getContentType()).thenReturn("multipart/form-data; boundary=" + boundary + "");
+		Mockito.when(httpRequest.getContentType()).thenReturn("multipart/form-data; boundary=foobar");
 		Mockito.when(httpRequest.getMethod()).thenReturn("POST");
 
 		HttpSession session = Mockito.mock(HttpSession.class);
 		Mockito.when(session.getId()).thenReturn(SESSION_ID);
 		Mockito.when(httpRequest.getSession()).thenReturn(session);
 
-		ByteArrayOutputStream out = new ByteArrayOutputStream();
-
-		StringBuilder request = new StringBuilder();
-		request.append("--" + boundary + "\r\n");
-		request.append("Content-Disposition: form-data; name=\"" + foo + "\"\r\n");
-		request.append("\r\n");
-		request.append(bar + "\r\n");
-
-		request.append("--" + boundary + "\r\n");
-		request.append(
-				"Content-Disposition: form-data; name=\"" + file + "\"; filename=\"" + filenameComplete + "\"\r\n");
-		request.append("Content-Type: " + contentType + "\r\n");
-		request.append("\r\n");
-
-		out.write(request.toString().getBytes());
-
 		ClassLoader classLoader = FormRequestTest.class.getClassLoader();
 		File originalFile = new File(classLoader.getResource("deathstar.jpg").getFile());
-		InputStream is = new FileInputStream(originalFile);
-		int read = -1;
-		while ((read = is.read()) != -1) {
-			out.write(read);
-		}
-		is.close();
+		byte[] fileBytes = java.nio.file.Files.readAllBytes(originalFile.toPath());
 
-		out.write(("\r\n--" + boundary + "--\r\n").getBytes());
-		int size = out.size();
+		Part fooPart = Mockito.mock(Part.class);
+		Mockito.when(fooPart.getName()).thenReturn(foo);
+		Mockito.when(fooPart.getSubmittedFileName()).thenReturn(null);
+		Mockito.when(fooPart.getInputStream()).thenReturn(new ByteArrayInputStream(bar.getBytes("UTF-8")));
 
-		byte[] byteArray = out.toByteArray();
-		final InputStream in = new ByteArrayInputStream(byteArray);
+		Part filePart = Mockito.mock(Part.class);
+		Mockito.when(filePart.getName()).thenReturn(file);
+		Mockito.when(filePart.getSubmittedFileName()).thenReturn(filenameComplete);
+		Mockito.when(filePart.getContentType()).thenReturn(contentType);
+		Mockito.when(filePart.getSize()).thenReturn((long) fileBytes.length);
+		Mockito.when(filePart.getInputStream()).thenReturn(new ByteArrayInputStream(fileBytes));
 
-		Mockito.when(httpRequest.getContentLength()).thenReturn(size);
-		Mockito.when(httpRequest.getInputStream()).thenReturn(new ServletInputStream() {
-			public int read() throws IOException {
-				return in.read();
-			}
-
-			public boolean isFinished() {
-				return true;
-			}
-
-			public boolean isReady() {
-				return true;
-			}
-
-			public void setReadListener(ReadListener listener) {
-			}
-		});
+		Mockito.when(httpRequest.getParts()).thenReturn(Arrays.asList(fooPart, filePart));
 
 		formRequest.setMaxSize(10551);
 

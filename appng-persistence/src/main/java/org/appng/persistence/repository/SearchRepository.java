@@ -19,8 +19,8 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
 
-import javax.persistence.EntityManager;
-import javax.persistence.Query;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Query;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

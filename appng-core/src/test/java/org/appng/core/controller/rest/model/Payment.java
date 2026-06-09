@@ -18,7 +18,7 @@ package org.appng.core.controller.rest.model;
 import java.util.Date;
 import java.util.List;
 
-import javax.validation.Valid;
+import jakarta.validation.Valid;
 
 import com.google.common.collect.Lists;
 

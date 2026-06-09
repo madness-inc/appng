@@ -33,21 +33,23 @@ import org.appng.api.rest.model.Sort.OrderEnum;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.ByteArrayHttpMessageConverter;
 import org.springframework.http.converter.ResourceHttpMessageConverter;
 import org.springframework.http.converter.StringHttpMessageConverter;
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
-import com.fasterxml.jackson.annotation.JsonInclude.Include;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -93,18 +95,20 @@ public class RestClient {
 	public RestClient(String url, Map<String, String> cookies) {
 		this.url = url;
 		this.cookies = cookies;
+		JsonMapper jsonMapper = JsonMapper.builder()
+				.changeDefaultPropertyInclusion(v -> JsonInclude.Value.ALL_NON_ABSENT)
+				.build();
+		this.objectMapper = jsonMapper;
 		this.restTemplate = new RestTemplate(
 				Arrays.asList(new ByteArrayHttpMessageConverter(), new StringHttpMessageConverter(),
-						new MappingJackson2HttpMessageConverter(), new ResourceHttpMessageConverter()));
+						new JacksonJsonHttpMessageConverter(jsonMapper), new ResourceHttpMessageConverter()));
 		restTemplate.setErrorHandler(new DefaultResponseErrorHandler() {
 			@Override
-			protected boolean hasError(HttpStatus statusCode) {
-				return statusCode.series() == HttpStatus.Series.SERVER_ERROR;
+			protected boolean hasError(HttpStatusCode statusCode) {
+				return statusCode.is5xxServerError();
 			}
 
 		});
-		this.objectMapper = new ObjectMapper();
-		objectMapper.setSerializationInclusion(Include.NON_ABSENT);
 	}
 
 	/**
@@ -222,7 +226,7 @@ public class RestClient {
 		return exchange(actionURL, null, HttpMethod.GET, Action.class);
 	}
 
-	private void doLog(String prefix, Object body, HttpStatus httpStatus) {
+	private void doLog(String prefix, Object body, HttpStatusCode httpStatus) {
 		if (LOGGER.isDebugEnabled()) {
 			String content = StringUtils.EMPTY;
 			if (null != body) {
@@ -231,7 +235,7 @@ public class RestClient {
 						&& bodyType.getPackage().getName().startsWith("org.appng.api.rest.model")) {
 					try {
 						content = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(body);
-					} catch (JsonProcessingException e) {
+					} catch (JacksonException e) {
 						LOGGER.error("error parsing JSON body", e);
 					}
 				} else {
@@ -341,12 +345,12 @@ public class RestClient {
 				LOGGER.debug("sent cookie: {}={}", k, cookies.get(k));
 			});
 		}
-		headers.setContentType(MediaType.APPLICATION_JSON_UTF8);
+		headers.setContentType(MediaType.APPLICATION_JSON);
 		List<MediaType> acceptableMediaTypes;
 		if (acceptAnyType) {
 			acceptableMediaTypes = Arrays.asList(MediaType.ALL);
 		} else {
-			acceptableMediaTypes = Arrays.asList(MediaType.APPLICATION_JSON_UTF8);
+			acceptableMediaTypes = Arrays.asList(MediaType.APPLICATION_JSON);
 		}
 		headers.setAccept(acceptableMediaTypes);
 		headers.set(HttpHeaders.USER_AGENT, "appNG Rest Client");
@@ -450,15 +454,15 @@ public class RestClient {
 				if (StringUtils.isNotBlank(bodyAsString)) {
 					errorModel = objectMapper.readerFor(ErrorModel.class).readValue(bodyAsString);
 				}
-			} catch (IOException ioe) {
-				LOGGER.error("could not read error from response", e);
+			} catch (Exception ioe) {
+				LOGGER.error("could not read error from response", ioe);
 			}
 			if (null == errorModel) {
 				errorModel = new ErrorModel();
 				errorModel.setCode(e.getStatusCode().value());
 				errorModel.setMessage(e.getMessage());
 			}
-			return new RestResponseEntity<>(errorModel, e.getResponseHeaders(), e.getStatusCode());
+			return new RestResponseEntity<IN>(errorModel, e.getResponseHeaders(), e.getStatusCode());
 		}
 	}
 

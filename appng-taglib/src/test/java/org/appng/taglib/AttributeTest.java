@@ -15,7 +15,7 @@
  */
 package org.appng.taglib;
 
-import javax.servlet.jsp.PageContext;
+import jakarta.servlet.jsp.PageContext;
 
 import org.appng.api.Platform;
 import org.appng.api.Scope;

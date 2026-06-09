@@ -15,7 +15,7 @@
  */
 package org.appng.appngizer.controller;
 
-import javax.servlet.annotation.MultipartConfig;
+import jakarta.servlet.annotation.MultipartConfig;
 
 import org.apache.catalina.ContainerServlet;
 import org.apache.catalina.Context;

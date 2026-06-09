@@ -4,10 +4,10 @@
 	<field name="name" type="text" binding="item.name">
 		<validation>
 			<notNull>
-				<message ref="item.name" class="ERROR" code="{javax.validation.constraints.NotNull.message}">must not be null</message>
+				<message ref="item.name" class="ERROR" code="{jakarta.validation.constraints.NotNull.message}">must not be null</message>
 			</notNull>
-			<rule type="javax.validation.constraints.NotBlank" name="notBlank">
-				<message ref="item.name" class="ERROR" code="{javax.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
+			<rule type="jakarta.validation.constraints.NotBlank" name="notBlank">
+				<message ref="item.name" class="ERROR" code="{jakarta.validation.constraints.NotBlank.message}">Thou must provide a value!</message>
 			</rule>
 		</validation>
 	</field>

@@ -138,20 +138,20 @@ public Salary getSalary() { //<4>
 <3> A {appng}/org/appng/forms/FormUpload.html[org.appng.forms.FormUpload^] can be validated using `@FileUpload`.
 <4> Nested properties can be validated using `@Valid`.
 
-You can use any {jee}/javax/validation/Constraint.html[Constraint^] in your application, may it be the standard constraints from the `javax.validation.constraints`-package, those from http://hibernate.org/validator/[Hibernate Validator^] (shipped with appNG), or any custom and/or compound constraints.
+You can use any {jee}/jakarta/validation/Constraint.html[Constraint^] in your application, may it be the standard constraints from the `jakarta.validation.constraints`-package, those from http://hibernate.org/validator/[Hibernate Validator^] (shipped with appNG), or any custom and/or compound constraints.
 
 
 ==== Client side validation
 An appNG template ships with support for client-side validation. Because it can not know all possible constraints you are using in your action's bindclass, only these standard constraints are eligile for client-site validation:
 
-* {jee}/javax/validation/constraints/Digits.html[javax.validation.constraints.Digits^]
-* {jee}/javax/validation/constraints/Future.html[javax.validation.constraints.Future^]
-* {jee}/javax/validation/constraints/Max.html[javax.validation.constraints.Max^]
-* {jee}/javax/validation/constraints/Min.html[javax.validation.constraints.Min^]
-* {jee}/javax/validation/constraints/NotNull.html[javax.validation.constraints.NotNull^]
-* {jee}/javax/validation/constraints/Past.html[javax.validation.constraints.Past^]
-* {jee}/javax/validation/constraints/Pattern.html[javax.validation.constraints.Pattern^]
-* {jee}/javax/validation/constraints/Size.html[javax.validation.constraints.Size^]
+* {jee}/jakarta/validation/constraints/Digits.html[jakarta.validation.constraints.Digits^]
+* {jee}/jakarta/validation/constraints/Future.html[jakarta.validation.constraints.Future^]
+* {jee}/jakarta/validation/constraints/Max.html[jakarta.validation.constraints.Max^]
+* {jee}/jakarta/validation/constraints/Min.html[jakarta.validation.constraints.Min^]
+* {jee}/jakarta/validation/constraints/NotNull.html[jakarta.validation.constraints.NotNull^]
+* {jee}/jakarta/validation/constraints/Past.html[jakarta.validation.constraints.Past^]
+* {jee}/jakarta/validation/constraints/Pattern.html[jakarta.validation.constraints.Pattern^]
+* {jee}/jakarta/validation/constraints/Size.html[jakarta.validation.constraints.Size^]
 * {appng}/org/appng/api/FileUpload.html[org.appng.api.FileUpload^]
 * {appng}/org/appng/api/NotBlank.html[org.appng.api.NotBlank^]
 
@@ -239,7 +239,7 @@ AppNG does support validation groups by adding those to the `<meta-data>` of an 
 ----
 <meta-data bindclass="com.myapp.domain.Employee">
     <validation><!--1-->
-        <group class="javax.validation.groups.Default" /> <!--2-->
+        <group class="jakarta.validation.groups.Default" /> <!--2-->
         <group class="com.myapp.domain.Employee$AddressFields"
             condition="${current.active}" /> <!--3-->
     </validation>

@@ -51,10 +51,10 @@ public class JobExecutionRecordRepositoryTest extends AbstractRepositoryTest {
 		Assert.assertEquals(Arrays.asList("a1"), repository.getDistinctApplications(site));
 		Assert.assertEquals(Arrays.asList("j1", "j2"), repository.getDistinctJobNames(site));
 
-		JobExecutionRecord j1WithData = repository.findOne(1);
+		JobExecutionRecord j1WithData = repository.findById(1).orElse(null);
 		Assert.assertEquals(r1.getCustomData(), j1WithData.getCustomData());
 
-		JobRecord j1 = recordRepository.findOne(1);
+		JobRecord j1 = recordRepository.findById(1).orElse(null);
 		Assert.assertEquals("a1", j1.getApplication());
 
 	}

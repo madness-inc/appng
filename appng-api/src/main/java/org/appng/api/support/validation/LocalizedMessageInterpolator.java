@@ -35,7 +35,7 @@ import org.springframework.context.support.ResourceBundleMessageSource;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * A {@link javax.validation.MessageInterpolator} that is aware of a given {@link Locale} instead of using the default
+ * A {@link jakarta.validation.MessageInterpolator} that is aware of a given {@link Locale} instead of using the default
  * one. Additionally, it uses an {@link Application}'s default {@link MessageSource} to retrieve validation messages.
  * 
  * @author Matthias Müller
@@ -60,7 +60,7 @@ public class LocalizedMessageInterpolator extends ResourceBundleMessageInterpola
 	 *                      {@link ResourceBundleMessageSource} with these base names. This is necessary because a the
 	 *                      {@code messageSource} might use
 	 *                      {@link MessageSourceSupport#setAlwaysUseMessageFormat(boolean)}, which can't properly be
-	 *                      handled by {@link javax.validation.MessageInterpolator}.
+	 *                      handled by {@link jakarta.validation.MessageInterpolator}.
 	 */
 	public LocalizedMessageInterpolator(Locale locale, final MessageSource messageSource) {
 		super(getResourceBundleLocator(messageSource));

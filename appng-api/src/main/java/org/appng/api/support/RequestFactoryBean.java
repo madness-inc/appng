@@ -19,8 +19,8 @@ import java.io.File;
 import java.nio.file.Paths;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.validation.MessageInterpolator;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.MessageInterpolator;
 
 import org.apache.commons.lang3.StringUtils;
 import org.appng.api.Environment;

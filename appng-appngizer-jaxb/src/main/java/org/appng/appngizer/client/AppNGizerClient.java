@@ -50,12 +50,13 @@ import org.appng.appngizer.model.xml.Sites;
 import org.appng.appngizer.model.xml.Subject;
 import org.appng.appngizer.model.xml.Subjects;
 
-import com.fasterxml.jackson.annotation.JsonInclude.Include;
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.MapperFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.dataformat.yaml.YAMLMapper;
+import tools.jackson.dataformat.yaml.YAMLWriteFeature;
 
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -351,9 +352,7 @@ public interface AppNGizerClient {
 				throws IOException {
 			Map<String, PropertyWrapper> data = new HashMap<>();
 			data.put(name, wrapper);
-			ObjectMapper mapper = getObjectMapper(format);
-			mapper.setDefaultPropertyInclusion(Include.NON_NULL);
-			mapper.writerWithDefaultPrettyPrinter().writeValue(out, data);
+			getObjectMapper(format).writerWithDefaultPrettyPrinter().writeValue(out, data);
 		}
 
 		private static <T extends Nameable> T removeUnusedFields(T nameable) {
@@ -420,11 +419,19 @@ public interface AppNGizerClient {
 		}
 
 		private static ObjectMapper getObjectMapper(Format format) {
-			JsonFactory factory = Format.JSON.equals(format) ? new JsonFactory()
-					: new YAMLFactory().enable(YAMLGenerator.Feature.LITERAL_BLOCK_STYLE)
-							.disable(YAMLGenerator.Feature.SPLIT_LINES)
-							.disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER);
-			return new ObjectMapper(factory).setSerializationInclusion(Include.NON_ABSENT);
+			if (Format.JSON.equals(format)) {
+				return JsonMapper.builder()
+						.changeDefaultPropertyInclusion(v -> JsonInclude.Value.ALL_NON_ABSENT)
+						.disable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
+						.build();
+			}
+			return YAMLMapper.builder()
+					.enable(YAMLWriteFeature.LITERAL_BLOCK_STYLE)
+					.disable(YAMLWriteFeature.SPLIT_LINES)
+					.disable(YAMLWriteFeature.WRITE_DOC_START_MARKER)
+					.changeDefaultPropertyInclusion(v -> JsonInclude.Value.ALL_NON_ABSENT)
+					.disable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
+					.build();
 		}
 
 		/**

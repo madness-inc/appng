@@ -211,7 +211,7 @@ public class CliCore {
 			jc = createJCommanderInstance(null);
 		}
 		StringBuilder out = new StringBuilder();
-		jc.usage(out);
+		jc.getUsageFormatter().usage(out);
 		print(out.toString());
 	}
 

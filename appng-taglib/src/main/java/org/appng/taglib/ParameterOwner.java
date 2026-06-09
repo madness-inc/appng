@@ -16,7 +16,7 @@
 package org.appng.taglib;
 
 /**
- * Interface for {@link javax.servlet.jsp.tagext.Tag}lets that can be parameterized with {@link Parameter}s.
+ * Interface for {@link jakarta.servlet.jsp.tagext.Tag}lets that can be parameterized with {@link Parameter}s.
  * 
  * @author Matthias Müller
  */

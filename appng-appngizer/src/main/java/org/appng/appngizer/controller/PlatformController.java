@@ -15,7 +15,6 @@
  */
 package org.appng.appngizer.controller;
 
-import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -26,7 +25,6 @@ import org.apache.catalina.Host;
 import org.appng.appngizer.model.Platform;
 import org.appng.appngizer.model.Properties;
 import org.slf4j.Logger;
-import org.springframework.beans.support.PropertyComparator;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -93,7 +91,7 @@ public class PlatformController extends ControllerBase {
 			prop.setValue(properties.get((String) key).toString());
 			response.getProperty().add(prop);
 		}
-		Collections.sort(response.getProperty(), new PropertyComparator<>("name", true, true));
+		response.getProperty().sort((a, b) -> String.CASE_INSENSITIVE_ORDER.compare(a.getName(), b.getName()));
 		return response;
 	}
 

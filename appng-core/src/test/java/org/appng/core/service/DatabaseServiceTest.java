@@ -21,8 +21,8 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Properties;
 
-import javax.persistence.EntityManager;
-import javax.persistence.EntityManagerFactory;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
 
 import org.appng.api.model.Application;
 import org.appng.api.model.Site;
@@ -93,7 +93,7 @@ public class DatabaseServiceTest extends TestInitializer {
 				Assert.assertTrue(connection.isActive());
 				connection.testConnection(new StringBuilder());
 				Assert.assertEquals("HSQL Database Engine", connection.getProductName());
-				Assert.assertEquals("2.5.0", connection.getProductVersion());
+				Assert.assertTrue(connection.getProductVersion().startsWith("2.7"));
 				break;
 			default:
 				Assert.assertFalse(connection.isActive());

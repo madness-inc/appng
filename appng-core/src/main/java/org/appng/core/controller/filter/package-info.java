@@ -1,4 +1,4 @@
 /**
- * Contains the Servlet-{@link javax.servlet.Filter}s used by appNG.
+ * Contains the Servlet-{@link jakarta.servlet.Filter}s used by appNG.
  */
 package org.appng.core.controller.filter;

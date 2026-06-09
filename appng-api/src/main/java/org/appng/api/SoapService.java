@@ -21,7 +21,7 @@ import org.appng.api.model.Application;
 import org.appng.api.model.Site;
 
 /**
- * This interface has to be implemented for creating SOAP-webservices based on <a href="http://jaxb.java.net/">JAXB</a>
+ * This interface has to be implemented for creating SOAP-webservices based on <a href="https://jakarta.ee/specifications/xml-binding/">JAXB</a>
  * and <a href="http://www.springframework.org/spring-ws">Spring-WS</a>. The implementing class has to be annotated with
  * {@link org.springframework.ws.server.endpoint.annotation.Endpoint}.
  * 

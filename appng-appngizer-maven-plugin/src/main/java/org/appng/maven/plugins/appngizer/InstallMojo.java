@@ -28,6 +28,7 @@ import org.appng.appngizer.model.xml.Package;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
@@ -58,8 +59,8 @@ public class InstallMojo extends AppNGizerMojo {
 			ResponseEntity<Package> uploaded = upload(directInstall, privileged, hidden);
 
 			boolean doReload = true;
-			HttpStatus status = uploaded.getStatusCode();
-			boolean packageOk = status.equals(HttpStatus.OK);
+			HttpStatusCode status = uploaded.getStatusCode();
+			boolean packageOk = HttpStatus.OK.isSameCodeAs(status);
 			boolean isSiteSet = StringUtils.isNotBlank(site);
 
 			if (packageOk) {
@@ -81,7 +82,7 @@ public class InstallMojo extends AppNGizerMojo {
 						uploadPackage.setHidden(hidden);
 						ResponseEntity<Package> installPackage = send(uploadPackage, installHeader, HttpMethod.PUT,
 								String.format("repository/%s/install", repository), Package.class);
-						packageOk = HttpStatus.OK.equals(installPackage.getStatusCode());
+						packageOk = HttpStatus.OK.isSameCodeAs(installPackage.getStatusCode());
 					}
 				}
 				if (packageOk) {
@@ -95,7 +96,7 @@ public class InstallMojo extends AppNGizerMojo {
 						status = activatePackage.getStatusCode();
 						if (status.is3xxRedirection()) {
 							getLog().info(String.format("Activated application %s for site %s", packageName, site));
-						} else if (HttpStatus.METHOD_NOT_ALLOWED.equals(status)) {
+						} else if (HttpStatus.METHOD_NOT_ALLOWED.isSameCodeAs(status)) {
 							getLog().info(
 									String.format("Application %s already active for site %s", packageName, site));
 						} else {

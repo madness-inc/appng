@@ -96,7 +96,8 @@ public class ThymeleafProcessorTest {
 
 		String[] debugFolders = PlatformTransformerTest.DEBUG_FOLDER.list((f, n) -> new File(f, n).isDirectory());
 		Assert.assertTrue(debugFolders.length > 0);
-		File debugFolder = new File(PlatformTransformerTest.DEBUG_FOLDER, debugFolders[0]);
+		java.util.Arrays.sort(debugFolders);
+		File debugFolder = new File(PlatformTransformerTest.DEBUG_FOLDER, debugFolders[debugFolders.length - 1]);
 		PlatformTransformerTest.assertFolderContains(debugFolder, "platform.xml", "index.html", "template");
 
 		File debugTemplate = new File(debugFolder, "template");

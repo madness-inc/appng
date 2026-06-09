@@ -12,15 +12,15 @@
 			<field name="name" type="text" binding="site.name">
 				<label id="name">Name</label>
 				<validation>
-					<rule name="notNull" type="javax.validation.constraints.NotNull">
+					<rule name="notNull" type="jakarta.validation.constraints.NotNull">
 						<message ref="site.name" class="ERROR">Enter at most 64 characters</message>
 					</rule>
-					<rule name="size" type="javax.validation.constraints.Size">
+					<rule name="size" type="jakarta.validation.constraints.Size">
 						<option name="min" value="0" />
 						<option name="max" value="64" />
 						<message ref="site.name" class="ERROR">Field must not be empty</message>
 					</rule>
-					<rule name="pattern" type="javax.validation.constraints.Pattern">
+					<rule name="pattern" type="jakarta.validation.constraints.Pattern">
 						<option name="regexp" value="[a-zA-Z0-9\-]{3,}" />
 						<message ref="site.name" class="ERROR">Please enter a valid name, which may only consist of letters, numbers and
 							hyphens

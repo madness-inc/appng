@@ -22,7 +22,7 @@ import java.util.Date;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.GZIPOutputStream;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.commons.lang3.time.DateUtils;
 import org.appng.api.model.Site;

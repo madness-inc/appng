@@ -15,7 +15,7 @@
  */
 package org.appng.core;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang3.StringUtils;
 import org.appng.core.controller.HttpHeaders;

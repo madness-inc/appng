@@ -22,20 +22,20 @@ import java.util.Date;
 import java.util.List;
 import java.util.Properties;
 
-import javax.activation.DataHandler;
-import javax.mail.Address;
-import javax.mail.Authenticator;
-import javax.mail.Message;
-import javax.mail.Part;
-import javax.mail.PasswordAuthentication;
-import javax.mail.SendFailedException;
-import javax.mail.Session;
-import javax.mail.Transport;
-import javax.mail.internet.InternetAddress;
-import javax.mail.internet.MimeBodyPart;
-import javax.mail.internet.MimeMessage;
-import javax.mail.internet.MimeMultipart;
-import javax.mail.util.ByteArrayDataSource;
+import jakarta.activation.DataHandler;
+import jakarta.mail.Address;
+import jakarta.mail.Authenticator;
+import jakarta.mail.Message;
+import jakarta.mail.Part;
+import jakarta.mail.PasswordAuthentication;
+import jakarta.mail.SendFailedException;
+import jakarta.mail.Session;
+import jakarta.mail.Transport;
+import jakarta.mail.internet.InternetAddress;
+import jakarta.mail.internet.MimeBodyPart;
+import jakarta.mail.internet.MimeMessage;
+import jakarta.mail.internet.MimeMultipart;
+import jakarta.mail.util.ByteArrayDataSource;
 
 import org.appng.mail.Attachment;
 import org.appng.mail.Mail;
@@ -170,7 +170,7 @@ public class DefaultTransport implements MailTransport {
 			for (Receiver receiver : mail.getReceivers()) {
 				if (receiver.isValid()) {
 					RecipientType type = receiver.getType();
-					javax.mail.Message.RecipientType messageType = getRealType(type);
+					jakarta.mail.Message.RecipientType messageType = getRealType(type);
 					mimeMessage.addRecipient(messageType, toAddress(receiver));
 				}
 			}
@@ -224,14 +224,14 @@ public class DefaultTransport implements MailTransport {
 		}
 	}
 
-	private javax.mail.Message.RecipientType getRealType(RecipientType type) {
+	private jakarta.mail.Message.RecipientType getRealType(RecipientType type) {
 		switch (type) {
 		case CC:
-			return javax.mail.Message.RecipientType.CC;
+			return jakarta.mail.Message.RecipientType.CC;
 		case BCC:
-			return javax.mail.Message.RecipientType.BCC;
+			return jakarta.mail.Message.RecipientType.BCC;
 		default:
-			return javax.mail.Message.RecipientType.TO;
+			return jakarta.mail.Message.RecipientType.TO;
 		}
 	}
 

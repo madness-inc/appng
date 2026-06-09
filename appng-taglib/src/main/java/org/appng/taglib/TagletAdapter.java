@@ -21,11 +21,11 @@ import java.io.StringWriter;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.jsp.JspException;
-import javax.servlet.jsp.PageContext;
-import javax.servlet.jsp.tagext.BodyTagSupport;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.jsp.JspException;
+import jakarta.servlet.jsp.PageContext;
+import jakarta.servlet.jsp.tagext.BodyTagSupport;
 
 import org.appng.api.Environment;
 import org.appng.api.GlobalTaglet;
@@ -46,7 +46,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * This class wraps an appNG taglet ( {@link Taglet}/{@link GlobalTaglet}/{@link XMLTaglet}/{@link GlobalXMLTaglet} )
- * into an {@link javax.servlet.jsp.tagext.Tag}.
+ * into an {@link jakarta.servlet.jsp.tagext.Tag}.
  * <p/>
  * <b>Attributes:</b>
  * <ul>
@@ -124,7 +124,7 @@ public class TagletAdapter extends BodyTagSupport implements ParameterOwner {
 	}
 
 	@Override
-	public int doStartTag() throws javax.servlet.jsp.JspException {
+	public int doStartTag() throws JspException {
 		tagletAttributes = new HashMap<>();
 		return super.doStartTag();
 	}

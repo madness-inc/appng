@@ -47,6 +47,7 @@ public class RestOperationTest {
 
 	static {
 		WritingJsonValidator.writeJson = false;
+		WritingJsonValidator.sortPropertiesAlphabetically = false;
 	}
 
 	@Mock
@@ -103,7 +104,7 @@ public class RestOperationTest {
 		String[] stackTrace = handleError.getBody().getMessage().split(System.lineSeparator());
 		Assert.assertEquals("java.io.IOException: BOOOM!", stackTrace[0]);
 		Assert.assertEquals(
-				"	at org.appng.core.controller.rest.RestOperationTest.testHandleException(RestOperationTest.java:98)",
+				"	at org.appng.core.controller.rest.RestOperationTest.testHandleException(RestOperationTest.java:99)",
 				stackTrace[1]);
 	}
 

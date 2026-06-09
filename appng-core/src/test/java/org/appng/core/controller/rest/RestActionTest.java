@@ -35,8 +35,8 @@ import org.junit.Test;
 import org.mockito.Mockito;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.mock.web.MockHttpServletRequest;
+import tools.jackson.databind.json.JsonMapper;
 
 public class RestActionTest extends RestOperationTest {
 
@@ -96,7 +96,7 @@ public class RestActionTest extends RestOperationTest {
 			WritingJsonValidator.validate(action.getBody(), "rest/" + actionId + "-result.json");
 		} else {
 			InputStream resource = getStream(actionId + ".json");
-			Action input = Jackson2ObjectMapperBuilder.json().build().readValue(resource, Action.class);
+			Action input = JsonMapper.builder().build().readerFor(Action.class).readValue(resource);
 			ResponseEntity<Action> action = new RestAction(site, application, request, messageSource, true)
 					.performAction("", actionId, pathVariables, input, environment, servletRequest, servletResponse);
 
