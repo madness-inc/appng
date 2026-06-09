@@ -39,7 +39,7 @@ import lombok.extern.slf4j.Slf4j;
  * Utility class for converting images using the
  * <a href="http://www.imagemagick.org/script/convert.php">convert</a>-command of
  * <a href="http://www.imagemagick.org">ImageMagick</a> via the API provided by
- * <a href="im4java">http://im4java.sourceforge.net/</a>
+ * <a href="http://im4java.sourceforge.net/">im4java</a>
  * 
  * @author Matthias Herlitzius
  */

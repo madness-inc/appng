@@ -41,9 +41,8 @@ import com.querydsl.core.types.Predicate;
  * &lt;repositories base-class="org.appng.persistence.repository.QueryDslSearchRepositoryImpl"&gt;
  * </pre>
  *
- * See <a href=
- * "http://docs.spring.io/spring-data/jpa/docs/1.11.0.RELEASE/reference/html/#repositories.custom-behaviour-for-all-repositories">
- * 4.6.2. Adding custom behavior to all repositories</a> from the reference Documentation for further details.
+ * See <a href="https://docs.spring.io/spring-data/jpa/reference/repositories/custom-implementations.html">
+ * Adding custom behavior to all repositories</a> from the reference Documentation for further details.
  *
  * @author Matthias Müller
  *
