@@ -8,12 +8,12 @@ Version {project-version} created on {localdate}
 :stable: 1.26.0
 
 :appng: https://appng.org/appng/docs/{project-version}/javadoc
-:lucene: http://lucene.apache.org/core/8_5_0/core/index.html
-:spring: https://docs.spring.io/spring/docs/{spring-version}
+:lucene: https://lucene.apache.org/core/9_12_3/core/index.html
+:spring: https://docs.spring.io/spring-framework/docs/{spring-version}
 :spring-data: https://docs.spring.io/spring-data/commons/docs/{spring-data-version}
 :spring-data-jpa: https://docs.spring.io/spring-data/jpa/docs/{spring-data-jpa-version}
-:jse: https://docs.oracle.com/javase/8/docs/api
-:jee: https://docs.oracle.com/javaee/7/api
+:jse: https://docs.oracle.com/en/java/javase/21/docs/api
+:jee: https://jakarta.ee/specifications/platform/11/apidocs
 :appng-schema: http://www.appng.org/schema
 
 
