@@ -26,7 +26,7 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * A {@link DatasourceConfigurer} based on the <a href="http://tomcat.apache.org/tomcat-8.5-doc/jdbc-pool.html">Tomcat
+ * A {@link DatasourceConfigurer} based on the <a href="https://tomcat.apache.org/tomcat-11.0-doc/jdbc-pool.html">Tomcat
  * JDBC Connection Pool</a>.
  * 
  * @author Matthias Müller
@@ -50,7 +50,7 @@ public class TomcatJdbcConfigurer implements DatasourceConfigurer {
 
 	public void configure(DatabaseConnection connection) {
 		// see
-		// http://tomcat.apache.org/tomcat-8.5-doc/api/index.html?org/apache/tomcat/jdbc/pool/DataSource.html
+		// https://tomcat.apache.org/tomcat-11.0-doc/api/index.html?org/apache/tomcat/jdbc/pool/DataSource.html
 		this.tomcatDatasource = new org.apache.tomcat.jdbc.pool.DataSource();
 		tomcatDatasource.setUrl(connection.getJdbcUrl());
 		tomcatDatasource.setUsername(connection.getUserName());

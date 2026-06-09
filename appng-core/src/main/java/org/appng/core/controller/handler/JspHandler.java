@@ -33,7 +33,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * A {@link RequestHandler} responsible for serving JSPs. Internally,the {@link HttpServletRequest} is forwarded to the
- * <a href="http://tomcat.apache.org/tomcat-8.0-doc/jasper-howto.html">Jasper JSP Engine</a>, namely a
+ * <a href="https://tomcat.apache.org/tomcat-11.0-doc/jasper-howto.html">Jasper JSP Engine</a>, namely a
  * {@code org.apache.jasper.servlet.JspServlet}.
  * 
  * @author Matthias Müller
