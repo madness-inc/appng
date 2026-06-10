@@ -19,6 +19,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 
 /**
  * Enum type for different operating systems.
@@ -47,7 +48,7 @@ public enum OperatingSystem {
 
 	static OperatingSystem detect(String osName) {
 		String name = null != osName ? osName.toLowerCase() : "";
-		return operatingSystems.stream().filter(os -> StringUtils.containsAny(name, os.searchString)).findFirst()
+		return operatingSystems.stream().filter(os -> Strings.CS.containsAny(name, os.searchString)).findFirst()
 				.orElse(OTHER);
 	}
 

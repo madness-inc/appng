@@ -79,7 +79,7 @@ public class RequestSupportTest extends RequestSupportImpl {
 	private static ExpressionEvaluator params = new ExpressionEvaluator(new HashMap<>());
 
 	final @Before public void setUp() throws Exception {
-		MockitoAnnotations.initMocks(this);
+		MockitoAnnotations.openMocks(this);
 		Mockito.when(mockSite.getProperties()).thenReturn(properties);
 		Mockito.when(mockApp.getProperties()).thenReturn(properties);
 		java.util.Properties props = new java.util.Properties();

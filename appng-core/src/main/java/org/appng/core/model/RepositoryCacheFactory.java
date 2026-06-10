@@ -146,7 +146,7 @@ public class RepositoryCacheFactory {
 		if (caches.containsKey(id)) {
 			cacheInstance = caches.get(id);
 			Repository repo = ((RepositoryCacheBase) cacheInstance).getRepository();
-			if (!repository.getUri().equals(repo.getUri()) || repository.getVersion().after(repo.getVersion())) {
+			if (!repository.getUri().equals(repo.getUri()) || repository.getVersion().isAfter(repo.getVersion())) {
 				caches.remove(id);
 			}
 		}

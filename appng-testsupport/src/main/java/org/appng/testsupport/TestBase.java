@@ -21,9 +21,9 @@ import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -436,7 +436,7 @@ public class TestBase implements ApplicationContextInitializer<GenericApplicatio
 
 	@Before
 	public void setup() throws Exception {
-		MockitoAnnotations.initMocks(this);
+		MockitoAnnotations.openMocks(this);
 		initEnvironment();
 		application = new SimpleApplication(applicationName, context, getApplicationSubjects());
 		initRequest();
@@ -993,7 +993,7 @@ public class TestBase implements ApplicationContextInitializer<GenericApplicatio
 			return null;
 		}
 
-		public Date getVersion() {
+		public Instant getVersion() {
 			return null;
 		}
 

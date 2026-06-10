@@ -49,6 +49,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.catalina.connector.ClientAbortException;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.appng.api.Path;
 import org.appng.api.Scope;
 import org.appng.api.Session;
@@ -410,7 +411,7 @@ public class PageCacheFilter implements Filter {
 	}
 
 	protected boolean acceptsGzipEncoding(HttpServletRequest request) {
-		return StringUtils.containsIgnoreCase(request.getHeader(HttpHeaders.ACCEPT_ENCODING), GZIP);
+		return Strings.CI.contains(request.getHeader(HttpHeaders.ACCEPT_ENCODING), GZIP);
 	}
 
 }

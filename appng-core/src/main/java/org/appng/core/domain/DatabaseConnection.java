@@ -23,7 +23,7 @@ import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Date;
+import java.time.Instant;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -175,7 +175,7 @@ public class DatabaseConnection implements Auditable<Integer> {
 	private String userName;
 	private byte[] password;
 	private String driverClass;
-	private Date version;
+	private Instant version;
 	private String description;
 	private Site site;
 	private boolean managed;
@@ -283,11 +283,11 @@ public class DatabaseConnection implements Auditable<Integer> {
 	}
 
 	@Version
-	public Date getVersion() {
+	public Instant getVersion() {
 		return version;
 	}
 
-	public void setVersion(Date version) {
+	public void setVersion(Instant version) {
 		this.version = version;
 	}
 
@@ -379,7 +379,7 @@ public class DatabaseConnection implements Auditable<Integer> {
 		try {
 			@SuppressWarnings("unchecked")
 			Class<? extends Driver> driverClazz = (Class<? extends Driver>) Class.forName(driverClass);
-			DriverManager.registerDriver(driverClazz.newInstance());
+			DriverManager.registerDriver(driverClazz.getDeclaredConstructor().newInstance());
 			LOGGER.info("Registered JDBC driver {}", driverClass);
 		} catch (Exception e) {
 			if (throwException) {
@@ -416,8 +416,8 @@ public class DatabaseConnection implements Auditable<Integer> {
 				String resource = String.format("db/init/%s/size.sql", getType().name().toLowerCase());
 				InputStream sqlFile = getClass().getClassLoader().getResourceAsStream(resource);
 				if (null != sqlFile) {
-					String sizeStatement = StringUtils.replace(IOUtils.toString(sqlFile, StandardCharsets.UTF_8),
-							"<database>", getDatabaseName());
+					String sizeStatement = IOUtils.toString(sqlFile, StandardCharsets.UTF_8)
+							.replace("<database>", getDatabaseName());
 					jdbcTemplate.query(sizeStatement, new RowMapper<Void>() {
 						public Void mapRow(ResultSet rs, int rowNum) throws SQLException {
 							setDatabaseSize(rs.getDouble(1));

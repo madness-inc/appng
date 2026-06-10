@@ -53,6 +53,7 @@ import jakarta.servlet.ServletContext;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.appng.api.ApplicationConfigProvider;
 import org.appng.api.ApplicationController;
 import org.appng.api.Environment;
@@ -777,7 +778,7 @@ public class InitializerService implements InitializingBean {
 				site.setSiteClassLoader(siteClassLoader);
 				if (LOGGER.isDebugEnabled()) {
 					List<URL> urlList = Arrays.asList(siteClassLoader.getURLs());
-					urlList.sort((a, b) -> StringUtils.compare(a.toString(), b.toString()));
+					urlList.sort((a, b) -> Strings.CS.compare(a.toString(), b.toString()));
 					LOGGER.debug("Classloader for site {} contains the following URLs: {}", site.getName(),
 							StringUtils.join(urlList, ','));
 				}

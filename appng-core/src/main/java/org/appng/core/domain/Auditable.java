@@ -16,7 +16,7 @@
 package org.appng.core.domain;
 
 import java.io.Serializable;
-import java.util.Date;
+import java.time.Instant;
 
 import org.appng.api.model.Named;
 import org.appng.api.model.Versionable;
@@ -29,7 +29,7 @@ import org.appng.api.model.Versionable;
  * @param <T>
  *            the type of the ID
  */
-public interface Auditable<T extends Serializable> extends Named<T>, Versionable<Date> {
+public interface Auditable<T extends Serializable> extends Named<T>, Versionable<Instant> {
 
 	default String getAuditName() {
 		return getClass().getSimpleName().replace("Impl", "") + " " + getName();

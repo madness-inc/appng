@@ -104,7 +104,7 @@ public class ApplicationArchiveProcessor implements ZipFileProcessor<List<Resour
 		applicationResource.setDescription("");
 		applicationResource.setName(fileName);
 		applicationResource.setApplication(application);
-		applicationResource.setVersion(entry.getLastModifiedDate());
+		applicationResource.setVersion(entry.getLastModifiedDate().toInstant());
 		applicationResource.calculateChecksum();
 		LOGGER.info("adding application-resource '{}' for application '{}-{}'", fileName, application.getName(),
 				application.getPackageVersion());

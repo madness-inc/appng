@@ -25,7 +25,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Date;
+import java.time.Instant;
 import java.util.Enumeration;
 import java.util.List;
 
@@ -100,7 +100,7 @@ public class TemplateService {
 									IOUtils.copy(in, out);
 									TemplateResource templateResource = new TemplateResource();
 									templateResource.setName(path);
-									templateResource.setFileVersion(entry.getLastModifiedDate());
+									templateResource.setFileVersion(entry.getLastModifiedDate().toInstant());
 									templateResource.setResourceType(ResourceType.RESOURCE);
 									templateResource.setBytes(out.toByteArray());
 									templateResource.calculateChecksum();
@@ -261,7 +261,7 @@ public class TemplateService {
 			return template.getAppngVersion();
 		}
 
-		public Date getVersion() {
+		public Instant getVersion() {
 			return null;
 		}
 
@@ -287,7 +287,7 @@ public class TemplateService {
 					FileOutputStream out = new FileOutputStream(targetFile)) {
 				LOGGER.trace("writing {}", targetFile);
 				IOUtils.copy(in, out);
-				targetFile.setLastModified(resource.getFileVersion().getTime());
+				targetFile.setLastModified(resource.getFileVersion().toEpochMilli());
 			} catch (IOException e) {
 				LOGGER.warn("errror writing template resource", e);
 			}

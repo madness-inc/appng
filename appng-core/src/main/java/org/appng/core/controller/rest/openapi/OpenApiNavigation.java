@@ -20,6 +20,7 @@ import static org.appng.api.Scope.PLATFORM;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -117,7 +118,7 @@ abstract class OpenApiNavigation extends OpenApiOperation {
 									if (pathSeparator > 0) {
 										pageName = pageName.substring(0, pathSeparator);
 									}
-									pageItem.setDefault(StringUtils.equals(defaultPage, pageName));
+									pageItem.setDefault(Objects.equals(defaultPage, pageName));
 									appItem.addItemsItem(pageItem);
 								}
 							}

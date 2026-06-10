@@ -180,7 +180,7 @@ public class TestSupport {
 	public void setup() throws Exception {
 		WritingXmlValidator.writeXml = false;
 		Locale.setDefault(Locale.ENGLISH);
-		MockitoAnnotations.initMocks(this);
+		MockitoAnnotations.openMocks(this);
 
 		Mockito.when(servletConfig.getServletContext()).thenReturn(ctx);
 
@@ -337,6 +337,8 @@ public class TestSupport {
 
 		Mockito.when(environment.getAttribute(Scope.PLATFORM, Platform.Environment.PLATFORM_CONFIG))
 				.thenReturn(platformProperties);
+		Mockito.when(environment.getAttribute(Scope.PLATFORM, Platform.Environment.SITES))
+				.thenReturn(siteMap);
 
 		provider = new TestApplicationProvider(site, application1) {
 			@Override

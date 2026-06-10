@@ -242,7 +242,7 @@ abstract class OpenApiAction extends OpenApiOperation {
 		}
 
 		Action action = getAction(application, executingRequest, processedAction, env, receivedData, false, null);
-		return new ResponseEntity<>(action, hasErrors() ? HttpStatus.UNPROCESSABLE_ENTITY : HttpStatus.OK);
+		return new ResponseEntity<>(action, hasErrors() ? HttpStatus.UNPROCESSABLE_CONTENT : HttpStatus.OK);
 	}
 
 	protected RestRequest getInitialRequest(Site site, Application application, Environment environment,

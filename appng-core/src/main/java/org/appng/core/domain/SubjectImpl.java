@@ -15,6 +15,7 @@
  */
 package org.appng.core.domain;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -71,7 +72,7 @@ public class SubjectImpl implements Subject, Auditable<Integer> {
 	private String timeZone;
 	private String digest;
 	private String salt;
-	private Date version;
+	private Instant version;
 	private List<Group> groups = new ArrayList<>();
 	private UserType userType;
 	private String typeName;
@@ -104,7 +105,7 @@ public class SubjectImpl implements Subject, Auditable<Integer> {
 	}
 
 	@Version
-	public Date getVersion() {
+	public Instant getVersion() {
 		return version;
 	}
 

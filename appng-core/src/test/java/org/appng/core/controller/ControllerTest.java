@@ -626,14 +626,14 @@ public class ControllerTest extends Controller {
 
 	@Test
 	public void testNameBasedHost() {
-		String siteName = RequestUtil.getSiteName(base.environment, base.request);
+		String siteName = RequestUtil.getSite(base.environment, base.request).getName();
 		Assert.assertEquals(base.host, siteName);
 	}
 
 	@Test
 	public void testServerLocalName() {
 		Mockito.when(base.request.getAttribute("SERVER_LOCAL_NAME")).thenReturn(base.host);
-		String siteName = RequestUtil.getSiteName(base.environment, base.request);
+		String siteName = RequestUtil.getSite(base.environment, base.request).getName();
 		Assert.assertEquals(base.host, siteName);
 		Assert.assertEquals(base.host, base.request.getServerName());
 	}

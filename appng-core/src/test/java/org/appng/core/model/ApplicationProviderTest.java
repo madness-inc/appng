@@ -19,7 +19,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.Date;
+import java.time.Instant;
 import java.util.Set;
 
 import jakarta.xml.bind.JAXBException;
@@ -89,7 +89,7 @@ public class ApplicationProviderTest extends TestBase {
 		public void setFileBased(boolean fileBased) {
 		}
 
-		public void setVersion(Date version) {
+		public void setVersion(Instant version) {
 		}
 
 		public void setPermissions(Set<Permission> permissions) {

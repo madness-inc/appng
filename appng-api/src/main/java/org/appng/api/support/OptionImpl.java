@@ -63,10 +63,6 @@ public class OptionImpl implements Option {
 		return attributeMap.containsKey(name);
 	}
 
-	public String getAttribute(String name) {
-		return getString(name);
-	}
-
 	public int getAttributeAsInteger(String name) {
 		return Integer.valueOf(attributeMap.get(name));
 	}

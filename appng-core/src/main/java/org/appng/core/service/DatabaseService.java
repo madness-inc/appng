@@ -30,6 +30,7 @@ import javax.sql.DataSource;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.appng.api.model.Application;
 import org.appng.api.model.Site;
 import org.appng.core.domain.DatabaseConnection;
@@ -42,6 +43,7 @@ import org.appng.xml.application.Datasource;
 import org.appng.xml.application.DatasourceType;
 import org.appng.xml.application.Datasources;
 import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.CoreLocationPrefix;
 import org.flywaydb.core.api.Location;
 import org.flywaydb.core.api.MigrationInfoService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -213,7 +215,7 @@ public class DatabaseService extends MigrationService {
 				LOGGER.info("starting database migration for {} from {}", jdbcUrl, scriptFolder.getAbsolutePath());
 
 				List<String> locations = new ArrayList<>();
-				locations.add(Location.FILESYSTEM_PREFIX + scriptFolder.getAbsolutePath());
+				locations.add(CoreLocationPrefix.FILESYSTEM_PREFIX + scriptFolder.getAbsolutePath());
 				String flywayMigrationPackage = siteApplication.getApplication().getProperties()
 						.getString(ApplicationProperties.FLYWAY_MIGRATION_PACKAGE);
 				if (StringUtils.isNotBlank(flywayMigrationPackage)) {
@@ -243,7 +245,7 @@ public class DatabaseService extends MigrationService {
 		newPassword = StringUtils.reverse(newPassword);
 		int i = 1;
 		while (newPassword.contains(UNDERSCORE)) {
-			newPassword = StringUtils.replaceOnce(newPassword, UNDERSCORE, String.valueOf(i++));
+			newPassword = Strings.CS.replaceOnce(newPassword, UNDERSCORE, String.valueOf(i++));
 			newPassword = StringUtils.capitalize(newPassword);
 		}
 		return newPassword;

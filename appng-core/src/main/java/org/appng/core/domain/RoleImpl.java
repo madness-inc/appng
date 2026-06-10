@@ -15,7 +15,7 @@
  */
 package org.appng.core.domain;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -54,7 +54,7 @@ public class RoleImpl implements Role, Auditable<Integer> {
 	private Integer id;
 	private String name;
 	private String description;
-	private Date version;
+	private Instant version;
 	private Application application;
 	private Set<Permission> permissions = new HashSet<>();
 
@@ -90,11 +90,11 @@ public class RoleImpl implements Role, Auditable<Integer> {
 	}
 
 	@Version
-	public Date getVersion() {
+	public Instant getVersion() {
 		return version;
 	}
 
-	public void setVersion(Date version) {
+	public void setVersion(Instant version) {
 		this.version = version;
 	}
 

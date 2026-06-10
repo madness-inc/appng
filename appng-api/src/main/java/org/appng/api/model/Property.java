@@ -215,9 +215,6 @@ public interface Property {
 	 */
 	String getName();
 
-	@Deprecated
-	boolean isMandatory();
-
 	/**
 	 * Returns the default {@link String}-value of this {@code Property}.
 	 * 

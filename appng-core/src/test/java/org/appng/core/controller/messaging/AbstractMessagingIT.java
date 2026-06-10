@@ -62,7 +62,7 @@ public abstract class AbstractMessagingIT {
 
 	@Test(timeout = 5000)
 	public void test() throws Exception {
-		MockitoAnnotations.initMocks(this);
+		MockitoAnnotations.openMocks(this);
 		test(true);
 	}
 

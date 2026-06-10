@@ -44,6 +44,7 @@ import javax.xml.transform.stream.StreamResult;
 import javax.xml.transform.stream.StreamSource;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.appng.api.Environment;
 import org.appng.api.InvalidConfigurationException;
 import org.appng.api.PathInfo;
@@ -246,7 +247,7 @@ public final class ApplicationAdapter extends BodyTagSupport implements Paramete
 				state = doRedirect(servletResponse, location, redirectTarget);
 			} else {
 				String result = "";
-				if (!StringUtils.equalsIgnoreCase(Boolean.FALSE.toString(), request.getParameters().get("replace"))) {
+				if (!Strings.CI.equals(Boolean.FALSE.toString(), request.getParameters().get("replace"))) {
 					platform.getConfig().setBaseUrl(baseUrl);
 					adjustNavigationItems(platform.getNavigation().getItem(), "", "");
 				}

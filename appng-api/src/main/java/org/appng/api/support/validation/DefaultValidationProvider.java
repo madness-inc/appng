@@ -53,6 +53,7 @@ import jakarta.validation.metadata.PropertyDescriptor;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.appng.api.FieldProcessor;
 import org.appng.api.FileUpload;
 import org.appng.api.ValidationProvider;
@@ -89,8 +90,8 @@ public class DefaultValidationProvider implements ValidationProvider {
 	private static final String INDEX_PATTERN = "\\[\\d*\\]";
 
 	private static final Comparator<? super Message> MESSAGE_SORTER = (m1, m2) -> {
-		int byRef = StringUtils.compare(m1.getRef(), m2.getRef());
-		return 0 != byRef ? byRef : StringUtils.compare(m1.getCode(), m2.getCode());
+		int byRef = Strings.CS.compare(m1.getRef(), m2.getRef());
+		return 0 != byRef ? byRef : Strings.CS.compare(m1.getCode(), m2.getCode());
 	};
 
 	private Validator validator;

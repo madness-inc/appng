@@ -15,10 +15,10 @@
  */
 package org.appng.core.model;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Date;
 import java.util.List;
 
 import org.appng.xml.application.ApplicationInfo;
@@ -39,8 +39,8 @@ public class RepositoryUtilsTest {
 	public void testGetDate() {
 		ApplicationInfo app = new ApplicationInfo();
 		app.setTimestamp("19700101-0100");
-		Date date = RepositoryUtils.getDate(app);
-		Assert.assertEquals(0, date.getTime());
+		Instant date = RepositoryUtils.getDate(app);
+		Assert.assertEquals(Instant.EPOCH, date);
 	}
 
 	@Test

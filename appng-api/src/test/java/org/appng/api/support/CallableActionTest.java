@@ -275,7 +275,7 @@ public class CallableActionTest {
 	}
 
 	public ApplicationRequest initApplication(boolean withDataSource) {
-		MockitoAnnotations.initMocks(this);
+		MockitoAnnotations.openMocks(this);
 
 		permissionProcessor = new DefaultPermissionProcessor(subject, site, application);
 		ResourceBundleMessageSource messageSource = new ResourceBundleMessageSource();

@@ -19,11 +19,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.TimeZone;
 
-import jakarta.servlet.ServletContext;
-import jakarta.servlet.ServletRequest;
-import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
 
 import org.appng.api.model.Application;
 import org.appng.api.model.Site;
@@ -152,29 +148,6 @@ public interface Environment {
 	 * @return {@code true} if the current {@link Subject} is authenticated, {@code false} otherwise
 	 */
 	boolean isSubjectAuthenticated();
-
-	/**
-	 * Initializes the {@link Environment}.
-	 * 
-	 * @param context
-	 *                 a {@link ServletContext}
-	 * @param session
-	 *                 a {@link HttpSession}
-	 * @param request
-	 *                 a {@link ServletRequest}
-	 * @param response
-	 *                 a {@link ServletResponse}
-	 * @param host
-	 *                 the host for the site-{@link Scope}
-	 * 
-	 * @throws IllegalStateException
-	 *                               if this {@link Environment} already has been initialized
-	 * 
-	 * @deprecated no replacement
-	 */
-	@Deprecated
-	void init(ServletContext context, HttpSession session, ServletRequest request, ServletResponse response,
-			String host);
 
 	/**
 	 * Returns the current {@link Site}, if this environment has been created from a {@link HttpServletRequest}

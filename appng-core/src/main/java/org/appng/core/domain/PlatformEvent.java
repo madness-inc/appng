@@ -15,7 +15,7 @@
  */
 package org.appng.core.domain;
 
-import java.util.Date;
+import java.time.Instant;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -26,8 +26,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
-import jakarta.persistence.Temporal;
-import jakarta.persistence.TemporalType;
 import jakarta.persistence.Version;
 
 /**
@@ -39,7 +37,7 @@ import jakarta.persistence.Version;
 @Table(name = "platform_event")
 public class PlatformEvent {
 	private Integer id;
-	private Date created;
+	private Instant created;
 	private String user;
 	private String event;
 	private String application;
@@ -70,12 +68,11 @@ public class PlatformEvent {
 	}
 
 	@Version
-	@Temporal(TemporalType.TIMESTAMP)
-	public Date getCreated() {
+	public Instant getCreated() {
 		return created;
 	}
 
-	public void setCreated(Date created) {
+	public void setCreated(Instant created) {
 		this.created = created;
 	}
 

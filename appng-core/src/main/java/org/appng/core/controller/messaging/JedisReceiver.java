@@ -16,6 +16,7 @@
 package org.appng.core.controller.messaging;
 
 import java.io.IOException;
+import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 
 import org.apache.commons.lang3.StringUtils;
@@ -83,7 +84,7 @@ public class JedisReceiver extends JedisBase implements Receiver, Runnable {
 		String currentNode = eventSerializer.getNodeId();
 		String originNode = event.getNodeId();
 		LOGGER.debug("current node: {}, originNode node: {}", currentNode, originNode);
-		boolean sameNode = StringUtils.equals(currentNode, originNode);
+		boolean sameNode = Objects.equals(currentNode, originNode);
 		if (!sameNode) {
 			LOGGER.info("about to execute {} ", event);
 			for (EventHandler<Event> eventHandler : eventRegistry.getHandlers(event)) {

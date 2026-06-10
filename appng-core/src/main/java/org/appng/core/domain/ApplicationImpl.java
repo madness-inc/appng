@@ -17,7 +17,7 @@ package org.appng.core.domain;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Date;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -74,7 +74,7 @@ public class ApplicationImpl implements AccessibleApplication, Auditable<Integer
 	private Integer id;
 	private String name;
 	private String description;
-	private Date version;
+	private Instant version;
 	private String displayName;
 	private String applicationVersion;
 	private String timestamp;
@@ -126,11 +126,11 @@ public class ApplicationImpl implements AccessibleApplication, Auditable<Integer
 	}
 
 	@Version
-	public Date getVersion() {
+	public Instant getVersion() {
 		return version;
 	}
 
-	public void setVersion(Date version) {
+	public void setVersion(Instant version) {
 		this.version = version;
 	}
 

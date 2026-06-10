@@ -18,7 +18,7 @@ package org.appng.core.controller;
 import static org.appng.api.Scope.PLATFORM;
 
 import java.util.ArrayList;
-import java.util.Date;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -47,7 +47,7 @@ public class RequestUtilTest {
 
 	@Test
 	public void testGetSite() {
-		MockitoAnnotations.initMocks(this);
+		MockitoAnnotations.openMocks(this);
 		PropertyHolder propertyHolder = new PropertyHolder(PropertySupport.PREFIX_PLATFORM, new ArrayList<>());
 		new PropertySupport(propertyHolder).initPlatformConfig("target/root", true);
 		Mockito.when(environment.getAttribute(PLATFORM, Platform.Environment.PLATFORM_CONFIG))
@@ -79,7 +79,7 @@ public class RequestUtilTest {
 		site.setHost("site-" + i);
 		site.setName("site-" + i);
 		site.setDomain("http://www.localhost.de:808" + i);
-		site.setVersion(new Date());
+		site.setVersion(Instant.now());
 		return site;
 	}
 }

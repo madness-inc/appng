@@ -23,6 +23,7 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import jakarta.servlet.http.HttpSession;
@@ -159,7 +160,7 @@ public class RuleValidation {
 	}
 
 	public static boolean captcha(String value, String result) {
-		return StringUtils.equals(value, result);
+		return Objects.equals(value, result);
 	}
 
 	public static boolean email(String string) {
@@ -167,7 +168,7 @@ public class RuleValidation {
 	}
 
 	public static boolean equals(String string1, String string2) {
-		return StringUtils.equals(string1, string2);
+		return Objects.equals(string1, string2);
 	}
 
 	public static boolean number(String string) {

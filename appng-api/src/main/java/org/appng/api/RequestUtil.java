@@ -248,19 +248,6 @@ public class RequestUtil {
 				blobDirectories, documentDirectories, repoPath, monitoringPath, extension);
 	}
 
-	/** @deprecated use {@link #getRequestIdentifier(Environment, ServletRequest)} */
-	@Deprecated
-	public static String getHostIdentifier(ServletRequest request, Environment env) {
-		return getSiteName(env, request);
-	}
-
-	/** @deprecated use {@link #getRequestIdentifier(Environment, ServletRequest)} */
-	@Deprecated
-	public static String getSiteName(Environment env, ServletRequest request) {
-		RequestIdentifier reqId = getRequestIdentifier(env, request);
-		return reqId.name;
-	}
-
 	/**
 	 * Retrieves a name according to the mapping logic described in the class documentation above together with the
 	 * matching scope to be applied.

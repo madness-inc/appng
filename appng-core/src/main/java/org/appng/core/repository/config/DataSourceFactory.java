@@ -61,7 +61,7 @@ public class DataSourceFactory implements FactoryBean<DataSource>, DisposableBea
 	private DatasourceConfigurer initConfigurer() {
 		try {
 			Class<?> loadClass = Thread.currentThread().getContextClassLoader().loadClass(configurerClass);
-			this.configurer = (DatasourceConfigurer) loadClass.newInstance();
+			this.configurer = (DatasourceConfigurer) loadClass.getDeclaredConstructor().newInstance();
 			this.configurer.setLogPerformance(logPerformance);
 			this.configurer.setConnectionTimeout(connectionTimeout);
 			this.configurer.setValidationTimeout(validationTimeout);

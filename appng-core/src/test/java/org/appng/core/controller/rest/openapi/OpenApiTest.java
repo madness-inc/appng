@@ -15,7 +15,7 @@
  */
 package org.appng.core.controller.rest.openapi;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.Set;
 
 import org.appng.api.Path;
@@ -100,7 +100,7 @@ class OpenApiTest extends TestBase {
 		public void setFileBased(boolean fileBased) {
 		}
 
-		public void setVersion(Date version) {
+		public void setVersion(Instant version) {
 		}
 
 		public void setPermissions(Set<Permission> permissions) {

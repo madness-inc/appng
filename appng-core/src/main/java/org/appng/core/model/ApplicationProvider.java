@@ -23,7 +23,7 @@ import java.io.PrintStream;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -871,11 +871,11 @@ public class ApplicationProvider extends SiteApplication implements AccessibleAp
 		application.setFileBased(fileBased);
 	}
 
-	public Date getVersion() {
+	public Instant getVersion() {
 		return application.getVersion();
 	}
 
-	public void setVersion(Date version) {
+	public void setVersion(Instant version) {
 		application.setVersion(version);
 	}
 

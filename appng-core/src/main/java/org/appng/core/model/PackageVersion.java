@@ -15,7 +15,7 @@
  */
 package org.appng.core.model;
 
-import java.util.Date;
+import java.time.Instant;
 
 import org.appng.api.model.Identifier;
 import org.appng.xml.application.ApplicationInfo;
@@ -80,7 +80,7 @@ public class PackageVersion implements Identifier, Comparable<PackageVersion> {
 		return packageInfo.getDisplayName();
 	}
 
-	public Date getVersion() {
+	public Instant getVersion() {
 		return RepositoryUtils.getDate(packageInfo);
 	}
 

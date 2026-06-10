@@ -27,6 +27,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -254,7 +255,7 @@ public abstract class AbstractRequestProcessor implements RequestProcessor {
 			authentication.setRef(loginRef);
 			authentication.setSite(site.getName());
 			authenticationList.add(authentication);
-			if (StringUtils.equals(applicationName, authApplication) && StringUtils.equals(page, loginPage)) {
+			if (Objects.equals(applicationName, authApplication) && Objects.equals(page, loginPage)) {
 				defaultAuthentication = authentication;
 			}
 		}

@@ -65,7 +65,7 @@ public class ConnectionInfo {
 		this.connection = connection;
 
 		try {
-			driver = (Driver) Class.forName(driverClass).newInstance();
+			driver = (Driver) Class.forName(driverClass).getDeclaredConstructor().newInstance();
 		} catch (Exception e) {
 			throw new IllegalArgumentException("can not instantiate driver class", e);
 		}

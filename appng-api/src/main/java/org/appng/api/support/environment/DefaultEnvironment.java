@@ -107,18 +107,6 @@ public class DefaultEnvironment implements Environment {
 		init(servletRequest.getServletContext(), servletRequest, servletResponse);
 	}
 
-	/**
-	 * Initializes the environment
-	 * 
-	 * @deprecated use {@link #init(ServletContext, ServletRequest, ServletResponse)} instead.
-	 */
-	@Override
-	@Deprecated
-	public void init(ServletContext context, HttpSession session, ServletRequest request, ServletResponse response,
-			String host) {
-		init(context, request, response);
-	}
-
 	public synchronized void init(ServletContext servletContext, ServletRequest servletRequest,
 			ServletResponse servletResponse) {
 		if (!initialized) {

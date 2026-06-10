@@ -18,7 +18,7 @@ package org.appng.core.service;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Date;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -48,15 +48,14 @@ import org.appng.testsupport.persistence.TestDataProvider;
 
 public class AppNGTestDataProvider implements TestDataProvider {
 
-	public static final String SALT = "vh/ehxDEkAM=";
-	public static final String DIGEST = "VlBQQcXL+lpSZwu86CSYmdaB3pY=";
+	public static final String SALT = null;
+	public static final String DIGEST = "$2a$10$TZ8Yo6Z4iVkk4RDGrbKqEuF5BAMy3kz2NI29O.CqxIU21NH4maBjK";
 
 	public void writeTestData(EntityManager em) {
 		SubjectImpl subject1 = getSubject(1, UserType.GLOBAL_GROUP, new ArrayList<>());
 		SubjectImpl subject2 = getSubject(2, UserType.GLOBAL_USER, new ArrayList<>());
 		SubjectImpl subject3 = getSubject(3, UserType.LOCAL_USER, new ArrayList<>());
 		subject3.setDigest(DIGEST);
-		subject3.setSalt(SALT);
 
 		em.persist(subject1);
 		em.persist(subject2);
@@ -181,7 +180,7 @@ public class AppNGTestDataProvider implements TestDataProvider {
 		p.setName(name);
 		p.setMandatory(isMandatory);
 		p.setString(vlaue);
-		p.setVersion(new Date());
+		p.setVersion(Instant.now());
 		return p;
 	}
 
@@ -190,7 +189,7 @@ public class AppNGTestDataProvider implements TestDataProvider {
 		p.setDescription("Permission description-" + i);
 		p.setName("permission-" + i);
 		p.setApplication(application);
-		p.setVersion(new Date());
+		p.setVersion(Instant.now());
 
 		return p;
 	}
@@ -221,7 +220,7 @@ public class AppNGTestDataProvider implements TestDataProvider {
 		pRole.setName(name);
 		pRole.setPermissions(new HashSet<>());
 		pRole.setApplication(application);
-		pRole.setVersion(new Date());
+		pRole.setVersion(Instant.now());
 		return pRole;
 	}
 
@@ -232,7 +231,7 @@ public class AppNGTestDataProvider implements TestDataProvider {
 		site.setHost("host-" + i);
 		site.setName("site-" + i);
 		site.setDomain("http://www.localhost.de:808" + i);
-		site.setVersion(new Date());
+		site.setVersion(Instant.now());
 		return site;
 	}
 
@@ -240,7 +239,7 @@ public class AppNGTestDataProvider implements TestDataProvider {
 		GroupImpl group = new GroupImpl();
 		group.setDescription("Group description-" + i);
 		group.setName("group-" + i);
-		group.setVersion(new Date());
+		group.setVersion(Instant.now());
 		group.setRoles(applicationRoles);
 		group.setSubjects(subjects);
 		return group;
@@ -255,7 +254,7 @@ public class AppNGTestDataProvider implements TestDataProvider {
 		subject.setEmail("subject" + i + "@aiticon.de");
 		subject.setRealname("subject_username-" + i);
 		subject.setUserType(userType);
-		subject.setVersion(new Date());
+		subject.setVersion(Instant.now());
 		subject.setGroups(groups);
 		return subject;
 

@@ -55,7 +55,7 @@ public class RequestDataBinderTest {
 
 	@Test
 	public void doTest() {
-		MockitoAnnotations.initMocks(this);
+		MockitoAnnotations.openMocks(this);
 
 		Map<String, List<String>> paramters = new HashMap<>();
 		paramters.put(NAME, Arrays.asList("Doe"));

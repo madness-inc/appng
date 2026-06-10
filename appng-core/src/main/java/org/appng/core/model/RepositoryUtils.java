@@ -17,10 +17,11 @@ package org.appng.core.model;
 
 import java.io.File;
 import java.text.ParseException;
+import java.time.Instant;
 import java.util.Comparator;
-import java.util.Date;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.time.FastDateFormat;
 import org.appng.core.domain.PackageArchiveImpl;
 import org.appng.xml.application.PackageInfo;
@@ -93,7 +94,7 @@ public class RepositoryUtils {
 						.compareTo(Version.parseVersion(p2.getVersion(), true));
 			}
 			if (compared == 0) {
-				compared = StringUtils.compare(p1.getVersion(), p2.getVersion());
+				compared = Strings.CS.compare(p1.getVersion(), p2.getVersion());
 			}
 			if (compared == 0) {
 				compared = getDate(p1).compareTo(getDate(p2));
@@ -104,18 +105,18 @@ public class RepositoryUtils {
 	}
 
 	/**
-	 * Retrieves the {@link Date} from the given {@link PackageInfo} by parsing its timestamp
-	 * 
+	 * Retrieves the {@link Instant} from the given {@link PackageInfo} by parsing its timestamp
+	 *
 	 * @param packageInfo
 	 *                    the {@link PackageInfo}
-	 * 
-	 * @return the date (never {@code null}, in case of a {@link ParseException}, the "zero-time" is used)
+	 *
+	 * @return the instant (never {@code null}, in case of a {@link ParseException}, the "zero-time" is used)
 	 */
-	public static Date getDate(PackageInfo packageInfo) {
+	public static Instant getDate(PackageInfo packageInfo) {
 		try {
-			return FDF.parse(packageInfo.getTimestamp());
+			return FDF.parse(packageInfo.getTimestamp()).toInstant();
 		} catch (ParseException e) {
-			return new Date(0L);
+			return Instant.EPOCH;
 		}
 	}
 

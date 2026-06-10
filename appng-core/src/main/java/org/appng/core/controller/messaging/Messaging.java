@@ -15,6 +15,7 @@
  */
 package org.appng.core.controller.messaging;
 
+import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 
 import org.apache.commons.lang3.StringUtils;
@@ -46,7 +47,7 @@ class Messaging {
 				String currentNode = serializer.getNodeId();
 				String originNode = event.getNodeId();
 				logger.trace("current node: {}, originNode node: {}", currentNode, originNode);
-				boolean sameNode = StringUtils.equals(currentNode, originNode);
+				boolean sameNode = Objects.equals(currentNode, originNode);
 				if (!sameNode || alternativeCondition) {
 					logger.info("about to execute {} ", event);
 					boolean isAsync = event.isAsync() && null != executor;

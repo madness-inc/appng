@@ -174,10 +174,6 @@ public class ConfigurablePasswordPolicy implements PasswordPolicy {
 		return StringUtils.EMPTY;
 	}
 
-	public boolean isValidPassword(char[] password) {
-		return passwordValidator.validate(new PasswordData(new String(password))).isValid();
-	}
-
 	@Override
 	public ValidationResult validatePassword(String username, char[] currentPassword, char[] password) {
 		PasswordData passwordData = null;
@@ -203,10 +199,6 @@ public class ConfigurablePasswordPolicy implements PasswordPolicy {
 		}).collect(Collectors.toList());
 
 		return new ValidationResult(validate.isValid(), messages.toArray(new MessageParam[0]));
-	}
-
-	public String getErrorMessageKey() {
-		return null;
 	}
 
 	public String generatePassword() {

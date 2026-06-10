@@ -40,6 +40,7 @@ import org.appng.xml.MarshallService;
 import org.appng.xml.MarshallService.AppNGSchema;
 import org.appng.xml.transformation.StyleSheetProvider;
 import org.hibernate.cfg.AvailableSettings;
+import org.hibernate.cfg.JdbcSettings;
 import org.hibernate.jpa.HibernatePersistenceProvider;
 import org.hsqldb.jdbc.JDBCDriver;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -97,10 +98,10 @@ public class PlatformTestConfig {
 		lemfb.setPersistenceUnitName("hsql-testdb");
 		Properties jpaProperties = new Properties();
 		jpaProperties.put(AvailableSettings.DIALECT, HSQLDialect.class.getName());
-		jpaProperties.put(AvailableSettings.DRIVER, JDBCDriver.class.getName());
-		jpaProperties.put(AvailableSettings.URL, "jdbc:hsqldb:mem:hsql-testdb");
-		jpaProperties.put(AvailableSettings.USER, "sa");
-		jpaProperties.put(AvailableSettings.PASS, "");
+		jpaProperties.put(JdbcSettings.JAKARTA_JDBC_DRIVER, JDBCDriver.class.getName());
+		jpaProperties.put(JdbcSettings.JAKARTA_JDBC_URL, "jdbc:hsqldb:mem:hsql-testdb");
+		jpaProperties.put(JdbcSettings.JAKARTA_JDBC_USER, "sa");
+		jpaProperties.put(JdbcSettings.JAKARTA_JDBC_PASSWORD, "");
 		jpaProperties.put(AvailableSettings.HBM2DDL_AUTO, "create");
 
 		lemfb.setJpaProperties(jpaProperties);

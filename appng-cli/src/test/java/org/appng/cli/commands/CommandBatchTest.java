@@ -18,6 +18,7 @@ package org.appng.cli.commands;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.appng.tools.os.OperatingSystem;
 import org.junit.Assert;
 import org.junit.Test;
@@ -76,7 +77,7 @@ public class CommandBatchTest {
 
 		case MACOSX:
 			Assert.assertArrayEquals(new String[0], batch.parseLine("def HOME = ${systemEnv['HOME']}"));
-			Assert.assertTrue(StringUtils.containsIgnoreCase(variables.get("HOME"), "users"));
+			Assert.assertTrue(Strings.CI.contains(variables.get("HOME"), "users"));
 			break;
 
 		case OTHER:

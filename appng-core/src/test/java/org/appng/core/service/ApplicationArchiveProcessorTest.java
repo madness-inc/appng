@@ -36,7 +36,7 @@ public class ApplicationArchiveProcessorTest {
 	public void test() throws ParseException, IOException {
 		ApplicationImpl application = new ApplicationImpl();
 		application.setName(PackageArchiveTest.NAME);
-		application.setVersion(DateUtils.parseDate(PackageArchiveTest.TIMESTAMP, "yyyy-MM-dd-HHmm"));
+		application.setVersion(DateUtils.parseDate(PackageArchiveTest.TIMESTAMP, "yyyy-MM-dd-HHmm").toInstant());
 		PackageArchive applicationArchive = PackageArchiveTest.getPackageArchive();
 		ApplicationArchiveProcessor processor = new ApplicationArchiveProcessor(application);
 		List<Resource> resources = applicationArchive.processZipFile(processor);

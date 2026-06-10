@@ -30,10 +30,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 
-import jakarta.servlet.ServletContext;
-import jakarta.servlet.ServletRequest;
-import jakarta.servlet.ServletResponse;
-import jakarta.servlet.http.HttpSession;
 
 import org.appng.api.BusinessException;
 import org.appng.api.Environment;
@@ -206,12 +202,6 @@ public class HeartBeat implements ExecutableCliCommand {
 			return false;
 		}
 
-		public void init(ServletContext context, ServletRequest request, ServletResponse response, String host) {
-		}
-
-		public void init(ServletContext context, HttpSession session, ServletRequest request, ServletResponse response,
-				String host) {
-		}
 	}
 
 	public static class HeartBeatEvent extends Event implements Serializable {

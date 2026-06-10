@@ -121,7 +121,7 @@ public class CallableDataSourceTest {
 
 	@Before
 	public void setup() {
-		MockitoAnnotations.initMocks(this);
+		MockitoAnnotations.openMocks(this);
 		Mockito.when(site.getProperties()).thenReturn(properties);
 		Mockito.when(application.getProperties()).thenReturn(properties);
 		java.util.Properties props = new java.util.Properties();

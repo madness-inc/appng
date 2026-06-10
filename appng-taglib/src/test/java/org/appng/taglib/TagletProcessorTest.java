@@ -80,7 +80,7 @@ public class TagletProcessorTest {
 
 	@Before
 	public void setup() {
-		MockitoAnnotations.initMocks(this);
+		MockitoAnnotations.openMocks(this);
 		Mockito.when(request.getEnvironment()).thenReturn(environment);
 		Mockito.when(site.getSiteClassLoader()).thenReturn(new URLClassLoader(new URL[0]));
 		org.appng.api.model.Properties props = Mockito.mock(org.appng.api.model.Properties.class);

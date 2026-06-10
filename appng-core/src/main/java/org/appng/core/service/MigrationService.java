@@ -25,10 +25,7 @@ import org.appng.core.domain.DatabaseConnection;
 import org.appng.core.domain.DatabaseConnection.DatabaseType;
 import org.appng.core.domain.SiteApplication;
 import org.flywaydb.core.Flyway;
-import org.flywaydb.core.api.FlywayException;
-import org.flywaydb.core.api.Location;
-import org.flywaydb.core.api.MigrationInfo;
-import org.flywaydb.core.api.MigrationInfoService;
+import org.flywaydb.core.api.*;
 import org.flywaydb.core.api.configuration.FluentConfiguration;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
@@ -241,7 +238,7 @@ public class MigrationService {
 			String typeFolder = connection.getType().name().toLowerCase();
 			File scriptFolder = new File(sqlFolder.getAbsolutePath(), typeFolder);
 			try {
-				Flyway flyway = getFlyway(connection, null, Location.FILESYSTEM_PREFIX + scriptFolder.getAbsolutePath());
+				Flyway flyway = getFlyway(connection, null, CoreLocationPrefix.FILESYSTEM_PREFIX + scriptFolder.getAbsolutePath());
 				MigrationInfoService info = flyway.info();
 				connection.setMigrationInfoService(info);
 				return info;

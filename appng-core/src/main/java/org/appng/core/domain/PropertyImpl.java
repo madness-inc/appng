@@ -15,7 +15,7 @@
  */
 package org.appng.core.domain;
 
-import java.util.Date;
+import java.time.Instant;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -68,11 +68,6 @@ public class PropertyImpl extends SimpleProperty implements Property, Auditable<
 	}
 
 	@Override
-	public boolean isMandatory() {
-		return super.isMandatory();
-	}
-
-	@Override
 	@Transient
 	public String getId() {
 		return getName();
@@ -80,7 +75,7 @@ public class PropertyImpl extends SimpleProperty implements Property, Auditable<
 
 	@Override
 	@Version
-	public Date getVersion() {
+	public Instant getVersion() {
 		return super.getVersion();
 	}
 
@@ -114,6 +109,12 @@ public class PropertyImpl extends SimpleProperty implements Property, Auditable<
 	@Lob
 	public String getClob() {
 		return super.getClob();
+	}
+
+	@Override
+	@Column(name = "mandatory")
+	public boolean isMandatory() {
+		return super.isMandatory();
 	}
 
 	@Override

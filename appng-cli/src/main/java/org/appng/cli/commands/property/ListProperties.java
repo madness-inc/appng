@@ -15,7 +15,10 @@
  */
 package org.appng.cli.commands.property;
 
+import java.util.Objects;
+
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.appng.api.BusinessException;
 import org.appng.api.model.Property;
 import org.appng.cli.CliEnvironment;
@@ -107,13 +110,13 @@ public class ListProperties extends CommandList implements ExecutableCliCommand 
 
 	private boolean doFilter(Property property, String filterValue) {
 		boolean hasFilter = StringUtils.isNotBlank(filterValue);
-		boolean filterMatch = StringUtils.containsIgnoreCase(property.getName(), filterValue)
-				|| StringUtils.containsIgnoreCase(property.getString(), filterValue);
+		boolean filterMatch = Strings.CI.contains(property.getName(), filterValue)
+				|| Strings.CI.contains(property.getString(), filterValue);
 		return !hasFilter || filterMatch;
 	}
 
 	private boolean hasChangedDefaultValue(Property property) {
-		return !StringUtils.equals(property.getString(), property.getDefaultString());
+		return !Objects.equals(property.getString(), property.getDefaultString());
 	}
 
 }
