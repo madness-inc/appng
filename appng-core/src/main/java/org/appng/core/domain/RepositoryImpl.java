@@ -38,6 +38,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Transient;
 import jakarta.persistence.Version;
 import jakarta.validation.constraints.NotNull;
@@ -75,7 +76,7 @@ import org.appng.xml.application.PackageInfo;
  * @author Matthias Herlitzius
  */
 @Entity
-@Table(name = "repository")
+@Table(name = "repository", uniqueConstraints = @UniqueConstraint(name = "UK__REPOSITORY__NAME", columnNames = {"name"}))
 @EntityListeners(PlatformEventListener.class)
 public class RepositoryImpl implements Repository, Auditable<Integer> {
 
@@ -109,7 +110,6 @@ public class RepositoryImpl implements Repository, Auditable<Integer> {
 
 	@NotNull(message = ValidationMessages.VALIDATION_NOT_NULL)
 	@Size(max = ValidationPatterns.LENGTH_64, message = ValidationMessages.VALIDATION_STRING_MAX)
-	@Column(unique = true)
 	public String getName() {
 		return name;
 	}
@@ -190,7 +190,7 @@ public class RepositoryImpl implements Repository, Auditable<Integer> {
 	}
 
 	@Size(max = ValidationPatterns.LENGTH_64, message = ValidationMessages.VALIDATION_STRING_MAX)
-	@Column(name = "remote_repository_name", length = ValidationPatterns.LENGTH_64)
+	@Column(length = ValidationPatterns.LENGTH_64)
 	public String getRemoteRepositoryName() {
 		return remoteRepositoryName;
 	}
@@ -359,7 +359,6 @@ public class RepositoryImpl implements Repository, Auditable<Integer> {
 	}
 
 	@Lob
-	@Column(name = "accepted_certs")
 	public byte[] getAcceptedCerts() {
 		return acceptedCerts;
 	}

@@ -1,1 +1,0 @@
-alter table repository add strict bit not null default 0;

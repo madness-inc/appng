@@ -1,1 +1,0 @@
-alter table subject alter column name set not null;

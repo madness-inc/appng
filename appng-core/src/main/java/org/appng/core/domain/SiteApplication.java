@@ -20,6 +20,7 @@ import java.util.Set;
 import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
@@ -59,7 +60,7 @@ public class SiteApplication {
 	}
 
 	@ManyToOne(targetEntity = SiteImpl.class)
-	@JoinColumn(name = "site_id", referencedColumnName = "id", insertable = false, updatable = false)
+	@JoinColumn(name = "site_id", insertable = false, updatable = false, foreignKey = @ForeignKey(name = "FK__SITE_APPLICATION__SITE"))
 	public Site getSite() {
 		return site;
 	}
@@ -69,7 +70,7 @@ public class SiteApplication {
 	}
 
 	@ManyToOne(targetEntity = ApplicationImpl.class)
-	@JoinColumn(name = "application_id", referencedColumnName = "id", insertable = false, updatable = false)
+	@JoinColumn(name = "application_id", insertable = false, updatable = false, foreignKey = @ForeignKey(name = "FK__SITE_APPLICATION__APPLICATION"))
 	public Application getApplication() {
 		return application;
 	}
@@ -79,7 +80,7 @@ public class SiteApplication {
 	}
 
 	@ManyToOne
-	@JoinColumn(name = "connection_id")
+	@JoinColumn(name = "connection_id", foreignKey = @ForeignKey(name = "FK__SITE_APPLICATION__DATABASE_CONNECTION"))
 	public DatabaseConnection getDatabaseConnection() {
 		return databaseConnection;
 	}
@@ -89,9 +90,13 @@ public class SiteApplication {
 	}
 
 	@ManyToMany(targetEntity = SiteImpl.class)
-	@JoinTable(name = "sites_granted", joinColumns = {
-			@JoinColumn(name = "application_id", referencedColumnName = "application_id"),
-			@JoinColumn(name = "site_id", referencedColumnName = "site_id") }, inverseJoinColumns = @JoinColumn(name = "granted_site_id", referencedColumnName = "id"))
+	@JoinTable(name = "sites_granted",
+			joinColumns = {
+				@JoinColumn(name = "application_id", referencedColumnName = "application_id"),
+				@JoinColumn(name = "site_id", referencedColumnName = "site_id") },
+			foreignKey = @ForeignKey(name = "FK__SITES_GRANTED__SITE_APPLICATION"),
+			inverseJoinColumns = @JoinColumn(name = "granted_site_id", referencedColumnName = "id"),
+			inverseForeignKey = @ForeignKey(name = "FK__SITES_GRANTED__SITE"))
 	public Set<Site> getGrantedSites() {
 		return grantedSites;
 	}
@@ -117,7 +122,6 @@ public class SiteApplication {
 		this.active = active;
 	}
 
-	@Column(name = "reload_required")
 	public boolean isReloadRequired() {
 		return reloadRequired;
 	}

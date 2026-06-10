@@ -40,6 +40,7 @@ import org.appng.core.service.LdapService;
 import org.appng.core.service.TemplateService;
 import org.appng.persistence.repository.SearchRepositoryImpl;
 import org.appng.xml.MarshallService;
+import org.hibernate.boot.model.naming.PhysicalNamingStrategySnakeCaseImpl;
 import org.hibernate.jpa.HibernatePersistenceProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.MessageSource;
@@ -127,6 +128,7 @@ public class AppNGizer extends WebMvcConfigurationSupport {
 		emfb.setJpaDialect(new HibernateJpaDialect());
 		Map<String, Object> jpaProperties = new HashMap<>();
 		jpaProperties.put(org.hibernate.cfg.AvailableSettings.DIALECT, hibernateDialect);
+		jpaProperties.put(org.hibernate.cfg.AvailableSettings.PHYSICAL_NAMING_STRATEGY, PhysicalNamingStrategySnakeCaseImpl.class.getName());
 		jpaProperties.put(org.hibernate.cfg.AvailableSettings.JPA_VALIDATION_FACTORY, validatorFactory);
 		emfb.setJpaPropertyMap(jpaProperties);
 		emfb.setPackagesToScan("org.appng.core.domain");

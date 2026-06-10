@@ -23,6 +23,8 @@ import jakarta.persistence.EntityListeners;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.ForeignKey;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
@@ -89,6 +91,7 @@ public class PermissionImpl implements Permission, Auditable<Integer> {
 	}
 
 	@ManyToOne(targetEntity = ApplicationImpl.class)
+	@JoinColumn(foreignKey = @ForeignKey(name = "FK__PERMISSION__APPLICATION"))
 	public ApplicationImpl getApplication() {
 		return application;
 	}

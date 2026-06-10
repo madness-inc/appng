@@ -1,1 +1,0 @@
-alter table property alter column description nvarchar(MAX);

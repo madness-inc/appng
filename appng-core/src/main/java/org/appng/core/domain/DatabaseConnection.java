@@ -33,6 +33,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
@@ -243,7 +244,6 @@ public class DatabaseConnection implements Auditable<Integer> {
 		this.name = name;
 	}
 
-	@Column(name = "jdbc_url")
 	@NotNull(message = ValidationMessages.VALIDATION_NOT_NULL)
 	public String getJdbcUrl() {
 		return jdbcUrl;
@@ -272,7 +272,6 @@ public class DatabaseConnection implements Auditable<Integer> {
 		this.password = ArrayUtils.clone(password);
 	}
 
-	@Column(name = "driver_class")
 	@NotNull(message = ValidationMessages.VALIDATION_NOT_NULL)
 	public String getDriverClass() {
 		return driverClass;
@@ -300,7 +299,7 @@ public class DatabaseConnection implements Auditable<Integer> {
 	}
 
 	@ManyToOne(targetEntity = SiteImpl.class)
-	@JoinColumn(name = "site_id", referencedColumnName = "id")
+	@JoinColumn(foreignKey = @ForeignKey(name = "FK__DATABASE_CONNECTION__SITE"))
 	public Site getSite() {
 		return site;
 	}
@@ -317,7 +316,6 @@ public class DatabaseConnection implements Auditable<Integer> {
 		this.active = active;
 	}
 
-	@Column(name = "min_connections")
 	@NotNull(message = ValidationMessages.VALIDATION_NOT_NULL)
 	@Min(value = 1, message = ValidationMessages.VALIDATION_MIN)
 	public Integer getMinConnections() {
@@ -328,7 +326,6 @@ public class DatabaseConnection implements Auditable<Integer> {
 		this.minConnections = minConnections;
 	}
 
-	@Column(name = "max_connections")
 	@NotNull(message = ValidationMessages.VALIDATION_NOT_NULL)
 	public Integer getMaxConnections() {
 		return maxConnections;
@@ -346,7 +343,6 @@ public class DatabaseConnection implements Auditable<Integer> {
 		this.managed = managed;
 	}
 
-	@Column(name = "validation_query")
 	public String getValidationQuery() {
 		return validationQuery;
 	}

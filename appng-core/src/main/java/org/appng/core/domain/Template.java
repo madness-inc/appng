@@ -128,7 +128,6 @@ public class Template implements Identifier, Auditable<Integer> {
 		return displayName;
 	}
 
-	@Column(name = "display_name")
 	public void setDisplayName(String displayName) {
 		this.displayName = displayName;
 	}

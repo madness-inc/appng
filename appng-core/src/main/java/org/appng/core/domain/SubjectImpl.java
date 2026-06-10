@@ -30,10 +30,12 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Transient;
 import jakarta.persistence.Version;
 import jakarta.validation.constraints.NotNull;
@@ -59,7 +61,7 @@ import lombok.Setter;
  */
 @Entity
 @Setter
-@Table(name = "subject")
+@Table(name = "subject", uniqueConstraints = @UniqueConstraint(name = "UK__SUBJECT__NAME", columnNames = {"name"}))
 @EntityListeners(PlatformEventListener.class)
 public class SubjectImpl implements Subject, Auditable<Integer> {
 
@@ -87,7 +89,6 @@ public class SubjectImpl implements Subject, Auditable<Integer> {
 	@NotNull(message = ValidationMessages.VALIDATION_NOT_NULL)
 	@Pattern(regexp = ValidationPatterns.USERNAME_OR_LDAPGROUP_PATTERN, message = ValidationPatterns.USERNAME_GROUP_MSSG)
 	@Size(max = ValidationPatterns.LENGTH_255, message = ValidationMessages.VALIDATION_STRING_MAX)
-	@Column(unique = true)
 	public String getName() {
 		return name;
 	}
@@ -122,7 +123,6 @@ public class SubjectImpl implements Subject, Auditable<Integer> {
 	}
 
 	@Pattern(regexp = ValidationPatterns.EMAIL_PATTERN, message = ValidationMessages.VALIDATION_EMAIL)
-	@Column(name = "email")
 	public String getEmail() {
 		return email;
 	}
@@ -142,8 +142,9 @@ public class SubjectImpl implements Subject, Auditable<Integer> {
 	}
 
 	@ManyToMany(targetEntity = GroupImpl.class)
-	@JoinTable(joinColumns = { @JoinColumn(name = "subject_Id") }, inverseJoinColumns = {
-			@JoinColumn(name = "group_id") })
+	@JoinTable(name = "subject_authgroup",
+			joinColumns = @JoinColumn(name = "subject_id", foreignKey = @ForeignKey(name = "FK__SUBJECT_AUTHGROUP__SUBJECT")),
+			inverseJoinColumns = @JoinColumn(name = "group_id", foreignKey = @ForeignKey(name = "FK__SUBJECT_AUTHGROUP__AUTHGROUP")))
 	public List<Group> getGroups() {
 		return groups;
 	}
@@ -159,12 +160,10 @@ public class SubjectImpl implements Subject, Auditable<Integer> {
 		return !(null == expiryDate || null == date) && date.after(expiryDate);
 	}
 
-	@Column(name = "expiry_date")
 	public Date getExpiryDate() {
 		return expiryDate;
 	}
 
-	@Column(name = "last_login")
 	public Date getLastLogin() {
 		return lastLogin;
 	}
@@ -174,7 +173,6 @@ public class SubjectImpl implements Subject, Auditable<Integer> {
 		return passwordLastChanged;
 	}
 
-	@Column(name = "locked")
 	public boolean isLocked() {
 		return locked;
 	}

@@ -1,1 +1,0 @@
-alter table repository add strict boolean default 0 not null;

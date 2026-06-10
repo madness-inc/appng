@@ -1,5 +1,16 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <sites xmlns="http://www.appng.org/schema/appngizer" self="http://localhost/appNGizer/site">
+	<site name="localhost" self="http://localhost/appNGizer/site/localhost">
+		<links>
+			<link name="properties" self="http://localhost/appNGizer/site/localhost/property" />
+			<link name="applications" self="http://localhost/appNGizer/site/localhost/application" />
+			<link name="databases" self="http://localhost/appNGizer/site/localhost/database" />
+		</links>
+		<host>localhost</host>
+		<domain>http://localhost:8080</domain>
+		<active>true</active>
+		<createRepositoryPath>false</createRepositoryPath>
+	</site>
 	<site name="naked1" self="http://localhost/appNGizer/site/naked1">
 		<links>
 			<link name="properties" self="http://localhost/appNGizer/site/naked1/property" />

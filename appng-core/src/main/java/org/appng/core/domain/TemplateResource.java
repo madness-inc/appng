@@ -82,7 +82,6 @@ public class TemplateResource implements Resource {
 		this.description = description;
 	}
 
-	@Column(name = "file_version")
 	public Instant getFileVersion() {
 		return fileVersion;
 	}
@@ -101,7 +100,7 @@ public class TemplateResource implements Resource {
 	}
 
 	@ManyToOne
-	@JoinColumn(name = "template_id", foreignKey = @ForeignKey(name = "FK__TEMPLATE_RESOURCE__TEMPLATE_ID"))
+	@JoinColumn(foreignKey = @ForeignKey(name = "FK__TEMPLATE_RESOURCE__TEMPLATE_ID"))
 	public Template getTemplate() {
 		return template;
 	}

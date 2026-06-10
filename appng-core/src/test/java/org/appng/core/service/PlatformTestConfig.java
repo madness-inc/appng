@@ -39,6 +39,7 @@ import org.appng.testsupport.persistence.TestDataProvider;
 import org.appng.xml.MarshallService;
 import org.appng.xml.MarshallService.AppNGSchema;
 import org.appng.xml.transformation.StyleSheetProvider;
+import org.hibernate.boot.model.naming.PhysicalNamingStrategySnakeCaseImpl;
 import org.hibernate.cfg.AvailableSettings;
 import org.hibernate.cfg.JdbcSettings;
 import org.hibernate.jpa.HibernatePersistenceProvider;
@@ -103,6 +104,7 @@ public class PlatformTestConfig {
 		jpaProperties.put(JdbcSettings.JAKARTA_JDBC_USER, "sa");
 		jpaProperties.put(JdbcSettings.JAKARTA_JDBC_PASSWORD, "");
 		jpaProperties.put(AvailableSettings.HBM2DDL_AUTO, "create");
+		jpaProperties.put(AvailableSettings.PHYSICAL_NAMING_STRATEGY, PhysicalNamingStrategySnakeCaseImpl.class.getName());
 
 		lemfb.setJpaProperties(jpaProperties);
 		return lemfb;

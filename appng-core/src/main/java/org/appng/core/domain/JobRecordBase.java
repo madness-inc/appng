@@ -17,7 +17,6 @@ package org.appng.core.domain;
 
 import java.util.Date;
 
-import jakarta.persistence.Column;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -33,17 +32,13 @@ public abstract class JobRecordBase {
 	private Integer id;
 	private String site;
 	private String application;
-	@Column(name = "job_name")
 	private String jobName;
 	private String result;
 	private String triggername;
 	private Integer duration;
 	private String node;
-	@Column(name = "run_once")
 	private boolean runOnce;
-	@Column(name = "start_time")
 	private Date startTime;
-	@Column(name = "end_time")
 	private Date endTime;
 
 }

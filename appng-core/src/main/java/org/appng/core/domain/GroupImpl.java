@@ -25,10 +25,12 @@ import jakarta.persistence.EntityListeners;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -45,7 +47,7 @@ import org.appng.api.model.Subject;
  * @author Matthias Müller
  */
 @Entity
-@Table(name = "authgroup")
+@Table(name = "authgroup", uniqueConstraints = @UniqueConstraint(name = "UK__AUTHGROUP__NAME", columnNames = {"name"}))
 @EntityListeners(PlatformEventListener.class)
 public class GroupImpl implements Group, Auditable<Integer> {
 
@@ -70,7 +72,6 @@ public class GroupImpl implements Group, Auditable<Integer> {
 	@NotNull(message = ValidationMessages.VALIDATION_NOT_NULL)
 	@Pattern(regexp = ValidationPatterns.NAME_PATTERN, message = ValidationPatterns.NAME_MSSG)
 	@Size(max = ValidationPatterns.LENGTH_64, message = ValidationMessages.VALIDATION_STRING_MAX)
-	@Column(unique = true)
 	public String getName() {
 		return name;
 	}
@@ -112,7 +113,9 @@ public class GroupImpl implements Group, Auditable<Integer> {
 	}
 
 	@ManyToMany(targetEntity = RoleImpl.class)
-	@JoinTable(name = "authgroup_role", joinColumns = @JoinColumn(name = "authgroup_id"), inverseJoinColumns = @JoinColumn(name = "role_id"))
+	@JoinTable(name = "authgroup_role",
+			joinColumns = @JoinColumn(name = "authgroup_id", foreignKey = @ForeignKey(name = "FK__AUTHGROUP_ROLE__AUTHGROUP")),
+			inverseJoinColumns = @JoinColumn(name = "role_id", foreignKey = @ForeignKey(name = "FK__AUTHGROUP_ROLE__ROLE")))
 	public Set<Role> getRoles() {
 		return applicationRoles;
 	}
@@ -132,7 +135,6 @@ public class GroupImpl implements Group, Auditable<Integer> {
 		return "Group#" + getId() + "_" + getName();
 	}
 
-	@Column(name = "default_admin")
 	public boolean isDefaultAdmin() {
 		return defaultAdmin;
 	}

@@ -1,1 +1,0 @@
-alter table subject alter column name nvarchar(255);

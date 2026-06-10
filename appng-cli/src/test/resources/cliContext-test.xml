@@ -53,6 +53,7 @@
 				<prop key="hibernate.show_sql">${hibernate.show_sql:false}</prop>
 				<prop key="hibernate.format_sql">${hibernate.format_sql:false}</prop>
 				<prop key="hibernate.hbm2ddl.auto">${hibernate.hbm2ddl.auto:}</prop>
+				<prop key="hibernate.physical_naming_strategy">org.hibernate.boot.model.naming.PhysicalNamingStrategySnakeCaseImpl</prop>
 			</props>
 		</property>
 	</bean>

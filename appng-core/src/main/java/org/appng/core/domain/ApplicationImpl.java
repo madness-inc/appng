@@ -34,6 +34,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Lob;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Transient;
 import jakarta.persistence.Version;
 import jakarta.validation.constraints.NotNull;
@@ -67,7 +68,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @Entity
-@Table(name = "application")
+@Table(name = "application", uniqueConstraints = @UniqueConstraint(name = "UK__APPLICATION__NAME", columnNames = {"name"}))
 @EntityListeners(PlatformEventListener.class)
 public class ApplicationImpl implements AccessibleApplication, Auditable<Integer> {
 
@@ -106,7 +107,6 @@ public class ApplicationImpl implements AccessibleApplication, Auditable<Integer
 	@NotNull(message = ValidationMessages.VALIDATION_NOT_NULL)
 	@Pattern(regexp = ValidationPatterns.NAME_STRICT_PATTERN, message = ValidationPatterns.NAME_STRICT_MSSG)
 	@Size(max = ValidationPatterns.LENGTH_64, message = ValidationMessages.VALIDATION_STRING_MAX)
-	@Column(unique = true)
 	public String getName() {
 		return name;
 	}
@@ -145,7 +145,7 @@ public class ApplicationImpl implements AccessibleApplication, Auditable<Integer
 	}
 
 	@Size(max = ValidationPatterns.LENGTH_64, message = ValidationMessages.VALIDATION_STRING_MAX)
-	@Column(length = ValidationPatterns.LENGTH_64, name = "application_version")
+	@Column(length = ValidationPatterns.LENGTH_64)
 	public String getApplicationVersion() {
 		return applicationVersion;
 	}
@@ -319,7 +319,6 @@ public class ApplicationImpl implements AccessibleApplication, Auditable<Integer
 		return new String[0];
 	}
 
-	@Column(name = "privileged")
 	public boolean isPrivileged() {
 		return isPrivileged;
 	}

@@ -48,6 +48,7 @@ public class SiteApplicationControllerTest extends ControllerTest {
 		created.setActive(false);
 		created.setCreateRepositoryPath(true);
 
+		deleteAndVerify("/site/localhost", null, HttpStatus.NO_CONTENT);
 		postAndVerify("/site", "xml/site-create.xml", created, HttpStatus.CREATED);
 
 		Site anotherSite = new Site();

@@ -86,33 +86,32 @@ public class PropertyImpl extends SimpleProperty implements Property, Auditable<
 	}
 
 	@Override
-	@Column(name = "defaultValue")
+	@Column(name = "default_value")
 	public String getDefaultString() {
 		return super.getDefaultString();
 	}
 
 	@Override
-	@Column(name = "description", length = 1024)
+	@Column(length = ValidationPatterns.LENGTH_8192)
 	public String getDescription() {
 		return super.getDescription();
 	}
 
 	@Override
-	@Column(name = "blobValue")
+	@Column(name = "blob_value")
 	@Lob
 	public byte[] getBlob() {
 		return super.getBlob();
 	}
 
 	@Override
-	@Column(name = "clobValue")
+	@Column(name = "clob_value")
 	@Lob
 	public String getClob() {
 		return super.getClob();
 	}
 
 	@Override
-	@Column(name = "mandatory")
 	public boolean isMandatory() {
 		return super.isMandatory();
 	}

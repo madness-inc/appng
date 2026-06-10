@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <subjects xmlns="http://www.appng.org/schema/appngizer" self="http://localhost/appNGizer/subject">
+	<subject name="admin" self="http://localhost/appNGizer/subject/admin">
+		<realName>Administrator</realName>
+		<email>admin@example.com</email>
+		<language>en</language>
+		<locked>false</locked>
+		<failedLoginAttempts>0</failedLoginAttempts>
+		<passwordChangePolicy>MAY</passwordChangePolicy>
+		<type>LOCAL_USER</type>
+	</subject>
 	<subject name="Admin" self="http://localhost/appNGizer/subject/Admin">
 		<realName>Admin Istrator</realName>
 		<email>admin@appng.com</email>

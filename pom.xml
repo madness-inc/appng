@@ -1104,6 +1104,11 @@
 				<version>9.7.0</version>
 			</dependency>
 			<dependency>
+				<groupId>org.postgresql</groupId>
+				<artifactId>postgresql</artifactId>
+				<version>42.7.5</version>
+			</dependency>
+			<dependency>
 				<groupId>org.im4java</groupId>
 				<artifactId>im4java</artifactId>
 				<version>1.4.0</version>

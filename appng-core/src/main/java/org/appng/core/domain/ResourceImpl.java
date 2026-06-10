@@ -28,6 +28,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Lob;
+import jakarta.persistence.ForeignKey;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
@@ -110,6 +112,7 @@ public class ResourceImpl implements Resource, Auditable<Integer>, Closeable {
 	}
 
 	@ManyToOne(targetEntity = ApplicationImpl.class)
+	@JoinColumn(foreignKey = @ForeignKey(name = "FK__RESOURCE__APPLICATION"))
 	public Application getApplication() {
 		return application;
 	}

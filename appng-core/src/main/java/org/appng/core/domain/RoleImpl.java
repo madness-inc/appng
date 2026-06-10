@@ -26,6 +26,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
@@ -99,9 +100,9 @@ public class RoleImpl implements Role, Auditable<Integer> {
 	}
 
 	@ManyToMany(targetEntity = PermissionImpl.class, fetch = FetchType.LAZY)
-	@JoinTable(name = "role_permission", joinColumns = {
-			@JoinColumn(name = "role_id", referencedColumnName = "id") }, inverseJoinColumns = {
-					@JoinColumn(name = "permissions_id", referencedColumnName = "id") })
+	@JoinTable(name = "role_permission",
+			joinColumns = @JoinColumn(name = "role_id", foreignKey = @ForeignKey(name = "FK__ROLE_PERMISSION__ROLE")),
+			inverseJoinColumns = @JoinColumn(name = "permission_id", foreignKey = @ForeignKey(name = "FK__ROLE_PERMISSION__PERMISSION")))
 	public Set<Permission> getPermissions() {
 		return permissions;
 	}
@@ -111,6 +112,7 @@ public class RoleImpl implements Role, Auditable<Integer> {
 	}
 
 	@ManyToOne(targetEntity = ApplicationImpl.class)
+	@JoinColumn(foreignKey = @ForeignKey(name = "FK__ROLE__APPLICATION"))
 	public Application getApplication() {
 		return application;
 	}

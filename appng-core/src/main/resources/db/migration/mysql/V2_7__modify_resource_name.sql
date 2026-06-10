@@ -1,1 +1,0 @@
-alter table resource modify name varchar(255);

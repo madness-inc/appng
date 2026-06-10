@@ -43,6 +43,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Transient;
 import jakarta.persistence.Version;
 import jakarta.servlet.http.HttpServletResponse;
@@ -81,7 +82,10 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @Entity
-@Table(name = "site")
+@Table(name = "site", uniqueConstraints = {
+		@UniqueConstraint(name = "UK__SITE__NAME", columnNames = {"name"}),
+		@UniqueConstraint(name = "UK__SITE__HOST", columnNames = {"host"}),
+		@UniqueConstraint(name = "UK__SITE__DOMAIN", columnNames = {"domain"}) })
 @EntityListeners(PlatformEventListener.class)
 public class SiteImpl implements Site, Auditable<Integer> {
 
@@ -127,7 +131,6 @@ public class SiteImpl implements Site, Auditable<Integer> {
 	@NotNull(message = ValidationMessages.VALIDATION_NOT_NULL)
 	@Pattern(regexp = ValidationPatterns.NAME_STRICT_PATTERN, message = ValidationPatterns.NAME_STRICT_MSSG)
 	@Size(max = ValidationPatterns.LENGTH_64, message = ValidationMessages.VALIDATION_STRING_MAX)
-	@Column(unique = true)
 	public String getName() {
 		return name;
 	}
@@ -175,7 +178,6 @@ public class SiteImpl implements Site, Auditable<Integer> {
 
 	@NotNull(message = ValidationMessages.VALIDATION_NOT_NULL)
 	@Pattern(regexp = ValidationPatterns.HOST_PATTERN, message = ValidationPatterns.HOST_MSSG)
-	@Column(unique = true)
 	public String getHost() {
 		return host;
 	}
@@ -187,8 +189,8 @@ public class SiteImpl implements Site, Auditable<Integer> {
 	// Sites are fetched in different transactions and reused all over the place. Since there is no performance gain
 	// in lazy-fetching the small amount of aliases, we agreed on eager fetching with MM.
 	@ElementCollection(fetch = FetchType.EAGER)
-	@CollectionTable(name = "site_hostalias", joinColumns = @JoinColumn(name = "site_id", referencedColumnName = "id"), foreignKey = @ForeignKey(name = "FK__SITE_HOSTALIAS__SITE"))
-	@Column(name = "hostname", unique = true)
+	@CollectionTable(name = "site_hostalias", joinColumns = @JoinColumn(name = "site_id", foreignKey = @ForeignKey(name = "FK__SITE_HOSTALIAS__SITE")))
+	@Column(name = "hostname")
 	public Set<String> getHostAliases() {
 		return hostAliases;
 	}
@@ -199,7 +201,6 @@ public class SiteImpl implements Site, Auditable<Integer> {
 
 	@NotNull(message = ValidationMessages.VALIDATION_NOT_NULL)
 	@Pattern(regexp = ValidationPatterns.DOMAIN_PATTERN, message = ValidationPatterns.DOMAIN_MSSG)
-	@Column(unique = true)
 	public String getDomain() {
 		return domain;
 	}
@@ -216,7 +217,6 @@ public class SiteImpl implements Site, Auditable<Integer> {
 		this.active = active;
 	}
 
-	@Column(name = "create_repository")
 	public boolean isCreateRepository() {
 		return createRepository;
 	}
@@ -225,7 +225,6 @@ public class SiteImpl implements Site, Auditable<Integer> {
 		this.createRepository = createRepository;
 	}
 
-	@Column(name = "reload_count")
 	public int getReloadCount() {
 		return reloadCount;
 	}

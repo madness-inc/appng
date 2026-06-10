@@ -44,6 +44,7 @@ public class SitePropertyControllerTest extends ControllerTest {
 		created.setActive(false);
 		created.setCreateRepositoryPath(true);
 
+		deleteAndVerify("/site/localhost", null, HttpStatus.NO_CONTENT);
 		postAndVerify("/site", "xml/site-create.xml", created, HttpStatus.CREATED);
 
 		getAndVerify("/site/localhost/property", "xml/site-property-list.xml", HttpStatus.OK);

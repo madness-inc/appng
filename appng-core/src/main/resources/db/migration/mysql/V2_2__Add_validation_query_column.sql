@@ -1,1 +1,0 @@
-alter table database_connection add validation_query varchar(255);

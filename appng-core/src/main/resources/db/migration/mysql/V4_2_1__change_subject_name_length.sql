@@ -1,1 +1,0 @@
-alter table subject modify name varchar(255) not null unique;

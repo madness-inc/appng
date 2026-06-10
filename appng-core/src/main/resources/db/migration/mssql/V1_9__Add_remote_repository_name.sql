@@ -1,1 +1,0 @@
-alter table pluginrepository add remote_repository_name nvarchar(64);

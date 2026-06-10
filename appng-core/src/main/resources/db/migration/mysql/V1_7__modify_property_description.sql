@@ -1,1 +1,0 @@
-alter table property modify description text; 
