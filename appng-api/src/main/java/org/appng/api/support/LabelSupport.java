@@ -79,7 +79,7 @@ public class LabelSupport {
 				label.setValue(message);
 			} else {
 				if (StringUtils.isBlank(key) && StringUtils.isNotBlank(value)
-						&& !value.startsWith(LABEL_PREFIX)) {
+						&& !StringUtils.startsWith(value, LABEL_PREFIX)) {
 					key = value;
 				}
 				setLabelFromKey(label, expressionEvaluator, fieldParameters, key);

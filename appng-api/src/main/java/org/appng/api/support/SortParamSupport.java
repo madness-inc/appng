@@ -76,7 +76,7 @@ public class SortParamSupport {
 	}
 
 	Pageable getPageable(String string) {
-		if (MODE_RESET.equals(string) || (string != null && string.endsWith(MODE_RESET))) {
+		if (MODE_RESET.equals(string) || StringUtils.endsWith(string, MODE_RESET)) {
 			reset = true;
 		}
 		String key = getSessionKey();

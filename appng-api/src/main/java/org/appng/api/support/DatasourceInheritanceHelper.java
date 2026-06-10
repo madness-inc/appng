@@ -67,8 +67,8 @@ public class DatasourceInheritanceHelper {
 	 * @return {@code true} if the id contains an inheritance separator string
 	 */
 	public static boolean isInheriting(String datasourceId) {
-		return (StringUtils.countMatches(datasourceId, "::") == 1) && (!datasourceId.startsWith("::"))
-				&& (!datasourceId.endsWith("::"));
+		return (StringUtils.countMatches(datasourceId, "::") == 1) && (!StringUtils.startsWith(datasourceId, "::"))
+				&& (!StringUtils.endsWith(datasourceId, "::"));
 	}
 
 	/**
