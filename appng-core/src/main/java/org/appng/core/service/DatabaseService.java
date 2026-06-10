@@ -30,7 +30,6 @@ import javax.sql.DataSource;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.Strings;
 import org.appng.api.model.Application;
 import org.appng.api.model.Site;
 import org.appng.core.domain.DatabaseConnection;
@@ -245,7 +244,7 @@ public class DatabaseService extends MigrationService {
 		newPassword = StringUtils.reverse(newPassword);
 		int i = 1;
 		while (newPassword.contains(UNDERSCORE)) {
-			newPassword = Strings.CS.replaceOnce(newPassword, UNDERSCORE, String.valueOf(i++));
+			newPassword = StringUtils.replaceOnce(newPassword, UNDERSCORE, String.valueOf(i++));
 			newPassword = StringUtils.capitalize(newPassword);
 		}
 		return newPassword;
