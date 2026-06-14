@@ -33,6 +33,11 @@
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
+			<groupId>jakarta.activation</groupId>
+			<artifactId>jakarta.activation-api</artifactId>
+			<scope>compile</scope>
+		</dependency>
+		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-lang3</artifactId>
 			<scope>compile</scope>
@@ -138,6 +143,7 @@
 								<includes>
 									<include>org.appng:*</include>
 									<include>org.apache.commons:commons-lang3</include>
+									<include>jakarta.activation:jakarta.activation-api</include>
 								</includes>
 							</artifactSet>
 

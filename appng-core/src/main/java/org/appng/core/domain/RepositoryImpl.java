@@ -23,7 +23,7 @@ import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -84,7 +84,7 @@ public class RepositoryImpl implements Repository, Auditable<Integer> {
 	private Integer id;
 	private String name;
 	private String description;
-	private Instant version;
+	private LocalDateTime version;
 	private RepositoryType repositoryType;
 	private URI uri;
 	private boolean isActive;
@@ -129,11 +129,11 @@ public class RepositoryImpl implements Repository, Auditable<Integer> {
 	}
 
 	@Version
-	public Instant getVersion() {
+	public LocalDateTime getVersion() {
 		return version;
 	}
 
-	public void setVersion(Instant version) {
+	public void setVersion(LocalDateTime version) {
 		this.version = version;
 	}
 

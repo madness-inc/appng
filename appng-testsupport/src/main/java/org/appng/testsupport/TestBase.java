@@ -21,7 +21,7 @@ import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -993,7 +993,7 @@ public class TestBase implements ApplicationContextInitializer<GenericApplicatio
 			return null;
 		}
 
-		public Instant getVersion() {
+		public LocalDateTime getVersion() {
 			return null;
 		}
 

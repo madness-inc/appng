@@ -17,7 +17,7 @@ package org.appng.core.domain;
 
 import java.io.Closeable;
 import java.io.File;
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -55,7 +55,7 @@ public class ResourceImpl implements Resource, Auditable<Integer>, Closeable {
 	private Integer id;
 	private String name;
 	private String description;
-	private Instant version;
+	private LocalDateTime version;
 	private Application application;
 	private ResourceType type;
 	private byte[] bytes;
@@ -103,11 +103,11 @@ public class ResourceImpl implements Resource, Auditable<Integer>, Closeable {
 	}
 
 	@Version
-	public Instant getVersion() {
+	public LocalDateTime getVersion() {
 		return version;
 	}
 
-	public void setVersion(Instant version) {
+	public void setVersion(LocalDateTime version) {
 		this.version = version;
 	}
 

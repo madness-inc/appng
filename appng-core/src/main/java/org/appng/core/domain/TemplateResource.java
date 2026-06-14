@@ -16,7 +16,7 @@
 package org.appng.core.domain;
 
 import java.io.File;
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -47,8 +47,8 @@ public class TemplateResource implements Resource {
 	private Integer id;
 	private String name;
 	private String description;
-	private Instant fileVersion;
-	private Instant version;
+	private LocalDateTime fileVersion;
+	private LocalDateTime version;
 	private Template template;
 	private ResourceType type = ResourceType.RESOURCE;
 	private byte[] bytes;
@@ -82,20 +82,20 @@ public class TemplateResource implements Resource {
 		this.description = description;
 	}
 
-	public Instant getFileVersion() {
+	public LocalDateTime getFileVersion() {
 		return fileVersion;
 	}
 
-	public void setFileVersion(Instant fileVersion) {
+	public void setFileVersion(LocalDateTime fileVersion) {
 		this.fileVersion = fileVersion;
 	}
 
 	@Version
-	public Instant getVersion() {
+	public LocalDateTime getVersion() {
 		return version;
 	}
 
-	public void setVersion(Instant version) {
+	public void setVersion(LocalDateTime version) {
 		this.version = version;
 	}
 

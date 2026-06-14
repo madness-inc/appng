@@ -23,7 +23,7 @@ import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -176,7 +176,7 @@ public class DatabaseConnection implements Auditable<Integer> {
 	private String userName;
 	private byte[] password;
 	private String driverClass;
-	private Instant version;
+	private LocalDateTime version;
 	private String description;
 	private Site site;
 	private boolean managed;
@@ -282,11 +282,11 @@ public class DatabaseConnection implements Auditable<Integer> {
 	}
 
 	@Version
-	public Instant getVersion() {
+	public LocalDateTime getVersion() {
 		return version;
 	}
 
-	public void setVersion(Instant version) {
+	public void setVersion(LocalDateTime version) {
 		this.version = version;
 	}
 

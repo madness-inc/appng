@@ -15,7 +15,7 @@
  */
 package org.appng.core.domain;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -48,7 +48,7 @@ public class PermissionImpl implements Permission, Auditable<Integer> {
 	private Integer id;
 	private String name;
 	private String description;
-	private Instant version;
+	private LocalDateTime version;
 	private ApplicationImpl application;
 
 	@Id
@@ -82,11 +82,11 @@ public class PermissionImpl implements Permission, Auditable<Integer> {
 	}
 
 	@Version
-	public Instant getVersion() {
+	public LocalDateTime getVersion() {
 		return version;
 	}
 
-	public void setVersion(Instant version) {
+	public void setVersion(LocalDateTime version) {
 		this.version = version;
 	}
 

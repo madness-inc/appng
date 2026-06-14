@@ -16,7 +16,7 @@
 package org.appng.core.domain;
 
 import java.util.ArrayList;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import jakarta.persistence.CascadeType;
@@ -56,7 +56,7 @@ public class Template implements Identifier, Auditable<Integer> {
 	private String timestamp;
 	private String packageVersion;
 	private TemplateType type;
-	private Instant version;
+	private LocalDateTime version;
 	private List<TemplateResource> resources;
 
 	public Template() {
@@ -188,11 +188,11 @@ public class Template implements Identifier, Auditable<Integer> {
 	}
 
 	@Version
-	public Instant getVersion() {
+	public LocalDateTime getVersion() {
 		return version;
 	}
 
-	public void setVersion(Instant version) {
+	public void setVersion(LocalDateTime version) {
 		this.version = version;
 	}
 

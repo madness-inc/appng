@@ -17,7 +17,8 @@ package org.appng.core.model;
 
 import java.io.File;
 import java.text.ParseException;
-import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Comparator;
 
 import org.apache.commons.lang3.StringUtils;
@@ -105,18 +106,18 @@ public class RepositoryUtils {
 	}
 
 	/**
-	 * Retrieves the {@link Instant} from the given {@link PackageInfo} by parsing its timestamp
+	 * Retrieves the {@link LocalDateTime} from the given {@link PackageInfo} by parsing its timestamp
 	 *
 	 * @param packageInfo
 	 *                    the {@link PackageInfo}
 	 *
-	 * @return the instant (never {@code null}, in case of a {@link ParseException}, the "zero-time" is used)
+	 * @return the date (never {@code null}, in case of a {@link ParseException}, the "zero-time" is used)
 	 */
-	public static Instant getDate(PackageInfo packageInfo) {
+	public static LocalDateTime getDate(PackageInfo packageInfo) {
 		try {
-			return FDF.parse(packageInfo.getTimestamp()).toInstant();
+			return LocalDateTime.ofInstant(FDF.parse(packageInfo.getTimestamp()).toInstant(), ZoneOffset.UTC);
 		} catch (ParseException e) {
-			return Instant.EPOCH;
+			return LocalDateTime.ofEpochSecond(0, 0, ZoneOffset.UTC);
 		}
 	}
 

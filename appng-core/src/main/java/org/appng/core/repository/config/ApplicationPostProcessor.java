@@ -17,6 +17,7 @@ package org.appng.core.repository.config;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Properties;
 
 import org.appng.api.model.Application;
 import org.appng.api.model.Site;
@@ -28,6 +29,8 @@ import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.cache.CacheManager;
 import org.springframework.context.MessageSource;
 import org.springframework.context.support.ResourceBundleMessageSource;
@@ -87,6 +90,21 @@ public class ApplicationPostProcessor implements BeanFactoryPostProcessor, Order
 	public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
 		beanFactory.registerSingleton("site", site);
 		beanFactory.registerSingleton("application", application);
+		// Spring 7 exposes systemProperties/systemEnvironment as autowire candidates, causing ambiguity
+		// for applications that autowire java.util.Properties (e.g. appng-scheduler). Override with a
+		// non-autowirable BeanDefinition so those singletons are excluded from by-type resolution.
+		if (beanFactory instanceof DefaultListableBeanFactory dlbf) {
+			for (String beanName : new String[] { "systemProperties", "systemEnvironment" }) {
+				Object singleton = dlbf.getSingleton(beanName);
+				if (singleton != null && !dlbf.containsBeanDefinition(beanName)) {
+					dlbf.destroySingleton(beanName);
+					RootBeanDefinition bd = new RootBeanDefinition(singleton.getClass());
+					bd.setAutowireCandidate(false);
+					bd.setInstanceSupplier(() -> singleton);
+					dlbf.registerBeanDefinition(beanName, bd);
+				}
+			}
+		}
 		beanFactory.getBean(ApplicationCacheManager.class).initialize(site, application, platformCacheManager);
 
 		try {

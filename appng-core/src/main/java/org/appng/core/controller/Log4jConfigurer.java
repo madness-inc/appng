@@ -15,35 +15,48 @@
  */
 package org.appng.core.controller;
 
-import java.io.FileNotFoundException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-
-import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
 
-import org.apache.commons.lang3.StringUtils;
-import org.appng.api.Platform;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.util.WebAppRootListener;
 
+import ch.qos.logback.classic.LoggerContext;
+import ch.qos.logback.classic.joran.JoranConfigurator;
+import ch.qos.logback.core.joran.spi.JoranException;
+
 /**
- * A {@link ServletContextListener} to initialize log4j logging.
- * 
+ * A {@link ServletContextListener} that sets the {@code webapp.root} system property (via {@link WebAppRootListener})
+ * and then configures Logback from {@code WEB-INF/conf/logback.xml} using Joran.
+ * This order ensures that {@code ${webapp.root}} is already resolved when the file appenders are initialized.
+ *
  * @author Matthias Müller
  */
 public class Log4jConfigurer extends WebAppRootListener {
 
-	private static Logger LOGGER;
-	protected static final String LOG4J_PROPERTIES = "/conf/log4j.properties";
 	public static final String WEB_INF = "/WEB-INF";
+	private static final String LOGBACK_XML = WEB_INF + "/conf/logback.xml";
 
 	public void contextInitialized(ServletContextEvent sce) {
+		// 1. webapp.root als System-Property setzen (wird in logback.xml als ${webapp.root} referenziert)
 		super.contextInitialized(sce);
-		LOGGER = LoggerFactory.getLogger(Log4jConfigurer.class);
-		LOGGER.info("Logging configured via logback.xml");
+
+		// 2. Logback via Joran aus WEB-INF/conf/logback.xml ( neu) konfigurieren
+		String configFile = sce.getServletContext().getRealPath(LOGBACK_XML);
+		LoggerContext loggerContext = (LoggerContext) LoggerFactory.getILoggerFactory();
+		try {
+			JoranConfigurator configurator = new JoranConfigurator();
+			configurator.setContext(loggerContext);
+			loggerContext.reset();
+			configurator.doConfigure(configFile);
+		} catch (JoranException e) {
+			// StatusPrinter gibt Details auf stderr aus
+			ch.qos.logback.core.util.StatusPrinter.printInCaseOfErrorsOrWarnings(loggerContext);
+		}
+
+		Logger logger = LoggerFactory.getLogger(Log4jConfigurer.class);
+		logger.info("Logging configured from {}", configFile);
 	}
 
 	public void contextDestroyed(ServletContextEvent sce) {

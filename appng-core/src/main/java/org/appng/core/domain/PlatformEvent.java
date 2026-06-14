@@ -15,7 +15,7 @@
  */
 package org.appng.core.domain;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -37,7 +37,7 @@ import jakarta.persistence.Version;
 @Table(name = "platform_event")
 public class PlatformEvent {
 	private Integer id;
-	private Instant created;
+	private LocalDateTime created;
 	private String user;
 	private String event;
 	private String application;
@@ -68,11 +68,11 @@ public class PlatformEvent {
 	}
 
 	@Version
-	public Instant getCreated() {
+	public LocalDateTime getCreated() {
 		return created;
 	}
 
-	public void setCreated(Instant created) {
+	public void setCreated(LocalDateTime created) {
 		this.created = created;
 	}
 

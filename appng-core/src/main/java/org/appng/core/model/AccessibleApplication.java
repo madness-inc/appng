@@ -15,7 +15,7 @@
  */
 package org.appng.core.model;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Set;
 
 import org.appng.api.model.Application;
@@ -41,7 +41,7 @@ public interface AccessibleApplication extends Application {
 
 	void setFileBased(boolean fileBased);
 
-	void setVersion(Instant version);
+	void setVersion(LocalDateTime version);
 
 	void setPermissions(Set<Permission> permissions);
 

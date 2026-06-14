@@ -15,7 +15,7 @@
  */
 package org.appng.core.domain;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -54,7 +54,7 @@ public class GroupImpl implements Group, Auditable<Integer> {
 	private Integer id;
 	private String name;
 	private String description;
-	private Instant version;
+	private LocalDateTime version;
 	private boolean defaultAdmin;
 	private Set<Subject> subjects = new HashSet<>();
 	private Set<Role> applicationRoles = new HashSet<>();
@@ -100,11 +100,11 @@ public class GroupImpl implements Group, Auditable<Integer> {
 	}
 
 	@Version
-	public Instant getVersion() {
+	public LocalDateTime getVersion() {
 		return version;
 	}
 
-	public void setVersion(Instant version) {
+	public void setVersion(LocalDateTime version) {
 		this.version = version;
 	}
 

@@ -15,7 +15,7 @@
  */
 package org.appng.core.domain;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -75,7 +75,7 @@ public class PropertyImpl extends SimpleProperty implements Property, Auditable<
 
 	@Override
 	@Version
-	public Instant getVersion() {
+	public LocalDateTime getVersion() {
 		return super.getVersion();
 	}
 

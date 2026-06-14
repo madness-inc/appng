@@ -17,6 +17,8 @@ package org.appng.core.service;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
@@ -104,7 +106,7 @@ public class ApplicationArchiveProcessor implements ZipFileProcessor<List<Resour
 		applicationResource.setDescription("");
 		applicationResource.setName(fileName);
 		applicationResource.setApplication(application);
-		applicationResource.setVersion(entry.getLastModifiedDate().toInstant());
+		applicationResource.setVersion(LocalDateTime.ofInstant(entry.getLastModifiedDate().toInstant(), ZoneId.systemDefault()));
 		applicationResource.calculateChecksum();
 		LOGGER.info("adding application-resource '{}' for application '{}-{}'", fileName, application.getName(),
 				application.getPackageVersion());

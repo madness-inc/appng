@@ -39,6 +39,7 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringEscapeUtils;
+import org.appng.api.ApplicationConfigProvider;
 import org.appng.api.InvalidConfigurationException;
 import org.appng.api.Platform;
 import org.appng.api.Scope;
@@ -53,43 +54,7 @@ import org.appng.core.controller.HttpHeaders;
 import org.appng.core.templating.ThymeleafReplaceInterceptor;
 import org.appng.core.templating.ThymeleafTemplateEngine;
 import org.appng.xml.MarshallService.AppNGSchema;
-import org.appng.xml.platform.Action;
-import org.appng.xml.platform.ApplicationReference;
-import org.appng.xml.platform.Config;
-import org.appng.xml.platform.Data;
-import org.appng.xml.platform.DataConfig;
-import org.appng.xml.platform.Datafield;
-import org.appng.xml.platform.Datasource;
-import org.appng.xml.platform.FieldDef;
-import org.appng.xml.platform.GetParams;
-import org.appng.xml.platform.Label;
-import org.appng.xml.platform.Labels;
-import org.appng.xml.platform.Linkable;
-import org.appng.xml.platform.Linkpanel;
-import org.appng.xml.platform.Message;
-import org.appng.xml.platform.MessageType;
-import org.appng.xml.platform.Messages;
-import org.appng.xml.platform.MetaData;
-import org.appng.xml.platform.NavigationItem;
-import org.appng.xml.platform.PageReference;
-import org.appng.xml.platform.PagesReference;
-import org.appng.xml.platform.Param;
-import org.appng.xml.platform.Params;
-import org.appng.xml.platform.Result;
-import org.appng.xml.platform.Resultset;
-import org.appng.xml.platform.Rule;
-import org.appng.xml.platform.Section;
-import org.appng.xml.platform.Sectionelement;
-import org.appng.xml.platform.Selection;
-import org.appng.xml.platform.SelectionGroup;
-import org.appng.xml.platform.Session;
-import org.appng.xml.platform.SessionParams;
-import org.appng.xml.platform.Sort;
-import org.appng.xml.platform.Subject;
-import org.appng.xml.platform.Template;
-import org.appng.xml.platform.UrlParams;
-import org.appng.xml.platform.Validation;
-import org.appng.xml.platform.ValidationRule;
+import org.appng.xml.platform.*;
 import org.attoparser.ParseException;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -269,9 +234,11 @@ public class ThymeleafProcessor extends AbstractRequestProcessor {
 		Set<String> templateNames = new HashSet<>();
 		for (ITemplateResolver tplRes : templateEngine.getTemplateResolvers()) {
 			String prefix = ((FileTemplateResolver) tplRes).getPrefix();
-			String[] fileNames = new File(prefix).list();
-			if (null != fileNames) {
-				for (String fileName : fileNames) {
+			File prefixDir = new File(prefix);
+			File[] files = prefixDir.listFiles(f -> f.isFile());
+			if (null != files) {
+				for (File file : files) {
+					String fileName = file.getName();
 					if (!templateNames.contains(fileName)) {
 						TemplateResolution resolvedTemplate = tplRes.resolveTemplate(templateEngine.getConfiguration(),
 								null, fileName, null);
@@ -782,6 +749,17 @@ public class ThymeleafProcessor extends AbstractRequestProcessor {
 
 		public Datafield data(Action action, String name) {
 			return data(action.getData().getResult(), name);
+		}
+
+		public String userInput(Action action, String name) {
+			if (action.getUserdata() == null) {
+				return null;
+			}
+			return action.getUserdata().getInput().stream()
+					.filter(f -> name.equals(f.getName()))
+					.findFirst()
+					.map(UserInputField::getContent)
+					.orElse(null);
 		}
 
 		public Result result(Datasource datasource, int index) {

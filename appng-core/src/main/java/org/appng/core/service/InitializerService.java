@@ -1108,7 +1108,7 @@ public class InitializerService implements InitializingBean {
 			logHeaderMessage("JAR Libraries");
 			for (File jarFile : jarFiles) {
 				final JarInfo jarInfo = JarInfoBuilder.getJarInfo(jarFile);
-				LOGGER.info(jarInfo.toString());
+				LOGGER.debug(jarInfo.toString());
 				jarInfos.add(jarInfo);
 				if (jarInfo.getFileName().startsWith("appng-core")) {
 					String appngVersion = jarInfo.getImplementationVersion();

@@ -18,7 +18,7 @@ package org.appng.core.model;
 import java.net.URI;
 import java.security.cert.X509Certificate;
 import java.util.Collection;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.appng.api.BusinessException;
@@ -40,7 +40,7 @@ import org.appng.xml.application.PackageInfo;
  * @author Matthias Herlitzius
  * @author Matthias Müller
  */
-public interface Repository extends Named<Integer>, Versionable<Instant> {
+public interface Repository extends Named<Integer>, Versionable<LocalDateTime> {
 
 	/**
 	 * The type for this repository.

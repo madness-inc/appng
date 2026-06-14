@@ -20,7 +20,7 @@ import static org.appng.api.Scope.REQUEST;
 import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -100,7 +100,7 @@ public class SiteImpl implements Site, Auditable<Integer> {
 	private int reloadCount;
 	private String name;
 	private String description;
-	private Instant version;
+	private LocalDateTime version;
 	private String host;
 	private Set<String> hostAliases = new HashSet<>();
 	private String domain;
@@ -150,11 +150,11 @@ public class SiteImpl implements Site, Auditable<Integer> {
 	}
 
 	@Version
-	public Instant getVersion() {
+	public LocalDateTime getVersion() {
 		return version;
 	}
 
-	public void setVersion(Instant version) {
+	public void setVersion(LocalDateTime version) {
 		this.version = version;
 	}
 
