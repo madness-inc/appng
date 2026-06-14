@@ -16,15 +16,11 @@
 package org.appng.api.support;
 
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.security.AccessControlContext;
-import java.security.ProtectionDomain;
 import java.util.ResourceBundle;
 
 import org.springframework.core.SmartClassLoader;
-import org.springframework.util.ReflectionUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -37,7 +33,6 @@ public class SiteClassLoader extends URLClassLoader implements SmartClassLoader 
 		super(urls, parent);
 		this.site = site;
 		LOGGER.info("{} created", this);
-		cleanup();
 	}
 
 	public SiteClassLoader(String site) {
@@ -46,55 +41,9 @@ public class SiteClassLoader extends URLClassLoader implements SmartClassLoader 
 
 	@Override
 	/* for simpler debugging */
-	protected void finalize() throws Throwable {
-		super.finalize();
-	}
-
-	@Override
-	/* for simpler debugging */
 	public void close() throws IOException {
 		super.close();
 		ResourceBundle.clearCache(this);
-	}
-
-	private void cleanup() {
-		// use this SiteClassloader for existing ProtectionDomain referencing an outdated SiteClassloader
-		AccessControlContext acc = getFieldValue(URLClassLoader.class, "acc", this);
-		ProtectionDomain[] context = getFieldValue(AccessControlContext.class, "context", acc);
-		for (ProtectionDomain protectionDomain : context) {
-			ClassLoader classLoader = protectionDomain.getClassLoader();
-			if (isSameSite(classLoader)) {
-				setFieldValue(ProtectionDomain.class, "classloader", protectionDomain, this);
-				LOGGER.debug("changed {} which referenced the outdated {}", protectionDomain, classLoader);
-			}
-		}
-
-	}
-
-	private <T> T getFieldValue(Class<?> type, String name, Object target) {
-		Field field = getField(type, name);
-		return getValue(field, target);
-	}
-
-	private void setFieldValue(Class<?> type, String name, Object target, Object value) {
-		Field field = getField(type, name);
-		ReflectionUtils.setField(field, target, value);
-	}
-
-	@SuppressWarnings("unchecked")
-	private <T> T getValue(Field field, Object target) {
-		return (T) ReflectionUtils.getField(field, target);
-	}
-
-	private Field getField(Class<?> type, String name) {
-		Field field = ReflectionUtils.findField(type, name);
-		ReflectionUtils.makeAccessible(field);
-		return field;
-	}
-
-	private boolean isSameSite(ClassLoader classLoader) {
-		return null != classLoader && classLoader instanceof SiteClassLoader
-				&& this.site.equals(((SiteClassLoader) classLoader).site);
 	}
 
 	// avoids caching of cglib proxy classes

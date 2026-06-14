@@ -15,7 +15,7 @@
  */
 package org.appng.api.model;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -38,7 +38,7 @@ public class SimpleProperty implements Property, Identifiable<String>, Comparabl
 	private String description;
 	private String name;
 	private boolean mandatory;
-	private Instant version;
+	private LocalDateTime version;
 	private byte[] blob;
 	private String clob;
 	private Type type;
@@ -87,11 +87,11 @@ public class SimpleProperty implements Property, Identifiable<String>, Comparabl
 		setName(id);
 	}
 
-	public Instant getVersion() {
+	public LocalDateTime getVersion() {
 		return version;
 	}
 
-	public void setVersion(Instant version) {
+	public void setVersion(LocalDateTime version) {
 		this.version = version;
 	}
 

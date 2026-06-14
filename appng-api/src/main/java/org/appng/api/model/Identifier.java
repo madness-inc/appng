@@ -15,7 +15,7 @@
  */
 package org.appng.api.model;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 import org.appng.xml.application.PackageInfo;
 
@@ -24,7 +24,7 @@ import org.appng.xml.application.PackageInfo;
  *
  * @author Matthias Herlitzius
  */
-public interface Identifier extends Named<Integer>, Versionable<Instant> {
+public interface Identifier extends Named<Integer>, Versionable<LocalDateTime> {
 
 	/**
 	 * Returns the display name.
