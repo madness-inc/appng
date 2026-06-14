@@ -15,7 +15,8 @@
  */
 package org.appng.core.model;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -39,8 +40,8 @@ public class RepositoryUtilsTest {
 	public void testGetDate() {
 		ApplicationInfo app = new ApplicationInfo();
 		app.setTimestamp("19700101-0100");
-		Instant date = RepositoryUtils.getDate(app);
-		Assert.assertEquals(Instant.EPOCH, date);
+		LocalDateTime date = RepositoryUtils.getDate(app);
+		Assert.assertEquals(LocalDateTime.ofEpochSecond(0, 0, ZoneOffset.UTC), date);
 	}
 
 	@Test

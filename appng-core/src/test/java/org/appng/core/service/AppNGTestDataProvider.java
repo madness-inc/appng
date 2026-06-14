@@ -18,7 +18,7 @@ package org.appng.core.service;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -180,7 +180,7 @@ public class AppNGTestDataProvider implements TestDataProvider {
 		p.setName(name);
 		p.setMandatory(isMandatory);
 		p.setString(vlaue);
-		p.setVersion(Instant.now());
+		p.setVersion(LocalDateTime.now());
 		return p;
 	}
 
@@ -189,7 +189,7 @@ public class AppNGTestDataProvider implements TestDataProvider {
 		p.setDescription("Permission description-" + i);
 		p.setName("permission-" + i);
 		p.setApplication(application);
-		p.setVersion(Instant.now());
+		p.setVersion(LocalDateTime.now());
 
 		return p;
 	}
@@ -220,7 +220,7 @@ public class AppNGTestDataProvider implements TestDataProvider {
 		pRole.setName(name);
 		pRole.setPermissions(new HashSet<>());
 		pRole.setApplication(application);
-		pRole.setVersion(Instant.now());
+		pRole.setVersion(LocalDateTime.now());
 		return pRole;
 	}
 
@@ -231,7 +231,7 @@ public class AppNGTestDataProvider implements TestDataProvider {
 		site.setHost("host-" + i);
 		site.setName("site-" + i);
 		site.setDomain("http://www.localhost.de:808" + i);
-		site.setVersion(Instant.now());
+		site.setVersion(LocalDateTime.now());
 		return site;
 	}
 
@@ -239,7 +239,7 @@ public class AppNGTestDataProvider implements TestDataProvider {
 		GroupImpl group = new GroupImpl();
 		group.setDescription("Group description-" + i);
 		group.setName("group-" + i);
-		group.setVersion(Instant.now());
+		group.setVersion(LocalDateTime.now());
 		group.setRoles(applicationRoles);
 		group.setSubjects(subjects);
 		return group;
@@ -254,7 +254,7 @@ public class AppNGTestDataProvider implements TestDataProvider {
 		subject.setEmail("subject" + i + "@aiticon.de");
 		subject.setRealname("subject_username-" + i);
 		subject.setUserType(userType);
-		subject.setVersion(Instant.now());
+		subject.setVersion(LocalDateTime.now());
 		subject.setGroups(groups);
 		return subject;
 

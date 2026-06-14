@@ -59,6 +59,7 @@ import tools.jackson.core.JsonGenerator;
 import tools.jackson.core.JsonParser;
 import tools.jackson.databind.DeserializationContext;
 import tools.jackson.databind.JacksonModule;
+import tools.jackson.databind.MapperFeature;
 import tools.jackson.databind.SerializationContext;
 import tools.jackson.databind.SerializationFeature;
 import tools.jackson.databind.cfg.DateTimeFeature;
@@ -136,6 +137,8 @@ public class RestConfig implements BeanFactoryPostProcessor {
 		} else {
 			mapperBuilder = getPrimaryOrFirst(jsonMappers, primaryBeans).rebuild();
 		}
+		// Jackson 3 enables SORT_PROPERTIES_ALPHABETICALLY by default; keep the declaration/bean order instead
+		mapperBuilder.disable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY);
 		if (jsonPrettyPrint) {
 			mapperBuilder.enable(SerializationFeature.INDENT_OUTPUT);
 		}

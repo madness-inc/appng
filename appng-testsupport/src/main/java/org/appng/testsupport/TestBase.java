@@ -480,7 +480,8 @@ public class TestBase implements ApplicationContextInitializer<GenericApplicatio
 
 	protected void initEnvironment() {
 		Map<String, Object> platformEnv = new ConcurrentHashMap<>();
-		platformEnv.put(Platform.Environment.PLATFORM_CONFIG, getPlatformConfig());
+		platformEnv.put(Platform.Environment.PLATFORM_CONFIG,
+				new PropertyHolder(PLATFORM_PREFIX, getPlatformProperties(PLATFORM_PREFIX)));
 
 		mockSite(null);
 		Map<String, Site> sites = new HashMap<>();
@@ -539,6 +540,7 @@ public class TestBase implements ApplicationContextInitializer<GenericApplicatio
 		props.add(new SimpleProperty(PLATFORM_PREFIX + Platform.Property.UPLOAD_DIR, "target/uploads"));
 		props.add(new SimpleProperty(PLATFORM_PREFIX + Platform.Property.APPNG_DATA, "."));
 		props.add(new SimpleProperty(PLATFORM_PREFIX + Platform.Property.MAX_UPLOAD_SIZE, "10485760"));
+		props.add(new SimpleProperty(PLATFORM_PREFIX + Platform.Property.MAX_LOGIN_ATTEMPTS, "20"));
 		props.add(new SimpleProperty(PLATFORM_PREFIX + Platform.Property.XSS_PROTECT, "false"));
 		return props;
 	}

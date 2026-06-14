@@ -18,7 +18,7 @@ package org.appng.core.controller;
 import static org.appng.api.Scope.PLATFORM;
 
 import java.util.ArrayList;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -79,7 +79,7 @@ public class RequestUtilTest {
 		site.setHost("site-" + i);
 		site.setName("site-" + i);
 		site.setDomain("http://www.localhost.de:808" + i);
-		site.setVersion(Instant.now());
+		site.setVersion(LocalDateTime.now());
 		return site;
 	}
 }

@@ -15,7 +15,7 @@
 
 	<!-- init Logging -->
 	<listener>
-		<listener-class>org.appng.core.controller.Log4jConfigurer</listener-class>
+		<listener-class>org.appng.core.controller.LogbackConfigurer</listener-class>
 	</listener>
 
 	<!-- install listener, looks for WEB-INF/conf/auto-install.list and executes it, if present -->

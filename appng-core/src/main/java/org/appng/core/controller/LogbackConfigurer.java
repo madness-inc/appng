@@ -33,10 +33,10 @@ import ch.qos.logback.core.joran.spi.JoranException;
  *
  * @author Matthias Müller
  */
-public class Log4jConfigurer extends WebAppRootListener {
+public class LogbackConfigurer extends WebAppRootListener {
 
 	public static final String WEB_INF = "/WEB-INF";
-	private static final String LOGBACK_XML = WEB_INF + "/conf/logback.xml";
+	static final String LOGBACK_XML = WEB_INF + "/conf/logback.xml";
 
 	public void contextInitialized(ServletContextEvent sce) {
 		// 1. webapp.root als System-Property setzen (wird in logback.xml als ${webapp.root} referenziert)
@@ -55,7 +55,7 @@ public class Log4jConfigurer extends WebAppRootListener {
 			ch.qos.logback.core.util.StatusPrinter.printInCaseOfErrorsOrWarnings(loggerContext);
 		}
 
-		Logger logger = LoggerFactory.getLogger(Log4jConfigurer.class);
+		Logger logger = LoggerFactory.getLogger(LogbackConfigurer.class);
 		logger.info("Logging configured from {}", configFile);
 	}
 

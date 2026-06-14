@@ -70,17 +70,14 @@ public class PlatformStartupTest extends PlatformStartup {
 				.getResourceAsStream(WEB_INF.substring(1) + CONFIG_LOCATION);
 		Mockito.when(servContext.getResourceAsStream(WEB_INF + CONFIG_LOCATION)).thenReturn(configResource);
 
-		URL log4jResource = getClass().getClassLoader().getResource(Log4jConfigurer.LOG4J_PROPERTIES.substring(6));
-		Mockito.when(servContext.getRealPath(WEB_INF + Log4jConfigurer.LOG4J_PROPERTIES))
-				.thenReturn(log4jResource.getPath());
+		URL logbackResource = getClass().getClassLoader().getResource("logback-test.xml");
+		Mockito.when(servContext.getRealPath(LogbackConfigurer.LOGBACK_XML)).thenReturn(logbackResource.getPath());
 		Mockito.when(servContext.getRealPath("")).thenReturn("target");
-		Mockito.when(servContext.getRealPath(WEB_INF + Log4jConfigurer.LOG4J_PROPERTIES))
-				.thenReturn("classpath:log4j.properties");
 
 		PlatformProperties value = PlatformProperties.get(DefaultEnvironment.get(servContext));
 		Mockito.when(initializerService.loadPlatformProperties(Mockito.any(), Mockito.any())).thenReturn(value);
 
-		new Log4jConfigurer().contextInitialized(new ServletContextEvent(servContext));
+		new LogbackConfigurer().contextInitialized(new ServletContextEvent(servContext));
 
 		System.setProperty("appNG", "appNG");
 		Properties testProps = new Properties();
